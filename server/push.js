@@ -18,7 +18,7 @@ function vapid() {
       fs.writeFileSync(file, JSON.stringify(keys));
     }
   }
-  if (keys) webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:contato@vyllorri.app', keys.publicKey, keys.privateKey);
+  if (keys) webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'https://vyllorri-beauty.vercel.app', keys.publicKey, keys.privateKey);
   return keys;
 }
 export const pushPublicKey = () => vapid()?.publicKey || null;
