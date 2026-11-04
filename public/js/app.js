@@ -42,7 +42,7 @@ function bottomItems() {
   return pick.map((k) => items.find((i) => i.k === k)).filter(Boolean);
 }
 
-const brandMark = () => `<span class="mark">${state.user.logo_url ? `<img src="${esc(state.user.logo_url)}" alt="">` : '<b>V</b>'}</span>`;
+const brandMark = () => `<span class="mark"><img src="${esc(state.user.logo_url || '/brand/vyllorri-v-192.png')}" alt=""></span>`;
 
 function shell() {
   const items = navItems();
@@ -253,7 +253,7 @@ window.addEventListener('hashchange', () => route());
 function authScreen(mode) {
   const signup = mode === 'signup';
   document.getElementById('app').innerHTML = `<div class="auth"><form class="box" novalidate>
-    <div class="logo"><span class="mark"><b>V</b></span><div class="name">Vyllorri <span style="font-weight:500">Beauty</span></div><p>${signup ? 'Crie a conta do seu salão em 1 minuto' : 'Gestão simples e elegante para o seu salão'}</p></div>
+    <div class="logo"><span class="mark"><img src="/brand/vyllorri-v-192.png" alt=""></span><div class="name">Vyllorri <span style="font-weight:500">Beauty</span></div><p>${signup ? 'Crie a conta do seu salão em 1 minuto' : 'Gestão simples e elegante para o seu salão'}</p></div>
     ${signup ? `<label class="field"><span>Nome do salão</span><input name="salon_name" required maxlength="80" autofocus></label>
       <label class="field"><span>Seu nome</span><input name="name" required maxlength="80" autocomplete="name"></label>` : ''}
     <label class="field"><span>E-mail</span><input name="email" type="email" required autocomplete="email" ${signup ? '' : 'autofocus'}></label>

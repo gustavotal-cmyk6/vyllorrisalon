@@ -105,7 +105,7 @@ function home() {
             <small>${ic('clock', 13)} ${dur(sv.duration_min)}</small></span><span class="c" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="price">${priceRange(sv)}</span><span class="plus">${ic('plus', 18)}</span></span></button>`).join('')}</div>`).join('')
           : '<div class="card"><p class="muted">Nenhum serviço disponível para agendamento online no momento. Fale com o salão pelo WhatsApp.</p></div>'}</section>
       ${mineCount ? `<button class="btn soft block" data-mine>${ic('calendar', 18)} Meus agendamentos (${mineCount})</button>` : `<button class="btn ghost block" data-mine>${ic('search', 18)} Consultar meu agendamento</button>`}
-      <p class="bk-foot">Agendamento online por Vyllorri Beauty</p>
+      <p class="bk-foot"><img src="/brand/vyllorri-v-transparente-256.png" alt="" style="width:28px;display:inline-block;vertical-align:middle;margin-right:6px">Agendamento online por Vyllorri Beauty</p>
     </div>
     ${s.services.length ? `<div class="bk-bar"><div class="in"><a class="btn primary block" href="#servicos" data-start>${ic('calendar', 20)} Agendar horário</a></div></div>` : ''}
   </div>`;
