@@ -1,4 +1,4 @@
-import { route, HttpError, OWNER, ALL } from '../http.js';
+import { route, HttpError, ADMIN, STAFF, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run, tx } from '../db.js';
 import { nowStr, today, addDays, monthRange } from '../util.js';
@@ -18,7 +18,7 @@ export async function ensureRecurring(sid, from, to) {
 }
 
 // ---- Despesas / contas a pagar ----
-route('GET', '/api/expenses', OWNER, async ({ query, sid }) => {
+route('GET', '/api/expenses', ADMIN, async ({ query, sid }) => {
   const { from, to } = V.range(query);
   await ensureRecurring(sid, from, to);
   const where = ['salon_id=?', 'due_date BETWEEN ? AND ?'];
@@ -32,7 +32,7 @@ function expFields(b) {
     amount: V.cents(b.amount_cents, 'Valor', { req: true, min: 1 }), due: V.date(b.due_date, 'Vencimento', { req: true }),
   };
 }
-route('POST', '/api/expenses', OWNER, async ({ body, sid }) => {
+route('POST', '/api/expenses', ADMIN, async ({ body, sid }) => {
   const f = expFields(body);
   const paid = body.paid ? V.date(body.paid_at, 'Pago em') || today() : null;
   return {
@@ -40,19 +40,19 @@ route('POST', '/api/expenses', OWNER, async ({ body, sid }) => {
       sid, f.description, f.category, f.amount, f.due, paid, paid ? V.str(body.method, 'Forma', { max: 30 }) : null, nowStr())).id,
   };
 });
-route('PUT', '/api/expenses/:id', OWNER, async ({ params, body, sid }) => {
+route('PUT', '/api/expenses/:id', ADMIN, async ({ params, body, sid }) => {
   const f = expFields(body);
   const r = await run('UPDATE expenses SET description=?,category=?,amount_cents=?,due_date=? WHERE id=? AND salon_id=?', f.description, f.category, f.amount, f.due, params.id, sid);
   if (!r.changes) throw new HttpError(404, 'Despesa não encontrada.');
   return { ok: true };
 });
-route('POST', '/api/expenses/:id/pay', OWNER, async ({ params, body, sid }) => {
+route('POST', '/api/expenses/:id/pay', ADMIN, async ({ params, body, sid }) => {
   const paid = body.undo ? null : V.date(body.paid_at, 'Pago em') || today();
   const r = await run('UPDATE expenses SET paid_at=?, method=? WHERE id=? AND salon_id=?', paid, paid ? V.str(body.method, 'Forma', { max: 30 }) : null, params.id, sid);
   if (!r.changes) throw new HttpError(404, 'Despesa não encontrada.');
   return { ok: true };
 });
-route('DELETE', '/api/expenses/:id', OWNER, async ({ params, sid }) => {
+route('DELETE', '/api/expenses/:id', ADMIN, async ({ params, sid }) => {
   const e = await get('SELECT * FROM expenses WHERE id=? AND salon_id=?', params.id, sid);
   if (!e) throw new HttpError(404, 'Despesa não encontrada.');
   // excluir uma ocorrência recorrente faria ela ser gerada de novo; por isso exigimos desativar a recorrência
@@ -61,18 +61,18 @@ route('DELETE', '/api/expenses/:id', OWNER, async ({ params, sid }) => {
   return { ok: true };
 });
 
-route('GET', '/api/recurring-expenses', OWNER, async ({ sid }) => await all('SELECT * FROM recurring_expenses WHERE salon_id=? ORDER BY active DESC, description', sid));
+route('GET', '/api/recurring-expenses', ADMIN, async ({ sid }) => await all('SELECT * FROM recurring_expenses WHERE salon_id=? ORDER BY active DESC, description', sid));
 function recFields(b) {
   return {
     description: V.str(b.description, 'Descrição', { req: true, max: 120 }), category: V.str(b.category, 'Categoria', { max: 40 }),
     amount: V.cents(b.amount_cents, 'Valor', { req: true, min: 1 }), day: V.int(b.day_of_month, 'Dia do vencimento', { req: true, min: 1, max: 31 }),
   };
 }
-route('POST', '/api/recurring-expenses', OWNER, async ({ body, sid }) => {
+route('POST', '/api/recurring-expenses', ADMIN, async ({ body, sid }) => {
   const f = recFields(body);
   return { id: (await run('INSERT INTO recurring_expenses(salon_id,description,category,amount_cents,day_of_month) VALUES(?,?,?,?,?)', sid, f.description, f.category, f.amount, f.day)).id };
 });
-route('PUT', '/api/recurring-expenses/:id', OWNER, async ({ params, body, sid }) => {
+route('PUT', '/api/recurring-expenses/:id', ADMIN, async ({ params, body, sid }) => {
   const f = recFields(body);
   const r = await run('UPDATE recurring_expenses SET description=?,category=?,amount_cents=?,day_of_month=?,active=? WHERE id=? AND salon_id=?',
     f.description, f.category, f.amount, f.day, V.bool(body.active ?? 1), params.id, sid);
@@ -108,13 +108,13 @@ export async function financeSummary(sid, from, to) {
     expenses_by_category: byCategory,
   };
 }
-route('GET', '/api/finance/summary', OWNER, async ({ query, sid }) => {
+route('GET', '/api/finance/summary', ADMIN, async ({ query, sid }) => {
   const { from, to } = V.range(query);
   return await financeSummary(sid, from, to);
 });
 
 /** Fluxo de caixa (regime de caixa): entradas = pagamentos recebidos; saídas = despesas pagas + comissões pagas. */
-route('GET', '/api/finance/cashflow', OWNER, async ({ query, sid }) => {
+route('GET', '/api/finance/cashflow', ADMIN, async ({ query, sid }) => {
   const { from, to } = V.range(query);
   const moves = [
     ...await all(`SELECT substr(p.created_at,1,10) date, 'in' dir, p.amount_cents amount, p.method, 'Recebimento' || COALESCE(' – ' || c.name,'') description, p.sale_id ref
@@ -175,7 +175,7 @@ route('GET', '/api/commissions/:pro/items', ALL, async ({ params, query, sid, us
 });
 
 /** Paga todas as comissões pendentes até a data informada; cada item só pode ser pago uma vez. */
-route('POST', '/api/commissions/pay', OWNER, async ({ body, sid, user }) =>
+route('POST', '/api/commissions/pay', ADMIN, async ({ body, sid, user }) =>
   await tx(async () => {
     const proId = V.int(body.professional_id, 'Profissional', { req: true });
     if (!await get('SELECT 1 x FROM professionals WHERE id=? AND salon_id=?', proId, sid)) throw new HttpError(404, 'Profissional não encontrada.');
@@ -198,3 +198,27 @@ route('GET', '/api/commissions/payments', ALL, async ({ query, sid, user }) => {
                 FROM commission_payments cp JOIN professionals p ON p.id=cp.professional_id
                WHERE cp.salon_id=? ${proId ? 'AND cp.professional_id=?' : ''} ORDER BY cp.id DESC LIMIT 200`, sid, ...(proId ? [proId] : []));
 });
+
+// ---- Fechamento de caixa do dia ----
+async function cashDay(sid, date) {
+  const byMethod = await all(`SELECT p.method, COUNT(*) n, SUM(p.amount_cents) total FROM payments p JOIN sales s ON s.id=p.sale_id
+                               WHERE p.salon_id=? AND s.status='active' AND substr(p.created_at,1,10)=? GROUP BY 1 ORDER BY 3 DESC`, sid, date);
+  const cashIn = byMethod.filter((m) => /dinheiro/i.test(m.method)).reduce((a, m) => a + m.total, 0);
+  const cashOut = (await get(`SELECT COALESCE(SUM(amount_cents),0) v FROM expenses WHERE salon_id=? AND paid_at=? AND method LIKE 'Dinheiro%'`, sid, date)).v;
+  const closing = await get(`SELECT c.*, u.name AS user_name FROM cash_closings c LEFT JOIN users u ON u.id=c.created_by WHERE c.salon_id=? AND c.date=?`, sid, date);
+  return { date, by_method: byMethod, total_in: byMethod.reduce((a, m) => a + m.total, 0), cash_in: cashIn, cash_out: cashOut, expected_cash: cashIn - cashOut, closing: closing || null };
+}
+route('GET', '/api/finance/cash', STAFF, async ({ query, sid }) => cashDay(sid, V.date(query.date, 'Data') || today()));
+route('POST', '/api/finance/cash', STAFF, async ({ body, sid, user }) => {
+  const date = V.date(body.date, 'Data') || today();
+  if (date > today()) throw new HttpError(400, 'Não é possível fechar um dia futuro.');
+  const day = await cashDay(sid, date);
+  const counted = V.cents(body.counted_cash_cents, 'Dinheiro contado na gaveta', { req: true });
+  await run(`INSERT INTO cash_closings(salon_id,date,expected_cash_cents,counted_cash_cents,total_in_cents,notes,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)
+             ON CONFLICT(salon_id,date) DO UPDATE SET expected_cash_cents=excluded.expected_cash_cents, counted_cash_cents=excluded.counted_cash_cents,
+             total_in_cents=excluded.total_in_cents, notes=excluded.notes, created_by=excluded.created_by, created_at=excluded.created_at`,
+    sid, date, day.expected_cash, counted, day.total_in, V.str(body.notes, 'Observação', { max: 300 }), user.id, nowStr());
+  return cashDay(sid, date);
+});
+route('GET', '/api/finance/cash/history', ADMIN, async ({ sid }) =>
+  all(`SELECT c.*, u.name AS user_name FROM cash_closings c LEFT JOIN users u ON u.id=c.created_by WHERE c.salon_id=? ORDER BY c.date DESC LIMIT 30`, sid));

@@ -1,7 +1,7 @@
 // Agendamentos: criação (vários serviços/profissionais), ações rápidas, reagendamento e bloqueios.
 import {
   state, GET, POST, PUT, DEL, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, todayStr, nowHM,
-  addMinutes, fmtDayLong, fmtPhone, waLink, badge, can, proById, ApiError, fmtDate, STATUS,
+  addMinutes, fmtDayLong, fmtPhone, waLink, badge, can, proById, ApiError, fmtDate, STATUS, ic,
 } from '../core.js';
 import { openCheckout, openSale } from './checkout.js';
 
@@ -38,7 +38,7 @@ export function clientPicker(box, { initial = null, onChange = () => {}, require
       box.innerHTML = `<div class="picked"><div class="avatar">${esc(picked.name[0] || '?')}</div><div class="grow"><b>${esc(picked.name)}</b>
         <div class="small muted">${picked.isNew ? 'Nova cliente' : fmtPhone(picked.phone) || 'sem telefone'}</div></div>
         <button type="button" class="btn sm ghost" data-change>Trocar</button></div>
-        ${picked.notes ? `<div class="note-box" style="margin-top:6px">⚠ ${esc(picked.notes)}</div>` : ''}`;
+        ${picked.notes ? `<div class="note-box" style="margin-top:6px">${ic('alert', 16)}  ${esc(picked.notes)}</div>` : ''}`;
       box.querySelector('[data-change]').onclick = () => ((picked = null), render(), onChange(null));
       return;
     }
@@ -56,7 +56,7 @@ export function clientPicker(box, { initial = null, onChange = () => {}, require
         if (my !== seq) return;
         const digits = v.replace(/\D/g, '');
         opts.innerHTML = list.slice(0, 8).map((c, i) => `<button type="button" data-i="${i}">${esc(c.name)} <span class="muted small">${fmtPhone(c.phone)}${c.last_visit ? ' · última visita ' + fmtDate(c.last_visit) : ''}</span></button>`).join('') +
-          `<button type="button" data-new><b>＋ Cadastrar “${esc(digits.length >= 8 ? 'nova cliente' : v)}”</b></button>`;
+          `<button type="button" data-new><b>${ic('plus', 16)}  Cadastrar “${esc(digits.length >= 8 ? 'nova cliente' : v)}”</b></button>`;
         opts.classList.remove('hidden');
         opts.querySelectorAll('[data-i]').forEach((b) => (b.onclick = async () => {
           const c = list[b.dataset.i];
@@ -138,7 +138,7 @@ export function newVisit(opts = {}) {
         <label class="field"><span>Situação</span><select name="status" ${editing ? 'disabled' : ''}>
           <option value="scheduled">Agendado</option><option value="confirmed">Já confirmado</option>${opts.fitIn ? '<option value="waiting" selected>Cliente já chegou</option>' : ''}</select></label></div>
       <div data-lines></div>
-      <button type="button" class="btn sm" data-add>＋ Adicionar outro serviço</button>
+      <button type="button" class="btn sm" data-add>${ic('plus', 16)}  Adicionar outro serviço</button>
       <div class="total-box" data-total></div>
       <label class="field"><span>Observações do agendamento</span><textarea name="notes" maxlength="500" placeholder="Ex.: trazer foto da referência">${esc(editing?.notes || '')}</textarea></label>
       <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="submit" class="btn primary">${editing ? 'Salvar alterações' : 'Agendar'}</button></div>
@@ -174,7 +174,7 @@ export function newVisit(opts = {}) {
           const pros = l.service_id ? prosFor(l.service_id) : [];
           if (l.service_id && pros.length && !pros.some((p) => p.id === l.professional_id)) l.professional_id = myPro && pros.some((p) => p.id === myPro) ? myPro : pros.length === 1 ? pros[0].id : null;
           return `<div class="svc-line" data-i="${i}">
-            <div class="head"><span>Serviço ${i + 1}</span>${lines.length > 1 ? `<button type="button" class="icon-btn" data-rm="${i}" aria-label="Remover">🗑</button>` : ''}</div>
+            <div class="head"><span>Serviço ${i + 1}</span>${lines.length > 1 ? `<button type="button" class="icon-btn" data-rm="${i}" aria-label="Remover">${ic('trash', 18)}</button>` : ''}</div>
             <label class="field"><select data-f="service_id">${serviceOptions(l.service_id)}</select></label>
             <div class="row"><label class="field"><span>Profissional</span><select data-f="professional_id" ${!l.service_id ? 'disabled' : ''}>
               <option value="">${l.service_id ? (pros.length ? 'Escolha…' : 'Nenhuma habilitada') : '—'}</option>
@@ -243,7 +243,7 @@ export function newVisit(opts = {}) {
           const payload = { ...(editing ? {} : picker.payload()), items, notes: form.notes.value, status: form.status.value };
           await withConflict((force) => (editing ? PUT(`/api/visits/${editing.id}`, { ...payload, force }) : POST('/api/visits', { ...payload, force })));
           close();
-          toast(editing ? 'Agendamento atualizado' : 'Agendamento criado ✓');
+          toast(editing ? 'Agendamento atualizado' : 'Agendamento criado');
           opts.onSaved?.();
         }).catch((err) => err?.silent);
       };
@@ -267,13 +267,13 @@ export async function openVisit(id, onChange = () => {}) {
   const st = v.status;
   const A = (act, label, cls = '') => `<button class="btn ${cls}" data-a="${act}">${label}</button>`;
   const acts = {
-    scheduled: [A('confirmed', '✓ Confirmar', 'primary'), A('waiting', '🛎 Chegou'), A('in_progress', '▶ Iniciar'), A('checkout', '💳 Concluir e receber'), A('reschedule', '🔁 Reagendar'), A('edit', '✏️ Editar'), A('no_show', '🚫 Faltou'), A('cancelled', '✕ Cancelar')],
-    confirmed: [A('waiting', '🛎 Chegou', 'primary'), A('in_progress', '▶ Iniciar'), A('checkout', '💳 Concluir e receber'), A('reschedule', '🔁 Reagendar'), A('edit', '✏️ Editar'), A('no_show', '🚫 Faltou'), A('cancelled', '✕ Cancelar')],
-    waiting: [A('in_progress', '▶ Iniciar atendimento', 'primary'), A('checkout', '💳 Concluir e receber'), A('late', '⏱ Registrar atraso'), A('edit', '✏️ Editar'), A('reschedule', '🔁 Reagendar'), A('cancelled', '✕ Cancelar')],
-    in_progress: [A('checkout', '💳 Concluir e receber', 'ok'), A('edit', '✏️ Editar serviços'), A('waiting', '↩ Voltar para “chegou”')],
-    completed: [v.sale_id ? A('sale', '🧾 Ver venda', 'primary') : ''],
-    cancelled: [A('reopen', '↺ Reativar'), A('reschedule', '🔁 Reagendar')],
-    no_show: [A('reopen', '↺ Reativar'), A('reschedule', '🔁 Reagendar')],
+    scheduled: [A('confirmed', ic('check', 18) + ' Confirmar', 'primary'), A('waiting', ic('user', 18) + ' Chegou'), A('in_progress', ic('play', 18) + ' Iniciar'), A('checkout', ic('receipt', 18) + ' Concluir e receber'), A('reschedule', ic('refresh', 18) + ' Reagendar'), A('edit', ic('edit', 18) + ' Editar'), A('no_show', ic('ban', 18) + ' Faltou'), A('cancelled', ic('x', 18) + ' Cancelar')],
+    confirmed: [A('waiting', ic('user', 18) + ' Chegou', 'primary'), A('in_progress', ic('play', 18) + ' Iniciar'), A('checkout', ic('receipt', 18) + ' Concluir e receber'), A('reschedule', ic('refresh', 18) + ' Reagendar'), A('edit', ic('edit', 18) + ' Editar'), A('no_show', ic('ban', 18) + ' Faltou'), A('cancelled', ic('x', 18) + ' Cancelar')],
+    waiting: [A('in_progress', ic('play', 18) + ' Iniciar atendimento', 'primary'), A('checkout', ic('receipt', 18) + ' Concluir e receber'), A('late', ic('clock', 18) + ' Registrar atraso'), A('edit', ic('edit', 18) + ' Editar'), A('reschedule', ic('refresh', 18) + ' Reagendar'), A('cancelled', ic('x', 18) + ' Cancelar')],
+    in_progress: [A('checkout', ic('receipt', 18) + ' Concluir e receber', 'ok'), A('edit', ic('edit', 18) + ' Editar serviços'), A('waiting', ic('arrowLeft', 18) + ' Voltar para “chegou”')],
+    completed: [v.sale_id ? A('sale', ic('receipt', 18) + ' Ver venda', 'primary') : ''],
+    cancelled: [A('reopen', ic('refresh', 18) + ' Reativar'), A('reschedule', ic('refresh', 18) + ' Reagendar')],
+    no_show: [A('reopen', ic('refresh', 18) + ' Reativar'), A('reschedule', ic('refresh', 18) + ' Reagendar')],
   }[st];
   const first = v.client_name.split(' ')[0];
   const wa = waLink(v.client_phone, `Olá, ${first}! Confirmando seu horário ${fmtDayLong(v.date).toLowerCase()} às ${v.start_at.slice(11)} (${v.items.map((i) => i.service_name).join(', ')}). Podemos confirmar?`);
@@ -282,13 +282,13 @@ export async function openVisit(id, onChange = () => {}) {
     body: `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">${badge(st)}
         ${v.late_min ? `<span class="tag warn">atraso ${v.late_min} min</span>` : ''}${v.items.some((i) => i.overbook) ? '<span class="tag">encaixe</span>' : ''}${v.source === 'online' ? '<span class="tag ok">agendado online</span>' : ''}
         <span class="muted small">${fmtDayLong(v.date)} · ${v.start_at.slice(11)}–${v.end_at.slice(11)}</span></div>
-      ${v.client_notes ? `<div class="note-box" style="margin-bottom:10px">⚠ ${esc(v.client_notes)}</div>` : ''}
+      ${v.client_notes ? `<div class="note-box" style="margin-bottom:10px">${ic('alert', 16)}  ${esc(v.client_notes)}</div>` : ''}
       <ul class="list">${v.items.map((i) => `<li><span class="dot" style="background:${esc(i.pro_color)}"></span><div class="grow"><div class="title">${esc(i.service_name)}</div>
         <div class="meta">${i.start_at.slice(11)}–${i.end_at.slice(11)} · ${esc(i.pro_name)}</div></div><b>${money(i.price_cents)}</b></li>`).join('')}</ul>
       ${v.notes ? `<p class="small"><b>Obs.:</b> ${esc(v.notes)}</p>` : ''}
       <div class="actions" style="justify-content:flex-start;margin:6px 0 14px">
-        <a class="btn sm" href="#/clientes/${v.client_id}" data-close>👩 Ficha da cliente</a>
-        ${wa ? `<a class="btn sm" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ''}
+        <a class="btn sm" href="#/clientes/${v.client_id}" data-close>${ic('user', 16)}  Ficha da cliente</a>
+        ${wa ? `<a class="btn sm" href="${wa}" target="_blank" rel="noopener">${ic('whatsapp', 16)}  WhatsApp</a>` : ''}
       </div>
       <div class="sheet-actions">${acts.join('')}</div>`,
     onMount(el, close) {
@@ -357,7 +357,7 @@ export function reschedule(v, onChange) {
           if (!form.date.value || !form.time.value) throw new Error('Escolha data e horário');
           await withConflict((force) => POST(`/api/visits/${v.id}/reschedule`, { start_at: `${form.date.value} ${form.time.value}`, professional_id: form.pro ? pro() : undefined, force }));
           close();
-          toast('Reagendado ✓');
+          toast('Reagendado');
           onChange();
         }).catch(() => {});
       };

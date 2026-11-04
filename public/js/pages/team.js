@@ -1,68 +1,106 @@
-import { state, GET, POST, PUT, esc, money, moneyIn, toCents, modal, toast, confirmBox, submitting, can, empty, fmtDate, periodPicker, mountPeriod, rangeLabel, loadRefs, todayStr } from '../core.js';
+import { state, GET, POST, PUT, esc, money, moneyIn, toCents, modal, toast, submitting, can, empty, todayStr, loadRefs, ic, avatar, pageHead, photoField, ROLE_LABEL, fmtPhone, rangeFor } from '../core.js';
 import { refresh } from '../app.js';
 
-const SPECIALTIES = ['Cabeleireira', 'Colorista', 'Manicure', 'Pedicure', 'Manicure e pedicure', 'Nail designer', 'Maquiadora', 'Designer de sobrancelhas', 'Esteticista', 'Terapeuta capilar', 'Depiladora', 'Recepcionista'];
-const COLORS = ['#b4548c', '#7a5cc4', '#2f8fb3', '#2f9e74', '#d08a2a', '#d0533f', '#6b7a8f', '#c4479c'];
+const SPECIALTIES = ['Cabeleireira', 'Colorista', 'Manicure', 'Pedicure', 'Manicure e pedicure', 'Nail designer', 'Maquiadora', 'Designer de sobrancelhas', 'Lash designer', 'Esteticista', 'Terapeuta capilar', 'Depiladora'];
+const COLORS = ['#7a2fd0', '#d63d92', '#2a5bb5', '#138a5a', '#c47a14', '#c0304a', '#4e1590', '#9d5ce8'];
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const ruleText = (p) => (p.commission_type === 'fixed' ? `${money(p.commission_value)} por atendimento` : `${String(p.commission_value).replace('.', ',')}% dos serviços`) + (p.product_commission_pct ? ` · ${p.product_commission_pct}% produtos` : '');
+export const ruleText = (p) => (p.commission_type === 'fixed' ? `${money(p.commission_value)} por atendimento` : `${String(p.commission_value).replace('.', ',')}% dos serviços`) + (p.product_commission_pct ? ` · ${String(p.product_commission_pct).replace('.', ',')}% em produtos` : '');
+const daysText = (p) => p.work_days.split(',').filter(Boolean).map((d) => DAYS[d]).join(', ') || 'sem dias definidos';
 
-export default async function team(root) {
-  root.innerHTML = `<div class="page-head"><div><h1>${can.pro() ? 'Minhas comissões' : 'Equipe e comissões'}</h1><div class="sub">Produção, comissões geradas, pagas e a pagar</div></div>
-    ${can.owner() ? '<button class="btn primary" data-new>＋ Nova profissional</button>' : ''}</div>
-    ${periodPicker('per')}<div data-body>${'<div class="loading">Carregando…</div>'}</div>`;
-  root.querySelector('[data-new]')?.addEventListener('click', () => editPro());
-  mountPeriod(root, 'per', async (range) => {
-    const body = root.querySelector('[data-body]');
-    const rows = await GET(`/api/commissions?from=${range.from}&to=${range.to}`);
-    const pros = state.pros;
-    if (!pros.length) return (body.innerHTML = empty('Nenhuma profissional cadastrada.', can.owner() ? '<button class="btn primary" data-first>Cadastrar a primeira</button>' : ''), body.querySelector('[data-first]')?.addEventListener('click', () => editPro()));
-    const tot = rows.reduce((a, r) => ({ produced: a.produced + r.produced, commission: a.commission + r.commission, pending: a.pending + r.pending, paid: a.paid + r.paid_in_period }), { produced: 0, commission: 0, pending: 0, paid: 0 });
-    body.innerHTML = `<div class="kpis">
-        <div class="kpi hl"><span>Produção no período</span><b>${money(tot.produced)}</b><small>${rangeLabel(range)}</small></div>
-        <div class="kpi"><span>Comissões geradas</span><b>${money(tot.commission)}</b><small>no período</small></div>
-        <div class="kpi"><span>Comissões pagas</span><b>${money(tot.paid)}</b><small>no período</small></div>
-        <div class="kpi"><span>A pagar (total)</span><b>${money(tot.pending)}</b><small>todas as pendentes</small></div></div>
-      <div class="card"><ul class="list">${rows.map((r) => {
-        const p = pros.find((x) => x.id === r.id) || r;
-        return `<li><span class="avatar" style="background:${esc(p.color)}22;color:${esc(p.color)}">${esc(p.name[0])}</span>
-          <div class="grow"><div class="title">${esc(p.name)} ${p.active ? '' : '<span class="tag">inativa</span>'}</div>
-            <div class="meta">${esc(p.specialty || '')}${p.commission_type ? ' · ' + ruleText(p) : ''}</div>
-            <div class="meta">Produziu <b>${money(r.produced)}</b> (${r.services_count} atend.) · comissão ${money(r.commission)} · <span class="${r.pending ? 'warn-t' : ''}">a pagar ${money(r.pending)}</span></div></div>
-          <div class="row-actions"><button class="btn sm" data-detail="${r.id}">Detalhes</button>
-            ${can.owner() && r.pending ? `<button class="btn sm ok" data-pay="${r.id}">Pagar</button>` : ''}
-            ${can.owner() ? `<button class="btn sm ghost" data-edit="${r.id}">Editar</button>` : ''}</div></li>`;
-      }).join('')}</ul></div>
-      <p class="legend">Comissão é gerada quando o atendimento é concluído (venda registrada), sobre o valor já com desconto. Vendas estornadas não geram comissão.
-      Regra aplicada: 1) preço/comissão específico da profissional no serviço, 2) comissão do serviço, 3) padrão da profissional.</p>`;
-    body.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editPro(pros.find((p) => p.id === Number(b.dataset.edit)))));
-    body.querySelectorAll('[data-pay]').forEach((b) => (b.onclick = () => payCommission(rows.find((r) => r.id === Number(b.dataset.pay)))));
-    body.querySelectorAll('[data-detail]').forEach((b) => (b.onclick = () => detail(rows.find((r) => r.id === Number(b.dataset.detail)), range)));
+export default async function team(root, { query }) {
+  const t = todayStr();
+  const [agenda, users] = await Promise.all([GET(`/api/agenda?from=${t}&to=${t}&hide_cancelled=1`), can.owner() ? GET('/api/users') : Promise.resolve(null)]);
+  const pros = state.pros;
+  const todayCount = (id) => agenda.visits.filter((v) => v.items.some((i) => i.professional_id === id)).length;
+  const loginOf = (id) => users?.find((u) => u.professional_id === id && u.role === 'pro');
+  const active = pros.filter((p) => p.active);
+
+  root.innerHTML = `${pageHead('Equipe', `${active.length} profissional(is) ativa(s)`, `<button class="btn primary" data-new>${ic('plus', 18)} Cadastrar profissional</button>`)}
+    ${pros.length ? `<div class="grid g3">${pros.map((p) => {
+      const login = loginOf(p.id);
+      const svc = state.services.filter((s) => s.pros.some((l) => l.professional_id === p.id)).length;
+      return `<div class="card pro-card" data-open="${p.id}" role="button" tabindex="0" aria-label="Abrir perfil de ${esc(p.name)}" style="${p.active ? '' : 'opacity:.6'}">
+        ${avatar(p.name, p.photo_url, 'xl')}
+        <div><b style="font-size:1.05rem">${esc(p.name)}</b><div class="small muted">${esc(p.specialty || 'Profissional')}</div></div>
+        <div class="chips" style="justify-content:center"><span class="tag ${p.active ? 'ok' : ''}">${p.active ? 'Ativa' : 'Inativa'}</span>
+          ${users ? `<span class="tag ${login ? 'brand' : ''}">${ic(login ? 'lock' : 'user', 12)} ${login ? 'Com acesso' : 'Sem acesso'}</span>` : ''}</div>
+        <div class="stat-row" style="width:100%;margin-top:4px"><div><span>Hoje</span><b>${todayCount(p.id)}</b></div><div><span>Serviços</span><b>${svc}</b></div></div>
+        <div class="tiny muted">${esc(daysText(p))} · ${p.start_time}–${p.end_time}</div>
+      </div>`;
+    }).join('')}</div>`
+      : `<div class="card">${empty('Nenhuma profissional cadastrada. Cadastre cabeleireiras, manicures, maquiadoras… para começar a agendar.', `<button class="btn primary" data-first>${ic('plus', 18)} Cadastrar a primeira</button>`, 'users')}</div>`}`;
+  root.querySelector('[data-new]').onclick = () => editPro();
+  root.querySelector('[data-first]')?.addEventListener('click', () => editPro());
+  root.querySelectorAll('[data-open]').forEach((c) => {
+    const open = () => profile(pros.find((p) => p.id === Number(c.dataset.open)), loginOf(Number(c.dataset.open)), todayCount(Number(c.dataset.open)));
+    c.onclick = open;
+    c.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open());
+  });
+  if (query.nova && !team.opened) (team.opened = true), editPro();
+}
+
+/** Perfil da profissional: dados, serviços, horários, desempenho no mês e acesso. */
+async function profile(p, login, today) {
+  const m = rangeFor('month');
+  const [rep, com] = await Promise.all([GET(`/api/reports/sales?from=${m.from}&to=${m.to}&professional_id=${p.id}`), GET(`/api/commissions?from=${m.from}&to=${m.to}`)]);
+  const mine = com.find((c) => c.id === p.id) || {};
+  const services = state.services.filter((s) => s.pros.some((l) => l.professional_id === p.id));
+  modal({
+    title: 'Perfil da profissional',
+    wide: true,
+    body: `<div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">${avatar(p.name, p.photo_url, 'xl')}
+        <div style="flex:1;min-width:0"><h2 style="font-size:1.3rem">${esc(p.name)}</h2><div class="muted">${esc(p.specialty || 'Profissional')}${p.phone ? ` · ${fmtPhone(p.phone)}` : ''}</div>
+        <div class="chips" style="margin-top:8px"><span class="tag ${p.active ? 'ok' : ''}">${p.active ? 'Ativa' : 'Inativa'}</span><span class="tag"><span class="dot" style="background:${esc(p.color)}"></span>cor na agenda</span>
+          ${login !== undefined ? `<span class="tag ${login ? 'brand' : ''}">${login ? `Acesso: ${esc(login.email)}` : 'Sem acesso ao sistema'}</span>` : ''}</div></div></div>
+      <h3 style="margin-bottom:8px">Desempenho no mês</h3>
+      <div class="sum-strip" style="margin-bottom:16px">
+        <div><span>Produção</span><b>${money(rep.summary.revenue)}</b><small>serviços + produtos</small></div>
+        <div><span>Atendimentos</span><b>${rep.summary.services_count}</b><small>${rep.summary.clients_served} cliente(s)</small></div>
+        <div><span>Ticket médio</span><b>${money(rep.summary.ticket_avg)}</b></div>
+        ${can.admin() ? `<div><span>Comissão gerada</span><b>${money(mine.commission || 0)}</b><small>a pagar (total) ${money(mine.pending || 0)}</small></div>` : ''}
+        <div><span>Hoje</span><b>${today}</b><small>agendamento(s)</small></div></div>
+      <div class="grid g2" style="margin-bottom:8px">
+        <div class="card flat" style="margin:0"><h3>Horários de trabalho</h3><p class="small" style="margin-top:6px">${esc(daysText(p))}<br>${p.start_time} às ${p.end_time}${p.break_start ? ` · intervalo ${p.break_start}–${p.break_end}` : ''}</p>
+          <h3 style="margin-top:12px">Regra de comissão</h3><p class="small" style="margin-top:6px">${ruleText(p)}</p></div>
+        <div class="card flat" style="margin:0"><h3>Serviços que realiza (${services.length})</h3>
+          <div class="chips" style="margin-top:8px">${services.map((s) => `<span class="tag brand">${esc(s.name)}</span>`).join('') || '<span class="small muted">Nenhum serviço habilitado. Habilite em Serviços.</span>'}</div>
+          ${rep.services.length ? `<h3 style="margin-top:12px">Mais realizados no mês</h3><p class="small muted" style="margin-top:6px">${rep.services.slice(0, 4).map((s) => `${esc(s.name)} (${s.qty})`).join(' · ')}</p>` : ''}</div>
+      </div>
+      <div class="actions"><a class="btn" href="#/agenda" data-close data-pro-agenda>${ic('calendar', 18)} Ver agenda</a>
+        ${can.owner() ? `<a class="btn" href="#/config" data-close>${ic('lock', 18)} ${login ? 'Gerenciar acesso' : 'Criar acesso'}</a>` : ''}
+        <button class="btn primary" data-edit>${ic('edit', 18)} Editar</button></div>`,
+    onMount(el, close) {
+      el.querySelector('[data-edit]').onclick = () => (close(), editPro(p));
+    },
   });
 }
 
 function editPro(p = null) {
   const days = (p?.work_days ?? '1,2,3,4,5,6').split(',');
   modal({
-    title: p ? `Editar ${p.name}` : 'Nova profissional',
+    title: p ? `Editar ${p.name}` : 'Cadastrar profissional',
     wide: true,
     body: `<form novalidate>
+      <div data-photo style="margin-bottom:14px"></div>
       <div class="row"><label class="field"><span>Nome *</span><input name="name" maxlength="60" value="${esc(p?.name || '')}" autofocus></label>
         <label class="field"><span>Especialidade</span><input name="specialty" list="specs" maxlength="60" value="${esc(p?.specialty || '')}" placeholder="Cabeleireira, manicure…"><datalist id="specs">${SPECIALTIES.map((s) => `<option>${s}</option>`).join('')}</datalist></label></div>
-      <div class="row"><label class="field"><span>Telefone</span><input name="phone" inputmode="tel" maxlength="20" value="${esc(p?.phone || '')}"></label>
-        <div class="field"><span>Cor na agenda</span><div class="chips">${COLORS.map((c) => `<label style="cursor:pointer"><input type="radio" name="color" value="${c}" ${c === (p?.color || COLORS[0]) ? 'checked' : ''} style="display:none"><span class="dot" style="background:${c};width:26px;height:26px;outline-offset:2px"></span></label>`).join('')}</div></div></div>
-      <div class="field"><span>Dias de trabalho</span><div class="chips days">${DAYS.map((d, i) => `<label class="chip ${days.includes(String(i)) ? 'on' : ''}"><input type="checkbox" data-multi name="work_days" value="${i}" ${days.includes(String(i)) ? 'checked' : ''} style="display:none">${d}</label>`).join('')}</div></div>
+      <div class="row"><label class="field"><span>WhatsApp</span><input name="phone" inputmode="tel" maxlength="20" value="${esc(p?.phone ? fmtPhone(p.phone) : '')}"></label>
+        <div class="field"><span>Cor na agenda</span><div class="chips">${COLORS.map((c) => `<label style="cursor:pointer" title="${c}"><input type="radio" name="color" value="${c}" ${c === (p?.color || COLORS[0]) ? 'checked' : ''} class="sr"><span class="dot" style="background:${c};width:28px;height:28px;margin:0"></span></label>`).join('')}</div></div></div>
+      <h3 style="margin:8px 0">Horários</h3>
+      <div class="field"><span>Dias de trabalho</span><div class="chips days">${DAYS.map((d, i) => `<label class="chip ${days.includes(String(i)) ? 'on' : ''}"><input type="checkbox" data-multi name="work_days" value="${i}" ${days.includes(String(i)) ? 'checked' : ''} class="sr">${d}</label>`).join('')}</div></div>
       <div class="row"><label class="field"><span>Entrada</span><input type="time" name="start_time" value="${p?.start_time || '09:00'}"></label><label class="field"><span>Saída</span><input type="time" name="end_time" value="${p?.end_time || '19:00'}"></label></div>
-      <div class="row"><label class="field"><span>Intervalo — início</span><input type="time" name="break_start" value="${p?.break_start || ''}"></label><label class="field"><span>Intervalo — fim</span><input type="time" name="break_end" value="${p?.break_end || ''}"></label></div>
-      <h3 style="margin:6px 0 8px">Comissão padrão</h3>
+      <div class="row"><label class="field"><span>Intervalo (início)</span><input type="time" name="break_start" value="${p?.break_start || ''}"></label><label class="field"><span>Intervalo (fim)</span><input type="time" name="break_end" value="${p?.break_end || ''}"></label></div>
+      <h3 style="margin:8px 0">Comissão padrão</h3>
       <div class="row"><label class="field"><span>Tipo</span><select name="commission_type"><option value="pct" ${p?.commission_type !== 'fixed' ? 'selected' : ''}>% sobre o serviço</option><option value="fixed" ${p?.commission_type === 'fixed' ? 'selected' : ''}>Valor fixo por atendimento</option></select></label>
         <label class="field"><span data-cv-label>Valor</span><input name="commission_value" inputmode="decimal" value="${p ? (p.commission_type === 'fixed' ? moneyIn(p.commission_value) : String(p.commission_value).replace('.', ',')) : '40'}"></label></div>
-      <label class="field"><span>Comissão sobre produtos vendidos (%)</span><input name="product_commission_pct" inputmode="decimal" value="${String(p?.product_commission_pct ?? 0).replace('.', ',')}"><small>Serviços podem ter regras próprias em “Serviços e preços”.</small></label>
-      ${p ? `<label class="check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> Ativa (aparece na agenda)</label>` : ''}
+      <label class="field"><span>Comissão sobre produtos vendidos (%)</span><input name="product_commission_pct" inputmode="decimal" value="${String(p?.product_commission_pct ?? 0).replace('.', ',')}"><small>Regras específicas por serviço ficam em Serviços.</small></label>
+      ${p ? `<label class="check"><span class="switch"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}><i></i></span> Ativa (aparece na agenda e no agendamento online)</label>` : ''}
       <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Salvar</button></div></form>`,
     onMount(el, close) {
       const f = el.querySelector('form');
+      const photo = photoField(el.querySelector('[data-photo]'), { current: p?.photo_url, label: 'Foto da profissional', round: true, max: 500 });
       el.querySelectorAll('.chips.days .chip').forEach((c) => c.querySelector('input').addEventListener('change', (e) => c.classList.toggle('on', e.target.checked)));
-      const dots = () => el.querySelectorAll('[name=color]').forEach((r) => (r.nextElementSibling.style.outline = r.checked ? '3px solid var(--ink)' : 'none'));
+      const dots = () => el.querySelectorAll('[name=color]').forEach((r) => (r.nextElementSibling.style.boxShadow = r.checked ? '0 0 0 3px #fff, 0 0 0 5px var(--ink)' : 'none'));
       el.querySelectorAll('[name=color]').forEach((r) => r.addEventListener('change', dots));
       dots();
       const lbl = () => (el.querySelector('[data-cv-label]').textContent = f.commission_type.value === 'fixed' ? 'Valor por atendimento (R$)' : 'Percentual (%)');
@@ -73,7 +111,7 @@ function editPro(p = null) {
         await submitting(f.querySelector('[type=submit]'), async () => {
           const num = (v) => Number(String(v).replace(',', '.'));
           const body = {
-            name: f.name.value, specialty: f.specialty.value, phone: f.phone.value, color: f.color.value,
+            name: f.name.value, specialty: f.specialty.value, phone: f.phone.value, color: f.color.value, photo: photo.get(),
             work_days: [...f.querySelectorAll('[name=work_days]:checked')].map((x) => x.value).join(','),
             start_time: f.start_time.value, end_time: f.end_time.value, break_start: f.break_start.value || null, break_end: f.break_end.value || null,
             commission_type: f.commission_type.value,
@@ -85,55 +123,10 @@ function editPro(p = null) {
           else await POST('/api/professionals', body);
           await loadRefs(true);
           close();
-          toast(p ? 'Profissional atualizada' : 'Profissional cadastrada ✓ — habilite-a nos serviços que ela faz');
+          toast(p ? 'Profissional atualizada' : 'Profissional cadastrada — habilite os serviços que ela faz');
           refresh();
         }).catch(() => {});
       };
-    },
-  });
-}
-
-function payCommission(r) {
-  modal({
-    title: `Pagar comissões · ${r.name}`,
-    body: `<form novalidate><p>Total pendente: <b>${money(r.pending)}</b></p>
-      <label class="field"><span>Pagar comissões geradas até</span><input type="date" name="until" value="${todayStr()}" max="${todayStr()}"></label>
-      <label class="field"><span>Observação</span><input name="note" maxlength="200" placeholder="Ex.: pago via Pix"></label>
-      <p class="small muted">Cada comissão só pode ser paga uma vez. O pagamento entra como saída no fluxo de caixa.</p>
-      <div class="actions stretch"><button type="button" class="btn ghost" data-close>Voltar</button><button class="btn ok" type="submit">Registrar pagamento</button></div></form>`,
-    onMount(el, close) {
-      const f = el.querySelector('form');
-      f.onsubmit = async (e) => {
-        e.preventDefault();
-        await submitting(f.querySelector('[type=submit]'), async () => {
-          const res = await POST('/api/commissions/pay', { professional_id: r.id, until: f.until.value, note: f.note.value });
-          close();
-          toast(`Pago ${money(res.amount_cents)} (${res.items} itens) ✓`);
-          refresh();
-        }).catch(() => {});
-      };
-    },
-  });
-}
-
-async function detail(r, range) {
-  const [pending, items, pays] = await Promise.all([
-    GET(`/api/commissions/${r.id}/items?status=pending`), GET(`/api/commissions/${r.id}/items?from=${range.from}&to=${range.to}`), GET(`/api/commissions/payments?professional_id=${r.id}`),
-  ]);
-  const rowsHtml = (list) => (list.length ? `<div class="scroll-x"><table class="t"><thead><tr><th>Data</th><th>Item</th><th class="num">Valor</th><th class="num">Comissão</th></tr></thead><tbody>
-    ${list.map((i) => `<tr><td class="nowrap">${fmtDate(i.created_at)}</td><td>${esc(i.name)}<br><small class="muted">${esc(i.client_name || '')} · ${esc(i.commission_note || '')}</small></td>
-      <td class="num">${money(i.net_cents)}</td><td class="num">${money(i.commission_cents)}${i.commission_payment_id ? '<br><small class="ok-t">paga</small>' : ''}</td></tr>`).join('')}</tbody></table></div>` : empty('Nada por aqui.'));
-  modal({
-    title: r.name,
-    wide: true,
-    body: `<div class="tabs"><button class="on" data-t="p">A pagar (${pending.length})</button><button data-t="i">No período</button><button data-t="h">Pagamentos</button></div>
-      <div data-tab="p">${rowsHtml(pending)}</div><div data-tab="i" class="hidden">${rowsHtml(items)}</div>
-      <div data-tab="h" class="hidden">${pays.length ? `<ul class="list">${pays.map((p) => `<li><div class="grow"><div class="title">${money(p.amount_cents)}</div><div class="meta">${fmtDate(p.created_at)} · ${p.items} item(ns) · ${esc(p.note || '')}</div></div></li>`).join('')}</ul>` : empty('Nenhum pagamento registrado.')}</div>`,
-    onMount(el) {
-      el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => {
-        el.querySelectorAll('[data-t]').forEach((x) => x.classList.toggle('on', x === b));
-        el.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('hidden', x.dataset.tab !== b.dataset.t));
-      }));
     },
   });
 }

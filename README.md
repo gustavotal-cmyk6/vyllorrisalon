@@ -1,6 +1,6 @@
 # Vyllorri Beauty
 
-Gestão simples para salões de beleza: agenda, vendas, clientes, equipe e comissões, estoque e financeiro.
+Gestão simples e elegante para salões de beleza: agenda (dia, semana e mês), vendas, clientes, equipe com fotos, comissões, estoque, financeiro com fechamento de caixa, relatórios e página pública de agendamento online.
 
 ## Como rodar
 
@@ -25,7 +25,7 @@ Variáveis de ambiente:
 
 ## Agendamento online
 
-Cada salão tem uma página pública em `/agendar/<endereço>`. Ative em **Configurações → Agendamento online** e marque os serviços como “Disponível para agendamento online”. Os pedidos entram na agenda como *Agendado* (etiqueta **online**) e aparecem no painel para confirmação.
+Cada salão tem uma página pública em `/agendar/<endereço>`, com capa, logo, fotos do espaço, equipe, endereço e WhatsApp (configurados em **Configurações → Perfil do salão**). A cliente agenda em 6 passos sem cadastro e recebe um link para consultar ou cancelar a reserva (respeitando a antecedência mínima definida pelo salão). Ative em **Configurações → Agendamento online** e marque os serviços como “Disponível para agendamento online”. Os pedidos entram na agenda como *Agendado* (etiqueta **online**) e aparecem no painel para confirmação.
 
 ## Deploy na Vercel
 
@@ -38,7 +38,7 @@ Cada salão tem uma página pública em `/agendar/<endereço>`. Ative em **Confi
 - `api/index.js` — entrada da função serverless da Vercel.
 - `server/` — API HTTP (Node puro), `db.js` (esquema), `auth.js` (sessões, senhas scrypt), `routes/*` por área.
 - `public/` — interface (SPA em JavaScript puro, mobile-first).
-- `scripts/test.js` — 14 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
+- `scripts/test.js` — 16 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
 
 ## Regras de negócio importantes
 
@@ -48,4 +48,6 @@ Cada salão tem uma página pública em `/agendar/<endereço>`. Ative em **Confi
 - **Desconto** é rateado entre os itens, separando corretamente receita de serviços e de produtos.
 - **Comissão**: regra da profissional no serviço → regra do serviço → padrão da profissional (% ou valor fixo); produtos têm % própria. Cada comissão só pode ser paga uma vez; vendas com comissão paga não podem ser estornadas.
 - **Estoque**: produtos de venda e materiais de uso interno são separados; materiais internos não podem ser vendidos.
-- **Perfis**: proprietária (tudo), recepção (sem financeiro/comissões/relatórios), profissional (só a própria agenda e comissões).
+- **Perfis**: proprietária (tudo), gerente (tudo exceto configurações e acessos), recepção (sem financeiro/comissões/relatórios), profissional (só a própria agenda e comissões).
+- **Fotos** ficam no banco (tabela `images`), reduzidas no aparelho antes do envio, e são servidas por identificador aleatório.
+- **Fechamento de caixa**: compara o dinheiro esperado na gaveta (recebido em dinheiro − despesas pagas em dinheiro) com o valor contado.

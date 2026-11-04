@@ -1,4 +1,4 @@
-import { route, STAFF, OWNER, ALL } from '../http.js';
+import { route, STAFF, ADMIN, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get } from '../db.js';
 import { today, monthRange, prevMonthRange, prevPeriod, pctChange, addDays, diffDays, nowTime } from '../util.js';
@@ -6,9 +6,19 @@ import { loadVisits, freeSlots } from './agenda.js';
 import { financeSummary } from './finance.js';
 
 const ACTIVE = `s.salon_id=? AND s.status='active' AND substr(s.created_at,1,10) BETWEEN ? AND ?`;
+const byProf = (pro) => (pro ? ` AND si.professional_id=${Number(pro)}` : '');
 
 /** Indicadores comerciais de um período (só vendas concluídas e não estornadas). */
-export async function salesSummary(sid, from, to) {
+export async function salesSummary(sid, from, to, pro = null) {
+  if (pro) {
+    // visão de uma profissional: só os itens dela
+    const k = await get(`SELECT COALESCE(SUM(si.net_cents),0) revenue, COALESCE(SUM(CASE WHEN si.kind='service' THEN si.net_cents END),0) services,
+        COALESCE(SUM(CASE WHEN si.kind='product' THEN si.net_cents END),0) products, COUNT(CASE WHEN si.kind='service' THEN 1 END) services_count,
+        COALESCE(SUM(CASE WHEN si.kind='product' THEN si.qty END),0) products_qty, COUNT(DISTINCT s.id) sales, COUNT(DISTINCT COALESCE(s.client_id, -s.id)) clients
+        FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE ${ACTIVE}${byProf(pro)}`, sid, from, to);
+    return { revenue: k.revenue, revenue_services: k.services, revenue_products: k.products, discounts: 0, sales_count: k.sales, services_count: k.services_count,
+      products_qty: k.products_qty, clients_served: k.clients, ticket_avg: k.clients ? Math.round(k.revenue / k.clients) : 0, received_of_period: null, pending_of_period: null };
+  }
   const t = await get(`SELECT COUNT(*) sales, COALESCE(SUM(total_cents),0) revenue, COALESCE(SUM(discount_cents),0) discounts,
       COUNT(DISTINCT COALESCE(client_id, -id)) clients FROM sales s WHERE ${ACTIVE}`, sid, from, to);
   const k = await get(`SELECT COALESCE(SUM(CASE WHEN si.kind='service' THEN si.net_cents END),0) services,
@@ -25,15 +35,15 @@ export async function salesSummary(sid, from, to) {
   };
 }
 
-const topServices = async (sid, from, to, n = 10) => await all(`SELECT si.name, COUNT(*) qty, SUM(si.net_cents) total FROM sale_items si JOIN sales s ON s.id=si.sale_id
-  WHERE ${ACTIVE} AND si.kind='service' GROUP BY si.name ORDER BY qty DESC, total DESC LIMIT ${n}`, sid, from, to);
-const topProducts = async (sid, from, to, n = 10) => await all(`SELECT si.name, SUM(si.qty) qty, SUM(si.net_cents) total FROM sale_items si JOIN sales s ON s.id=si.sale_id
-  WHERE ${ACTIVE} AND si.kind='product' GROUP BY si.product_id ORDER BY qty DESC, total DESC LIMIT ${n}`, sid, from, to);
-const byPro = async (sid, from, to) => await all(`SELECT p.id, p.name, p.color, SUM(si.net_cents) total,
+const topServices = async (sid, from, to, n = 10, pro = null) => await all(`SELECT si.name, COUNT(*) qty, SUM(si.net_cents) total FROM sale_items si JOIN sales s ON s.id=si.sale_id
+  WHERE ${ACTIVE}${byProf(pro)} AND si.kind='service' GROUP BY si.name ORDER BY qty DESC, total DESC LIMIT ${n}`, sid, from, to);
+const topProducts = async (sid, from, to, n = 10, pro = null) => await all(`SELECT si.name, SUM(si.qty) qty, SUM(si.net_cents) total FROM sale_items si JOIN sales s ON s.id=si.sale_id
+  WHERE ${ACTIVE}${byProf(pro)} AND si.kind='product' GROUP BY si.product_id ORDER BY qty DESC, total DESC LIMIT ${n}`, sid, from, to);
+const byPro = async (sid, from, to, pro = null) => await all(`SELECT p.id, p.name, p.color, CASE WHEN p.photo IS NULL THEN NULL ELSE '/api/images/' || p.photo END AS photo_url, SUM(si.net_cents) total,
     SUM(CASE WHEN si.kind='service' THEN si.net_cents ELSE 0 END) services, SUM(CASE WHEN si.kind='product' THEN si.net_cents ELSE 0 END) products,
     COUNT(CASE WHEN si.kind='service' THEN 1 END) services_count, SUM(si.commission_cents) commission
     FROM sale_items si JOIN sales s ON s.id=si.sale_id JOIN professionals p ON p.id=si.professional_id
-    WHERE ${ACTIVE} GROUP BY p.id ORDER BY total DESC`, sid, from, to);
+    WHERE ${ACTIVE}${byProf(pro)} GROUP BY p.id ORDER BY total DESC`, sid, from, to);
 
 route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
   const d = today();
@@ -88,7 +98,7 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
   if (online) attention.unshift({ type: 'online', level: 'info', text: `${online} agendamento(s) online aguardando sua confirmação`, link: '#/agenda' });
   const low = await all(`SELECT name, stock, min_stock, unit FROM products WHERE salon_id=? AND active=1 AND stock<=min_stock AND min_stock>0 ORDER BY name LIMIT 5`, sid);
   if (low.length) attention.push({ type: 'stock', level: 'warn', text: `Estoque baixo: ${low.map((l) => l.name).join(', ')}`, link: '#/estoque' });
-  if (user.role === 'owner') {
+  if (['owner', 'manager'].includes(user.role)) {
     const bills = await get(`SELECT COUNT(*) n, COALESCE(SUM(amount_cents),0) v FROM expenses WHERE salon_id=? AND paid_at IS NULL AND due_date<=?`, sid, addDays(d, 3));
     if (bills.n) attention.push({ type: 'bills', level: 'warn', text: `${bills.n} conta(s) vencidas ou vencendo em até 3 dias`, amount: bills.v, link: '#/financeiro' });
   }
@@ -97,8 +107,28 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
     .filter((c) => md.includes(c.birthday.slice(-5)));
   if (birthdays.length) attention.push({ type: 'birthday', level: 'ok', text: `Aniversariantes da semana: ${birthdays.map((b) => b.name.split(' ')[0]).join(', ')}`, link: '#/clientes?filtro=aniversario' });
 
+  // faturamento dia a dia no mês (acumulado) comparado ao mês anterior
+  const dailyRows = async (from, to) => all(`SELECT substr(s.created_at,1,10) date, SUM(s.total_cents) total FROM sales s WHERE ${ACTIVE} GROUP BY 1`, sid, from, to);
+  const series = (rows, from) => {
+    const map = Object.fromEntries(rows.map((r) => [r.date, r.total]));
+    let acc = 0;
+    return Array.from({ length: diffDays(from, monthRange(from).to) + 1 }, (_, i) => (acc += map[addDays(from, i)] || 0));
+  };
+  const curSeries = series(await dailyRows(month.from, d), month.from).slice(0, diffDays(month.from, d) + 1);
+  const prevSeries = series(await dailyRows(prev.from, prev.to), prev.from);
+  const recent = await all(`SELECT * FROM (
+      SELECT p.created_at AS at, 'in' AS dir, p.amount_cents AS amount, p.method, COALESCE(c.name,'Venda sem cliente') AS label,
+        (SELECT GROUP_CONCAT(name, ' + ') FROM sale_items WHERE sale_id=s.id) AS detail, s.id AS sale_id
+        FROM payments p JOIN sales s ON s.id=p.sale_id LEFT JOIN clients c ON c.id=s.client_id WHERE p.salon_id=? AND s.status='active'
+      UNION ALL
+      SELECT paid_at || ' 23:59:00', 'out', amount_cents, method, description, category, NULL FROM expenses WHERE salon_id=? AND paid_at IS NOT NULL
+    ) ORDER BY at DESC LIMIT 7`, sid, sid);
+  const pendingSales = await all(`SELECT s.id, s.created_at, c.name AS client_name, s.total_cents - (SELECT COALESCE(SUM(amount_cents),0) FROM payments WHERE sale_id=s.id) AS pending_cents
+      FROM sales s LEFT JOIN clients c ON c.id=s.client_id WHERE s.salon_id=? AND s.status='active'
+       AND s.total_cents > (SELECT COALESCE(SUM(amount_cents),0) FROM payments WHERE sale_id=s.id) ORDER BY s.created_at DESC LIMIT 5`, sid);
   return {
-    role: user.role, date: d, agenda, free, attention,
+    role: user.role, date: d, agenda, free, attention, low_stock: low, recent, pending_sales: pendingSales,
+    chart: { current: curSeries, previous: prevSeries, days_in_month: diffDays(month.from, month.to) + 1 },
     today: { revenue: day.revenue, received: dayReceived, services_count: day.services_count, ticket_avg: day.ticket_avg },
     month: { ...cur, change_revenue: pctChange(cur.revenue, last.revenue), prev_revenue: last.revenue, cancelled: monthVisits.cancelled, no_show: monthVisits.no_show },
     top_services: await topServices(sid, month.from, d, 5),
@@ -115,27 +145,28 @@ function slim(v) {
 /** Painel de vendas: serviços × produtos, profissionais, formas de pagamento, comparação com o período anterior. */
 route('GET', '/api/reports/sales', STAFF, async ({ query, sid }) => {
   const { from, to } = V.range(query);
+  const pro = V.int(query.professional_id, 'Profissional');
   const prev = prevPeriod(from, to);
-  const cur = await salesSummary(sid, from, to);
-  const last = await salesSummary(sid, prev.from, prev.to);
+  const cur = await salesSummary(sid, from, to, pro);
+  const last = await salesSummary(sid, prev.from, prev.to, pro);
   const compare = Object.fromEntries(Object.keys(cur).map((k) => [k, pctChange(cur[k], last[k])]));
   const received = (await get(`SELECT COALESCE(SUM(p.amount_cents),0) v FROM payments p JOIN sales s ON s.id=p.sale_id WHERE p.salon_id=? AND s.status='active' AND substr(p.created_at,1,10) BETWEEN ? AND ?`, sid, from, to)).v;
   return {
     from, to, previous: prev, summary: cur, previous_summary: last, compare, received_in_period: received,
-    services: await topServices(sid, from, to, 50), products: await topProducts(sid, from, to, 50), professionals: await byPro(sid, from, to),
+    professional_id: pro, services: await topServices(sid, from, to, 50, pro), products: await topProducts(sid, from, to, 50, pro), professionals: await byPro(sid, from, to, pro),
     methods: await all(`SELECT p.method, COUNT(*) n, SUM(p.amount_cents) total FROM payments p JOIN sales s ON s.id=p.sale_id
                    WHERE p.salon_id=? AND s.status='active' AND substr(p.created_at,1,10) BETWEEN ? AND ? GROUP BY 1 ORDER BY 3 DESC`, sid, from, to),
     daily: await all(`SELECT substr(s.created_at,1,10) date, SUM(si.net_cents) total, SUM(CASE WHEN si.kind='service' THEN si.net_cents ELSE 0 END) services,
                   SUM(CASE WHEN si.kind='product' THEN si.net_cents ELSE 0 END) products
-                  FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE ${ACTIVE} GROUP BY 1 ORDER BY 1`, sid, from, to),
+                  FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE ${ACTIVE}${byProf(pro)} GROUP BY 1 ORDER BY 1`, sid, from, to),
     categories: await all(`SELECT COALESCE(c.name,'Sem categoria') name, COUNT(*) qty, SUM(si.net_cents) total FROM sale_items si JOIN sales s ON s.id=si.sale_id
                       LEFT JOIN services sv ON sv.id=si.service_id LEFT JOIN categories c ON c.id=sv.category_id
-                     WHERE ${ACTIVE} AND si.kind='service' GROUP BY 1 ORDER BY 3 DESC`, sid, from, to),
+                     WHERE ${ACTIVE}${byProf(pro)} AND si.kind='service' GROUP BY 1 ORDER BY 3 DESC`, sid, from, to),
   };
 });
 
 /** Relatório de gestão: respostas diretas às perguntas da dona do salão. */
-route('GET', '/api/reports/management', OWNER, async ({ query, sid }) => {
+route('GET', '/api/reports/management', ADMIN, async ({ query, sid }) => {
   const { from, to } = V.range(query);
   const prev = prevPeriod(from, to);
   const days = Math.max(30, V.int(query.inactive_days, 'Dias sem retorno', { min: 30, max: 365 }) || 60);
@@ -148,8 +179,20 @@ route('GET', '/api/reports/management', OWNER, async ({ query, sid }) => {
                      WHERE c.salon_id=? AND c.active=1 AND substr(s.created_at,1,10)<=? GROUP BY c.id HAVING last_visit < ? ORDER BY spent DESC`, sid, to, cutoff);
   const visits = await get(`SELECT COUNT(*) total, COUNT(CASE WHEN status='cancelled' THEN 1 END) cancelled, COUNT(CASE WHEN status='no_show' THEN 1 END) no_show,
                         COUNT(CASE WHEN status='completed' THEN 1 END) completed FROM visits WHERE salon_id=? AND date BETWEEN ? AND ?`, sid, from, to);
+  // clientes que voltaram mais de uma vez no período
+  const recurring = (await get(`SELECT COUNT(*) n FROM (SELECT client_id FROM sales s WHERE ${ACTIVE} AND client_id IS NOT NULL GROUP BY client_id HAVING COUNT(*) >= 2)`, sid, from, to)).n;
+  // evolução: últimos 6 meses até o fim do período
+  const evolution = [];
+  for (let i = 5; i >= 0; i--) {
+    let r = monthRange(to);
+    for (let k = 0; k < i; k++) r = monthRange(addDays(r.from, -1));
+    const sm = await salesSummary(sid, r.from, r.to);
+    const ex = (await get('SELECT COALESCE(SUM(amount_cents),0) v FROM expenses WHERE salon_id=? AND due_date BETWEEN ? AND ?', sid, r.from, r.to)).v;
+    evolution.push({ month: r.from.slice(0, 7), revenue: sm.revenue, expenses: ex });
+  }
   return {
-    from, to, previous: prev, inactive_days: days,
+    from, to, previous: prev, inactive_days: days, recurring_clients: recurring, evolution,
+    professionals: await byPro(sid, from, to), products: await topProducts(sid, from, to, 8), services: await topServices(sid, from, to, 8),
     sales: cur, sales_prev: last, finance: fin, finance_prev: finPrev,
     change: { revenue: pctChange(cur.revenue, last.revenue), profit: pctChange(fin.profit, finPrev.profit), ticket: pctChange(cur.ticket_avg, last.ticket_avg), expenses: pctChange(fin.expenses, finPrev.expenses) },
     top_service: (await topServices(sid, from, to, 1))[0] || null, top_product: (await topProducts(sid, from, to, 1))[0] || null,

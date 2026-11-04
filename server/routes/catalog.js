@@ -1,6 +1,7 @@
-import { route, HttpError, OWNER, ALL } from '../http.js';
+import { route, HttpError, ADMIN, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run, tx } from '../db.js';
+import { imageRef } from './images.js';
 
 // Comissão: 'pct' guarda percentual (ex.: 40); 'fixed' guarda centavos por atendimento.
 function commission(type, value, label, { req = false } = {}) {
@@ -12,14 +13,15 @@ function commission(type, value, label, { req = false } = {}) {
 
 // ---- Profissionais ----
 const proSelect = `SELECT id,name,specialty,phone,color,work_days,start_time,end_time,break_start,break_end,
-  commission_type,commission_value,product_commission_pct,active FROM professionals`;
+  commission_type,commission_value,product_commission_pct,active,photo,
+  CASE WHEN photo IS NULL THEN NULL ELSE '/api/images/' || photo END AS photo_url FROM professionals`;
 
 route('GET', '/api/professionals', ALL, async ({ sid, user }) => {
   if (user.role === 'pro') return await all(`${proSelect} WHERE salon_id=? AND id=?`, sid, user.professional_id);
   return await all(`${proSelect} WHERE salon_id=? ORDER BY active DESC, name`, sid);
 });
 
-function proFields(b) {
+async function proFields(b, sid) {
   const days = [...new Set(String(b.work_days ?? '').split(',').filter((x) => x !== '').map((x) => V.int(x, 'Dia da semana', { min: 0, max: 6 })))].sort();
   const start = V.time(b.start_time, 'Início do expediente', { req: true });
   const end = V.time(b.end_time, 'Fim do expediente', { req: true });
@@ -35,39 +37,40 @@ function proFields(b) {
     color: /^#[0-9a-fA-F]{6}$/.test(b.color || '') ? b.color : '#b4548c',
     work_days: days.join(','), start, end, bs, be, c,
     pp: V.num(b.product_commission_pct ?? 0, 'Comissão de produtos', { min: 0, max: 100 }),
+    photo: await imageRef(b.photo, sid),
   };
 }
-route('POST', '/api/professionals', OWNER, async ({ body, sid }) => {
-  const f = proFields(body);
+route('POST', '/api/professionals', ADMIN, async ({ body, sid }) => {
+  const f = await proFields(body, sid);
   return {
-    id: (await run(`INSERT INTO professionals(salon_id,name,specialty,phone,color,work_days,start_time,end_time,break_start,break_end,commission_type,commission_value,product_commission_pct)
-             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, sid, f.name, f.specialty, f.phone, f.color, f.work_days, f.start, f.end, f.bs, f.be, f.c.type, f.c.value, f.pp)).id,
+    id: (await run(`INSERT INTO professionals(salon_id,name,specialty,phone,color,work_days,start_time,end_time,break_start,break_end,commission_type,commission_value,product_commission_pct,photo)
+             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, sid, f.name, f.specialty, f.phone, f.color, f.work_days, f.start, f.end, f.bs, f.be, f.c.type, f.c.value, f.pp, f.photo)).id,
   };
 });
-route('PUT', '/api/professionals/:id', OWNER, async ({ params, body, sid }) => {
+route('PUT', '/api/professionals/:id', ADMIN, async ({ params, body, sid }) => {
   if (!await get('SELECT 1 x FROM professionals WHERE id=? AND salon_id=?', params.id, sid)) throw new HttpError(404, 'Profissional não encontrada.');
-  const f = proFields(body);
+  const f = await proFields(body, sid);
   await run(`UPDATE professionals SET name=?,specialty=?,phone=?,color=?,work_days=?,start_time=?,end_time=?,break_start=?,break_end=?,
-       commission_type=?,commission_value=?,product_commission_pct=?,active=? WHERE id=?`,
-    f.name, f.specialty, f.phone, f.color, f.work_days, f.start, f.end, f.bs, f.be, f.c.type, f.c.value, f.pp, V.bool(body.active ?? 1), params.id);
+       commission_type=?,commission_value=?,product_commission_pct=?,active=?,photo=? WHERE id=?`,
+    f.name, f.specialty, f.phone, f.color, f.work_days, f.start, f.end, f.bs, f.be, f.c.type, f.c.value, f.pp, V.bool(body.active ?? 1), f.photo, params.id);
   return { ok: true };
 });
 
 // ---- Categorias ----
 route('GET', '/api/categories', ALL, async ({ sid }) => await all('SELECT id,name FROM categories WHERE salon_id=? ORDER BY name', sid));
-route('POST', '/api/categories', OWNER, async ({ body, sid }) => {
+route('POST', '/api/categories', ADMIN, async ({ body, sid }) => {
   const name = V.str(body.name, 'Nome', { req: true, max: 40 });
   if (await get('SELECT 1 x FROM categories WHERE salon_id=? AND name=?', sid, name)) throw new HttpError(409, 'Essa categoria já existe.');
   return { id: (await run('INSERT INTO categories(salon_id,name) VALUES(?,?)', sid, name)).id };
 });
-route('PUT', '/api/categories/:id', OWNER, async ({ params, body, sid }) => {
+route('PUT', '/api/categories/:id', ADMIN, async ({ params, body, sid }) => {
   const name = V.str(body.name, 'Nome', { req: true, max: 40 });
   if (await get('SELECT 1 x FROM categories WHERE salon_id=? AND name=? AND id<>?', sid, name, params.id)) throw new HttpError(409, 'Essa categoria já existe.');
   const r = await run('UPDATE categories SET name=? WHERE id=? AND salon_id=?', name, params.id, sid);
   if (!r.changes) throw new HttpError(404, 'Categoria não encontrada.');
   return { ok: true };
 });
-route('DELETE', '/api/categories/:id', OWNER, async ({ params, sid }) => {
+route('DELETE', '/api/categories/:id', ADMIN, async ({ params, sid }) => {
   if (await get('SELECT 1 x FROM services WHERE category_id=? AND salon_id=?', params.id, sid))
     throw new HttpError(409, 'Há serviços nesta categoria. Mova-os antes de excluir.');
   await run('DELETE FROM categories WHERE id=? AND salon_id=?', params.id, sid);
@@ -77,7 +80,7 @@ route('DELETE', '/api/categories/:id', OWNER, async ({ params, sid }) => {
 // ---- Serviços ----
 async function loadServices(sid, where = '', ...p) {
   const list = await all(
-    `SELECT s.*, c.name AS category_name FROM services s LEFT JOIN categories c ON c.id=s.category_id
+    `SELECT s.*, c.name AS category_name, CASE WHEN s.photo IS NULL THEN NULL ELSE '/api/images/' || s.photo END AS photo_url FROM services s LEFT JOIN categories c ON c.id=s.category_id
       WHERE s.salon_id=? ${where} ORDER BY s.active DESC, c.name, s.name`, sid, ...p);
   const links = await all(
     `SELECT sp.service_id, sp.professional_id, sp.price_cents, sp.commission_type, sp.commission_value
@@ -102,28 +105,28 @@ async function serviceFields(b, sid) {
   return {
     name: V.str(b.name, 'Nome', { req: true, max: 80 }), category_id, description: V.str(b.description, 'Descrição', { max: 300 }),
     price: V.cents(b.price_cents, 'Preço', { req: true }), duration: V.int(b.duration_min, 'Duração (min)', { req: true, min: 5, max: 720 }),
-    c, online: V.bool(b.online), pros,
+    c, online: V.bool(b.online), pros, photo: await imageRef(b.photo, sid),
   };
 }
 async function saveLinks(serviceId, pros) {
   await run('DELETE FROM service_pros WHERE service_id=?', serviceId);
   for (const p of pros) await run('INSERT INTO service_pros(service_id,professional_id,price_cents,commission_type,commission_value) VALUES(?,?,?,?,?)', serviceId, p.pid, p.price, p.ct, p.cv);
 }
-route('POST', '/api/services', OWNER, async ({ body, sid }) => {
+route('POST', '/api/services', ADMIN, async ({ body, sid }) => {
   const f = await serviceFields(body, sid);
   return await tx(async () => {
-    const id = (await run(`INSERT INTO services(salon_id,category_id,name,description,price_cents,duration_min,commission_type,commission_value,online)
-                    VALUES(?,?,?,?,?,?,?,?,?)`, sid, f.category_id, f.name, f.description, f.price, f.duration, f.c.type, f.c.value, f.online)).id;
+    const id = (await run(`INSERT INTO services(salon_id,category_id,name,description,price_cents,duration_min,commission_type,commission_value,online,photo)
+                    VALUES(?,?,?,?,?,?,?,?,?,?)`, sid, f.category_id, f.name, f.description, f.price, f.duration, f.c.type, f.c.value, f.online, f.photo)).id;
     await saveLinks(id, f.pros);
     return { id };
   });
 });
-route('PUT', '/api/services/:id', OWNER, async ({ params, body, sid }) => {
+route('PUT', '/api/services/:id', ADMIN, async ({ params, body, sid }) => {
   if (!await get('SELECT 1 x FROM services WHERE id=? AND salon_id=?', params.id, sid)) throw new HttpError(404, 'Serviço não encontrado.');
   const f = await serviceFields(body, sid);
   await tx(async () => {
-    await run(`UPDATE services SET category_id=?,name=?,description=?,price_cents=?,duration_min=?,commission_type=?,commission_value=?,online=?,active=? WHERE id=?`,
-      f.category_id, f.name, f.description, f.price, f.duration, f.c.type, f.c.value, f.online, V.bool(body.active ?? 1), params.id);
+    await run(`UPDATE services SET category_id=?,name=?,description=?,price_cents=?,duration_min=?,commission_type=?,commission_value=?,online=?,active=?,photo=? WHERE id=?`,
+      f.category_id, f.name, f.description, f.price, f.duration, f.c.type, f.c.value, f.online, V.bool(body.active ?? 1), f.photo, params.id);
     await saveLinks(Number(params.id), f.pros);
   });
   return { ok: true };

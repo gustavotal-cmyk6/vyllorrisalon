@@ -74,12 +74,15 @@ route('GET', '/api/clients/:id', ALL, async ({ params, sid, user }) => {
                    FROM clients c WHERE c.id=? AND c.salon_id=?`, params.id, sid);
   if (!c) throw new HttpError(404, 'Cliente não encontrada.');
   const money = seeMoney(user);
-  const sales = await all(`SELECT id, substr(created_at,1,10) AS date, total_cents FROM sales WHERE client_id=? AND status='active' ORDER BY created_at DESC LIMIT 100`, c.id);
+  const sales = await all(`SELECT id, substr(created_at,1,10) AS date, total_cents, discount_cents,
+      (SELECT COALESCE(SUM(amount_cents),0) FROM payments WHERE sale_id=sales.id) AS paid_cents,
+      (SELECT GROUP_CONCAT(DISTINCT method) FROM payments WHERE sale_id=sales.id) AS methods
+      FROM sales WHERE client_id=? AND status='active' ORDER BY created_at DESC LIMIT 100`, c.id);
   const items = await all(`SELECT si.sale_id, si.kind, si.name, si.service_id, si.qty, si.net_cents, p.name AS pro_name, si.professional_id
                        FROM sale_items si LEFT JOIN professionals p ON p.id=si.professional_id
                       WHERE si.sale_id IN (SELECT id FROM sales WHERE client_id=? AND status='active')`, c.id);
   const history = sales.map((s) => ({
-    ...s, total_cents: money ? s.total_cents : undefined,
+    ...s, total_cents: money ? s.total_cents : undefined, paid_cents: money ? s.paid_cents : undefined, discount_cents: money ? s.discount_cents : undefined, methods: money ? s.methods : undefined,
     items: items.filter((i) => i.sale_id === s.id).map((i) => ({ ...i, net_cents: money ? i.net_cents : undefined })),
   }));
   // última vez de cada serviço, serviços favoritos e profissional habitual

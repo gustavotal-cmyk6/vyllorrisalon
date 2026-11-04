@@ -1,5 +1,5 @@
 // Fechar conta: serviços da visita + produtos + desconto + pagamento (inclusive dividido) em uma única tela.
-import { state, GET, POST, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, can, fmtDate, todayStr } from '../core.js';
+import { state, GET, POST, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, can, fmtDate, todayStr , ic } from '../core.js';
 import { clientPicker } from './visits.js';
 
 export async function openCheckout({ visit = null, client = null, onDone = () => {} } = {}) {
@@ -24,9 +24,9 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
       <h3 style="margin:4px 0 8px">Itens</h3>
       <ul class="list" data-lines></ul>
       <div class="row" style="margin-top:8px">
-        <label class="field"><span>＋ Serviço</span><select data-add-svc><option value="">Adicionar serviço…</option>
+        <label class="field"><span>${ic('plus', 16)}  Serviço</span><select data-add-svc><option value="">Adicionar serviço…</option>
           ${state.services.map((s) => `<option value="${s.id}">${esc(s.name)} · ${money(s.price_cents)}</option>`).join('')}</select></label>
-        ${products.length ? `<label class="field"><span>＋ Produto</span><select data-add-prd><option value="">Adicionar produto…</option>
+        ${products.length ? `<label class="field"><span>${ic('plus', 16)}  Produto</span><select data-add-prd><option value="">Adicionar produto…</option>
           ${products.map((p) => `<option value="${p.id}" ${p.stock <= 0 ? 'disabled' : ''}>${esc(p.name)} · ${money(p.price_cents)} (${p.stock} ${esc(p.unit)})</option>`).join('')}</select></label>` : '<div></div>'}
       </div>
       ${products.length && !myPro ? `<label class="field"><span>Quem vendeu os produtos <small>(para comissão)</small></span><select name="seller"><option value="">Ninguém / recepção</option>
@@ -37,9 +37,9 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
       <div class="total-box" data-total></div>
       <h3 style="margin:8px 0">Pagamento</h3>
       <div data-pays></div>
-      <div class="actions" style="justify-content:space-between;margin-top:4px"><button type="button" class="btn sm" data-split>＋ Dividir em outra forma</button><button type="button" class="btn sm ghost" data-later>Cliente paga depois</button></div>
+      <div class="actions" style="justify-content:space-between;margin-top:4px"><button type="button" class="btn sm" data-split>${ic('plus', 16)}  Dividir em outra forma</button><button type="button" class="btn sm ghost" data-later>Cliente paga depois</button></div>
       <div data-rest class="small" style="margin-top:6px"></div>
-      <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="submit" class="btn ok">✓ Concluir</button></div>
+      <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="submit" class="btn ok">${ic('check', 16)}  Concluir</button></div>
     </form>`,
     onMount(el, close) {
       const form = el.querySelector('form');
@@ -60,12 +60,12 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
 
       function renderLines() {
         linesBox.innerHTML = lines.length ? lines.map((l, i) => `<li>
-          <div class="grow"><div class="title">${l.kind === 'product' ? '🧴 ' : '✂️ '}${esc(l.name)}</div>
+          <div class="grow"><div class="title">${l.kind === 'product' ? ic('box', 18) + ' ' : ic('scissors', 18) + ' '}${esc(l.name)}</div>
             <div class="meta">${l.kind === 'service'
               ? (l.visit_item_id ? esc(l.pro_name) : `<select data-pro="${i}" style="min-height:34px;padding:4px 8px">${state.pros.filter((p) => p.active && state.services.find((s) => s.id === l.service_id)?.pros.some((x) => x.professional_id === p.id)).map((p) => `<option value="${p.id}" ${p.id === l.professional_id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`)
               : `Qtd. <input data-qty="${i}" value="${l.qty}" inputmode="decimal" style="width:60px;min-height:32px;padding:4px 6px">`}</div></div>
           <input data-price="${i}" value="${moneyIn(l.price)}" inputmode="decimal" style="width:96px;text-align:right" aria-label="Preço">
-          ${l.visit_item_id ? '' : `<button type="button" class="icon-btn" data-rm="${i}" aria-label="Remover">✕</button>`}</li>`).join('')
+          ${l.visit_item_id ? '' : `<button type="button" class="icon-btn" data-rm="${i}" aria-label="Remover">${ic('x', 16)} </button>`}</li>`).join('')
           : '<li class="muted small">Adicione serviços ou produtos.</li>';
         linesBox.querySelectorAll('[data-price]').forEach((inp) => inp.addEventListener('input', () => ((lines[inp.dataset.price].price = toCents(inp.value)), renderTotal())));
         linesBox.querySelectorAll('[data-qty]').forEach((inp) => inp.addEventListener('input', () => ((lines[inp.dataset.qty].qty = Number(inp.value.replace(',', '.')) || 0), renderTotal())));
@@ -91,7 +91,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
         box.innerHTML = payments.map((p, i) => `<div class="pay-line">
           <select data-m="${i}">${state.methods.map((m) => `<option ${m.name === p.method ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
           <input data-v="${i}" inputmode="decimal" value="${moneyIn(p.amount)}" aria-label="Valor">
-          ${payments.length > 1 ? `<button type="button" class="icon-btn" data-x="${i}">✕</button>` : '<span></span>'}</div>`).join('');
+          ${payments.length > 1 ? `<button type="button" class="icon-btn" data-x="${i}">${ic('x', 16)} </button>` : '<span></span>'}</div>`).join('');
         box.querySelectorAll('[data-m]').forEach((s) => (s.onchange = () => (payments[s.dataset.m].method = s.value)));
         box.querySelectorAll('[data-v]').forEach((inp) => inp.addEventListener('input', () => {
           Object.assign(payments[inp.dataset.v], { amount: toCents(inp.value), touched: true });
@@ -104,7 +104,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
         const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
         const rest = total() - paid;
         el.querySelector('[data-rest]').innerHTML = rest > 0 ? `<span class="warn-t">Fica pendente: <b>${money(rest)}</b> (a receber da cliente)</span>`
-          : rest < 0 ? `<span class="err-t">Pagamentos passam do total em ${money(-rest)}. Troco: informe só o valor da conta.</span>` : '<span class="ok-t">✓ Pagamento completo</span>';
+          : rest < 0 ? `<span class="err-t">Pagamentos passam do total em ${money(-rest)}. Troco: informe só o valor da conta.</span>` : `<span class="ok-t">${ic('check', 16)} Pagamento completo</span>`;
       }
 
       el.querySelector('[data-add-svc]').onchange = (e) => {
@@ -165,7 +165,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
             payments: payments.map((p) => ({ method: p.method, amount_cents: p.amount || 0 })),
           });
           close();
-          toast(sale.pending_cents ? `Venda registrada · pendente ${money(sale.pending_cents)}` : `Venda de ${money(sale.total_cents)} registrada ✓`);
+          toast(sale.pending_cents ? `Venda registrada · pendente ${money(sale.pending_cents)}` : `Venda de ${money(sale.total_cents)} registrada`);
           onDone(sale);
         }).catch(() => {});
       };
@@ -198,7 +198,7 @@ export async function openSale(id, onChange = () => {}) {
       <ul class="list">${s.payments.map((p) => `<li><div class="grow">${esc(p.method)}<div class="meta">${fmtDate(p.created_at)} ${p.created_at.slice(11, 16)}</div></div><b>${money(p.amount_cents)}</b></li>`).join('') || '<li class="muted small">Nenhum pagamento ainda.</li>'}</ul>
       ${can.owner() ? '<p class="legend">Comissões calculadas sobre o valor com desconto. Passe o mouse para ver a regra aplicada.</p>' : ''}
       <div class="actions">
-        ${s.status === 'active' && s.pending_cents && can.staff() ? '<button class="btn primary" data-receive>💰 Receber pendente</button>' : ''}
+        ${s.status === 'active' && s.pending_cents && can.staff() ? `<button class="btn primary" data-receive>${ic('coin', 16)}  Receber pendente</button>` : ''}
         ${s.status === 'active' && can.owner() ? '<button class="btn danger" data-void>Estornar venda</button>' : ''}
       </div>`,
     onMount(el, close) {
@@ -235,7 +235,7 @@ export function receive(s, onChange = () => {}) {
           if (!(amount > 0)) throw new Error('Valor inválido');
           await POST(`/api/sales/${s.id}/payments`, { payments: [{ method: f.method.value, amount_cents: amount }] });
           close();
-          toast('Recebimento registrado ✓');
+          toast('Recebimento registrado');
           onChange();
         }).catch(() => {});
       };

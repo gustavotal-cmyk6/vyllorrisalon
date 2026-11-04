@@ -1,4 +1,6 @@
 // Utilitários compartilhados da interface: API, formatação, modais, avisos e roteamento.
+import { ic } from './icons.js';
+export { ic };
 export const state = { user: null, methods: [], pros: [], services: [], categories: [] };
 
 export class ApiError extends Error {
@@ -79,10 +81,10 @@ export const waLink = (p, text = '') => {
   return d ? `https://wa.me/${d.length <= 11 ? '55' + d : d}${text ? '?text=' + encodeURIComponent(text) : ''}` : null;
 };
 export const pct = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${String(v).replace('.', ',')}%`);
-export const initials = (n) => (n || '?').split(/\s+/).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
+export const initials = (n) => (String(n || '?').match(/\p{L}[\p{L}'-]*/gu) || ['?']).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 
 export const STATUS = {
-  scheduled: { label: 'Agendado', cls: 'st-scheduled' },
+  scheduled: { label: 'A confirmar', cls: 'st-scheduled' },
   confirmed: { label: 'Confirmado', cls: 'st-confirmed' },
   waiting: { label: 'Chegou', cls: 'st-waiting' },
   in_progress: { label: 'Em atendimento', cls: 'st-progress' },
@@ -93,9 +95,79 @@ export const STATUS = {
 export const badge = (s) => `<span class="badge ${STATUS[s]?.cls}">${STATUS[s]?.label || s}</span>`;
 export const can = {
   owner: () => state.user?.role === 'owner',
-  staff: () => ['owner', 'reception'].includes(state.user?.role),
+  // proprietária ou gerente: gestão completa (financeiro, comissões, equipe, relatórios)
+  admin: () => ['owner', 'manager'].includes(state.user?.role),
+  staff: () => ['owner', 'manager', 'reception'].includes(state.user?.role),
   pro: () => state.user?.role === 'pro',
 };
+export const ROLE_LABEL = { owner: 'Proprietária', manager: 'Gerente', reception: 'Recepção', pro: 'Profissional' };
+
+/** Avatar com foto ou iniciais; a cor do degradê varia com o nome. */
+const AV_GRADS = [['#9d5ce8', '#ef6cb2'], ['#5b17a6', '#9d5ce8'], ['#d63d92', '#f6a5cf'], ['#7a2fd0', '#c6a4f1'], ['#4e1590', '#d63d92']];
+export function avatar(name, photo = null, cls = '') {
+  if (photo) return `<span class="avatar ${cls}"><img src="${esc(photo)}" alt="" loading="lazy"></span>`;
+  const n = [...String(name || '?')].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_GRADS.length;
+  return `<span class="avatar ${cls}" style="background:linear-gradient(140deg,${AV_GRADS[n][0]},${AV_GRADS[n][1]})">${esc(initials(name))}</span>`;
+}
+
+/** Reduz a foto no próprio aparelho e envia; devolve { id, url }. */
+export function pickImage({ max = 900, square = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/webp';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return resolve(null);
+      try {
+        const img = await new Promise((ok, bad) => {
+          const i = new Image();
+          i.onload = () => ok(i);
+          i.onerror = () => bad(new Error('Não foi possível ler esta imagem.'));
+          i.src = URL.createObjectURL(file);
+        });
+        let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+        if (square) {
+          const m = Math.min(sw, sh);
+          sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m;
+        }
+        const scale = Math.min(1, max / Math.max(sw, sh));
+        const c = document.createElement('canvas');
+        c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+        c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(img.src);
+        resolve(await POST('/api/images', { data: c.toDataURL('image/jpeg', 0.84) }));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    input.click();
+  });
+}
+/** Campo de foto reutilizável: devolve { get() } com o id atual. */
+export function photoField(box, { current = null, label = 'Foto', round = false, wide = false, max = 900 } = {}) {
+  let value = current;
+  const draw = () => {
+    box.innerHTML = `<div class="photo-pick"><div class="ph ${round ? 'round' : ''} ${wide ? 'wide' : ''}">${value ? `<img src="${esc(value)}" alt="">` : ic('camera', 26)}</div>
+      <div class="c" style="display:flex;flex-direction:column;gap:6px"><b class="small">${esc(label)}</b><div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn sm soft" data-up>${ic('image', 16)} ${value ? 'Trocar' : 'Enviar foto'}</button>${value ? '<button type="button" class="btn sm ghost" data-rm>Remover</button>' : ''}</div></div></div>`;
+    box.querySelector('[data-up]').onclick = async (e) => {
+      const b = e.currentTarget;
+      b.disabled = true;
+      try {
+        const r = await pickImage({ max, square: round });
+        if (r) (value = r.url), draw();
+      } catch (err) {
+        fail(err);
+      } finally {
+        b.disabled = false;
+      }
+    };
+    box.querySelector('[data-rm]')?.addEventListener('click', () => ((value = null), draw()));
+  };
+  draw();
+  return { get: () => value };
+}
 
 // ---- Avisos ----
 export function toast(msg, type = 'ok') {
@@ -116,7 +188,7 @@ export function modal({ title, body, wide = false, onMount }) {
   const wrap = document.createElement('div');
   wrap.className = 'modal-wrap';
   wrap.innerHTML = `<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <header><h2>${esc(title)}</h2><button class="icon-btn" data-close aria-label="Fechar">✕</button></header>
+    <header><h2>${esc(title)}</h2><button class="icon-btn" data-close aria-label="Fechar">${ic('x', 20)}</button></header>
     <div class="modal-body">${body}</div></div>`;
   document.body.appendChild(wrap);
   document.body.classList.add('no-scroll');
@@ -209,7 +281,12 @@ export function bind(root, handlers) {
 }
 
 export const loading = () => '<div class="loading"><span class="spin"></span> Carregando…</div>';
-export const empty = (text, action = '') => `<div class="empty"><p>${esc(text)}</p>${action}</div>`;
+/** Faixa roxa de título da página. */
+export const pageHead = (title, sub = '', actions = '', extra = '') =>
+  `<div class="page-head"><div style="position:relative;z-index:1;min-width:0">${extra}<h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`;
+export const empty = (text, action = '', icon = 'sparkle') => `<div class="empty"><div class="e-ic">${ic(icon, 26)}</div><p>${esc(text)}</p>${action}</div>`;
+/** Selo de variação percentual (verde subiu, vermelho caiu). */
+export const trend = (v, suffix = '') => (v == null ? '' : `<span class="trend ${v > 0 ? 'up' : v < 0 ? 'down' : 'flat'}">${ic(v >= 0 ? 'trendUp' : 'trendDown', 13)} ${pct(v)}${suffix}</span>`);
 
 export function periodPicker(id, current = 'month') {
   return `<div class="period" id="${id}">

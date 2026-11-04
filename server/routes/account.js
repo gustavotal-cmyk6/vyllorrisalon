@@ -6,6 +6,7 @@ import {
   throttleLogin, clearThrottle, publicUser, loadUser, slugify,
 } from '../auth.js';
 import { nowStr } from '../util.js';
+import { imageRef, imageUrl } from './images.js';
 
 const strongPw = (pw) => {
   if (typeof pw !== 'string' || pw.length < 8) throw new HttpError(400, 'A senha deve ter pelo menos 8 caracteres.');
@@ -54,10 +55,31 @@ route('POST', '/api/me/password', ALL, async ({ body, user }) => {
 });
 
 // ---- Configurações do salão ----
-route('GET', '/api/salon', OWNER, async ({ sid }) => get('SELECT id,name,slug,booking_enabled FROM salons WHERE id=?', sid));
+export async function salonProfile(sid) {
+  const s = await get(`SELECT id,name,slug,booking_enabled,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
+                         FROM salons WHERE id=?`, sid);
+  let gallery = [];
+  try {
+    gallery = JSON.parse(s.gallery || '[]');
+  } catch {}
+  return { ...s, logo_url: imageUrl(s.logo), cover_url: imageUrl(s.cover_photo), gallery, gallery_urls: gallery.map(imageUrl) };
+}
+route('GET', '/api/salon', OWNER, async ({ sid }) => salonProfile(sid));
 route('PUT', '/api/salon', OWNER, async ({ body, sid }) => {
   await run('UPDATE salons SET name=? WHERE id=?', V.str(body.name, 'Nome do salão', { req: true, max: 80 }), sid);
   return { ok: true };
+});
+/** Perfil público: apresentação, contato, fotos e regra de cancelamento. */
+route('PUT', '/api/salon/profile', OWNER, async ({ body, sid }) => {
+  const gallery = [];
+  for (const g of (Array.isArray(body.gallery) ? body.gallery : []).slice(0, 8)) gallery.push(await imageRef(g, sid));
+  await run(`UPDATE salons SET name=?, description=?, address=?, phone=?, instagram=?, opening_hours=?, logo=?, cover_photo=?, gallery=?, cancel_hours=? WHERE id=?`,
+    V.str(body.name, 'Nome do salão', { req: true, max: 80 }), V.str(body.description, 'Apresentação', { max: 600 }),
+    V.str(body.address, 'Endereço', { max: 200 }), V.phone(body.phone, 'WhatsApp do salão'),
+    V.str(body.instagram, 'Instagram', { max: 60 })?.replace(/^@/, '') || null, V.str(body.opening_hours, 'Horário de funcionamento', { max: 200 }),
+    await imageRef(body.logo, sid), await imageRef(body.cover_photo, sid), JSON.stringify(gallery.filter(Boolean)),
+    V.int(body.cancel_hours ?? 12, 'Antecedência para cancelar', { min: 0, max: 168 }), sid);
+  return salonProfile(sid);
 });
 /** Agendamento online: liga/desliga e define o endereço público. */
 route('PUT', '/api/salon/booking', OWNER, async ({ body, sid }) => {
@@ -88,7 +110,7 @@ route('GET', '/api/users', OWNER, async ({ sid }) =>
          FROM users u LEFT JOIN professionals p ON p.id=u.professional_id WHERE u.salon_id=? ORDER BY u.id`, sid));
 
 async function userFields(body, sid) {
-  const role = V.oneOf(body.role, ['owner', 'reception', 'pro'], 'Perfil', { req: true });
+  const role = V.oneOf(body.role, ['owner', 'manager', 'reception', 'pro'], 'Perfil', { req: true });
   let professional_id = null;
   if (role === 'pro') {
     professional_id = V.int(body.professional_id, 'Profissional', { req: true });

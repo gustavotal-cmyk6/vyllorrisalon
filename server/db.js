@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS professionals(
 CREATE TABLE IF NOT EXISTS users(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id),
   name TEXT NOT NULL, email TEXT NOT NULL UNIQUE COLLATE NOCASE, pass_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('owner','reception','pro')),
+  role TEXT NOT NULL CHECK(role IN ('owner','manager','reception','pro')),
   professional_id INTEGER REFERENCES professionals(id), active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(
   token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires_at INTEGER NOT NULL);
@@ -113,6 +113,14 @@ CREATE TABLE IF NOT EXISTS expenses(
   recurring_id INTEGER REFERENCES recurring_expenses(id), ref_month TEXT, created_at TEXT NOT NULL,
   UNIQUE(recurring_id, ref_month));
 CREATE INDEX IF NOT EXISTS ix_expenses_due ON expenses(salon_id, due_date);
+-- imagens (fotos de profissionais, serviços, salão), servidas por um identificador aleatório
+CREATE TABLE IF NOT EXISTS images(
+  id TEXT PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), mime TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL);
+-- fechamento de caixa diário
+CREATE TABLE IF NOT EXISTS cash_closings(
+  id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), date TEXT NOT NULL,
+  expected_cash_cents INTEGER NOT NULL, counted_cash_cents INTEGER NOT NULL, total_in_cents INTEGER NOT NULL,
+  notes TEXT, created_by INTEGER, created_at TEXT NOT NULL, UNIQUE(salon_id, date));
 `;
 
 export const ready = (async () => {
@@ -123,9 +131,45 @@ export const ready = (async () => {
     'ALTER TABLE salons ADD COLUMN slug TEXT',
     'ALTER TABLE salons ADD COLUMN booking_enabled INTEGER NOT NULL DEFAULT 0',
     "ALTER TABLE visits ADD COLUMN source TEXT NOT NULL DEFAULT 'internal'",
+    'ALTER TABLE visits ADD COLUMN public_token TEXT',
+    'ALTER TABLE professionals ADD COLUMN photo TEXT',
+    'ALTER TABLE services ADD COLUMN photo TEXT',
+    'ALTER TABLE products ADD COLUMN category TEXT',
+    // perfil público do salão
+    'ALTER TABLE salons ADD COLUMN description TEXT',
+    'ALTER TABLE salons ADD COLUMN address TEXT',
+    'ALTER TABLE salons ADD COLUMN phone TEXT',
+    'ALTER TABLE salons ADD COLUMN instagram TEXT',
+    'ALTER TABLE salons ADD COLUMN opening_hours TEXT',
+    'ALTER TABLE salons ADD COLUMN logo TEXT',
+    'ALTER TABLE salons ADD COLUMN cover_photo TEXT',
+    "ALTER TABLE salons ADD COLUMN gallery TEXT NOT NULL DEFAULT '[]'",
+    'ALTER TABLE salons ADD COLUMN cancel_hours INTEGER NOT NULL DEFAULT 12',
   ])
     await client.execute(sql).catch(() => {});
   await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_salons_slug ON salons(slug)');
+  await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_visits_token ON visits(public_token)');
+  // perfil "gerente": bancos antigos têm a restrição de papéis sem ele; recria a tabela preservando os dados
+  const users = (await client.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")).rows[0];
+  if (users && !String(users[0]).includes("'manager'")) {
+    await client.executeMultiple(`PRAGMA foreign_keys=OFF;
+      BEGIN;
+      CREATE TABLE users_new(
+        id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id),
+        name TEXT NOT NULL, email TEXT NOT NULL UNIQUE COLLATE NOCASE, pass_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('owner','manager','reception','pro')),
+        professional_id INTEGER REFERENCES professionals(id), active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
+      INSERT INTO users_new(id,salon_id,name,email,pass_hash,role,professional_id,active,created_at)
+        SELECT id,salon_id,name,email,pass_hash,role,professional_id,active,created_at FROM users;
+      CREATE TABLE sessions_keep AS SELECT * FROM sessions;
+      DELETE FROM sessions;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+      INSERT INTO sessions SELECT * FROM sessions_keep;
+      DROP TABLE sessions_keep;
+      COMMIT;
+      PRAGMA foreign_keys=ON;`);
+  }
 })();
 
 const clean = (a) => a.map((x) => (x === undefined ? null : typeof x === 'boolean' ? (x ? 1 : 0) : x));

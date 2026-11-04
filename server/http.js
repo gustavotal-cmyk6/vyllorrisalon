@@ -66,5 +66,7 @@ export async function dispatch(req, url, loadUser) {
 }
 
 export const OWNER = ['owner'];
-export const STAFF = ['owner', 'reception'];
+// gerente: tudo da proprietária, exceto configurações do salão e acessos da equipe
+export const ADMIN = ['owner', 'manager'];
+export const STAFF = ['owner', 'manager', 'reception'];
 export const ALL = 'any';

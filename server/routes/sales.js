@@ -1,4 +1,4 @@
-import { route, HttpError, OWNER, STAFF, ALL } from '../http.js';
+import { route, HttpError, ADMIN, STAFF, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run, tx } from '../db.js';
 import { nowStr, today } from '../util.js';
@@ -190,7 +190,7 @@ route('POST', '/api/sales/:id/payments', STAFF, async ({ params, body, sid, user
 });
 
 /** Estorno: retira a venda de todos os indicadores, devolve estoque e reabre o atendimento. */
-route('POST', '/api/sales/:id/void', OWNER, async ({ params, body, sid, user }) => {
+route('POST', '/api/sales/:id/void', ADMIN, async ({ params, body, sid, user }) => {
   return await tx(async () => {
     const s = await saleDetail(sid, params.id);
     if (s.status !== 'active') throw new HttpError(409, 'Venda já estornada.');

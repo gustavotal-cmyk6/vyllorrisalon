@@ -15,6 +15,7 @@ import './routes/stock.js';
 import './routes/finance.js';
 import './routes/reports.js';
 import './routes/public.js';
+import './routes/images.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = {
@@ -25,7 +26,7 @@ const HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'same-origin',
-  'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'",
 };
 
 function send(res, status, body, headers = {}) {
@@ -48,6 +49,8 @@ export async function handler(req, res) {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
       const result = await dispatch(req, url, loadUser);
+      // respostas binárias (imagens)
+      if (result?.__raw) return send(res, 200, result.__raw.body, { 'Content-Type': result.__raw.type, 'Cache-Control': result.__raw.cache || 'no-store' });
       // handlers podem devolver { __cookie, data } para definir cookie de sessão
       const cookie = result?.__cookie;
       const out = cookie !== undefined ? result.data : result;

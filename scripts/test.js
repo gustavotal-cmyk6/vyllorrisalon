@@ -229,6 +229,48 @@ try {
     assert.equal(v.status, 'scheduled');
     const bad = await anon('POST', '/api/public/salao-teste/book', { service_id: manicure, start_at: `${day} 11:00`, name: 'X', phone: '11966665555' });
     assert.equal(bad.status, 400, 'serviço não liberado online');
+    // consulta e cancelamento pelo link da reserva
+    const look = ok(await anon('GET', `/api/public/salao-teste/booking/${b.token}`));
+    assert.equal(look.status, 'scheduled');
+    assert.equal(look.can_cancel, true);
+    const canc = ok(await anon('POST', `/api/public/salao-teste/booking/${b.token}/cancel`));
+    assert.equal(canc.status, 'cancelled');
+    assert.equal((await anon('GET', '/api/public/salao-teste/booking/' + 'f'.repeat(32))).status, 404);
+  });
+
+  await step('fotos, perfil público do salão e fechamento de caixa', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const img = ok(await owner('POST', '/api/images', { data: png }));
+    const pros = ok(await owner('GET', '/api/professionals'));
+    const bp = pros.find((p) => p.id === bia);
+    ok(await owner('PUT', `/api/professionals/${bia}`, { ...bp, photo: img.url }));
+    assert.equal(ok(await owner('GET', '/api/professionals')).find((p) => p.id === bia).photo_url, img.url);
+    const res = await fetch(`http://localhost:${PORT}${img.url}`);
+    assert.equal(res.headers.get('content-type'), 'image/png');
+    ok(await owner('PUT', '/api/salon/profile', { name: 'Salão Teste', address: 'Rua das Flores, 10', phone: '11 98888-0000', logo: img.id, gallery: [img.id], cancel_hours: 6 }));
+    const pub = ok(await client()('GET', '/api/public/salao-teste'));
+    assert.equal(pub.address, 'Rua das Flores, 10');
+    assert.equal(pub.gallery_urls.length, 1);
+    assert.ok(pub.professionals.some((p) => p.photo_url === img.url));
+    // imagem de outro salão não pode ser usada
+    const other = client();
+    ok(await other('POST', '/api/auth/signup', { salon_name: 'Terceiro', name: 'Lia', email: 'lia@x.com', password: 'senha1234' }));
+    assert.equal((await other('PUT', '/api/salon/profile', { name: 'Terceiro', logo: img.id })).status, 400);
+    const cash = ok(await owner('GET', `/api/finance/cash?date=${D}`));
+    assert.ok(cash.total_in > 0);
+    const closed = ok(await owner('POST', '/api/finance/cash', { date: D, counted_cash_cents: cash.expected_cash }));
+    assert.equal(closed.closing.counted_cash_cents, cash.expected_cash);
+  });
+
+  await step('perfil gerente: gestão sim, configurações não', async () => {
+    ok(await owner('POST', '/api/users', { name: 'Gê', email: 'gerente@teste.com', password: 'senha1234', role: 'manager' }));
+    const mgr = client();
+    ok(await mgr('POST', '/api/auth/login', { email: 'gerente@teste.com', password: 'senha1234' }));
+    ok(await mgr('GET', `/api/finance/summary?from=${D}&to=${D}`));
+    ok(await mgr('GET', `/api/commissions?from=${D}&to=${D}`));
+    ok(await mgr('GET', `/api/reports/management?from=${D}&to=${D}`));
+    assert.equal((await mgr('GET', '/api/users')).status, 403);
+    assert.equal((await mgr('PUT', '/api/salon/booking', { slug: 'x-y-z', enabled: true })).status, 403);
   });
 
   console.log(`\n${passed} cenários passaram.`);

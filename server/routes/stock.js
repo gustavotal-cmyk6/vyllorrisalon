@@ -1,4 +1,4 @@
-import { route, HttpError, OWNER, STAFF, ALL } from '../http.js';
+import { route, HttpError, ADMIN, STAFF, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run, tx } from '../db.js';
 import { nowStr } from '../util.js';
@@ -22,22 +22,23 @@ function fields(b) {
     cost: V.cents(b.cost_cents ?? 0, 'Custo') || 0,
     min: V.num(b.min_stock ?? 0, 'Estoque mínimo', { min: 0 }) || 0,
     cpct: V.num(b.commission_pct, 'Comissão (%)', { min: 0, max: 100 }),
+    category: V.str(b.category, 'Categoria', { max: 40 }),
   };
 }
-route('POST', '/api/products', OWNER, async ({ body, sid, user }) =>
+route('POST', '/api/products', ADMIN, async ({ body, sid, user }) =>
   await tx(async () => {
     const f = fields(body);
     const stock = V.num(body.stock ?? 0, 'Estoque inicial', { min: 0 }) || 0;
-    const id = (await run('INSERT INTO products(salon_id,name,kind,unit,price_cents,cost_cents,stock,min_stock,commission_pct) VALUES(?,?,?,?,?,?,?,?,?)',
-      sid, f.name, f.kind, f.unit, f.price, f.cost, stock, f.min, f.cpct)).id;
+    const id = (await run('INSERT INTO products(salon_id,name,kind,unit,price_cents,cost_cents,stock,min_stock,commission_pct,category) VALUES(?,?,?,?,?,?,?,?,?,?)',
+      sid, f.name, f.kind, f.unit, f.price, f.cost, stock, f.min, f.cpct, f.category)).id;
     if (stock) await run('INSERT INTO stock_moves(salon_id,product_id,type,qty,note,created_by,created_at) VALUES(?,?,?,?,?,?,?)', sid, id, 'in', stock, 'Estoque inicial', user.id, nowStr());
     return { id };
   }));
-route('PUT', '/api/products/:id', OWNER, async ({ params, body, sid }) => {
+route('PUT', '/api/products/:id', ADMIN, async ({ params, body, sid }) => {
   if (!await get('SELECT 1 x FROM products WHERE id=? AND salon_id=?', params.id, sid)) throw new HttpError(404, 'Produto não encontrado.');
   const f = fields(body);
-  await run('UPDATE products SET name=?,kind=?,unit=?,price_cents=?,cost_cents=?,min_stock=?,commission_pct=?,active=? WHERE id=?',
-    f.name, f.kind, f.unit, f.price, f.cost, f.min, f.cpct, V.bool(body.active ?? 1), params.id);
+  await run('UPDATE products SET name=?,kind=?,unit=?,price_cents=?,cost_cents=?,min_stock=?,commission_pct=?,active=?,category=? WHERE id=?',
+    f.name, f.kind, f.unit, f.price, f.cost, f.min, f.cpct, V.bool(body.active ?? 1), f.category, params.id);
   return { ok: true };
 });
 

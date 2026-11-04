@@ -1,52 +1,72 @@
-import { state, GET, POST, PUT, DEL, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, empty, fmtDate, todayStr, periodPicker, mountPeriod, rangeLabel, bars } from '../core.js';
+import { state, GET, POST, PUT, DEL, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, empty, fmtDate, todayStr, periodPicker, mountPeriod, rangeLabel, bars, ic, avatar, pageHead } from '../core.js';
+import { openSale, receive } from './checkout.js';
 import { refresh } from '../app.js';
 
 const CATS = ['Aluguel', 'Energia', 'Água', 'Internet / telefone', 'Produtos', 'Materiais', 'Salários', 'Impostos', 'Marketing', 'Manutenção', 'Taxas de cartão', 'Outros'];
-const ui = { tab: 'bills', period: 'month' };
+const ui = { tab: 'summary', period: 'month', cashDate: null };
+const TABS = [['summary', 'Resumo'], ['bills', 'Contas a pagar'], ['receivable', 'A receber'], ['cash', 'Fluxo de caixa'], ['close', 'Fechar caixa'], ['rec', 'Despesas fixas']];
 
 export default async function finance(root, { query }) {
-  root.innerHTML = `<div class="page-head"><div><h1>Financeiro</h1><div class="sub">Faturamento, recebimentos, despesas e lucro estimado — cada um no seu lugar</div></div>
-    <button class="btn primary" data-new>＋ Lançar despesa</button></div>
-    ${periodPicker('per', ui.period)}<div data-sum></div>
-    <div class="tabs"><button data-tab="bills" class="${ui.tab === 'bills' ? 'on' : ''}">Contas a pagar</button><button data-tab="cash" class="${ui.tab === 'cash' ? 'on' : ''}">Fluxo de caixa</button><button data-tab="rec" class="${ui.tab === 'rec' ? 'on' : ''}">Despesas fixas (recorrentes)</button></div>
-    <div data-body></div>`;
+  root.innerHTML = `${pageHead('Financeiro', 'Faturamento, dinheiro recebido, despesas e lucro — cada um no seu lugar', `<button class="btn primary" data-new>${ic('plus', 18)} Lançar despesa</button>`)}
+    <div class="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${['summary', 'bills', 'cash'].includes(ui.tab) ? periodPicker('per', ui.period) : ''}<div data-body><div class="loading">Carregando…</div></div>`;
   root.querySelector('[data-new]').onclick = () => editExpense();
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), refresh())));
   root.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => (ui.period = b.dataset.p)));
   if (query.nova && !ui.opened) (ui.opened = true), editExpense();
-  mountPeriod(root, 'per', async (range) => {
-    const [s, body] = [await GET(`/api/finance/summary?from=${range.from}&to=${range.to}`), root.querySelector('[data-body]')];
-    root.querySelector('[data-sum]').innerHTML = summary(s, range);
-    if (ui.tab === 'bills') bills(body, range);
-    if (ui.tab === 'cash') cash(body, range);
-    if (ui.tab === 'rec') recurring(body);
-  }, ui.period === 'custom' ? 'month' : ui.period);
+  const body = root.querySelector('[data-body]');
+  if (ui.tab === 'receivable') return receivable(body);
+  if (ui.tab === 'close') return closeCash(body);
+  if (ui.tab === 'rec') return recurring(body);
+  mountPeriod(root, 'per', (range) => (ui.tab === 'summary' ? summary(body, range) : ui.tab === 'bills' ? bills(body, range) : cash(body, range)), ui.period === 'custom' ? 'month' : ui.period);
 }
 
-function summary(s, range) {
-  return `<div class="kpis">
-    <div class="kpi"><span>Faturamento</span><b>${money(s.revenue)}</b><small>serviços ${money(s.revenue_services)} · produtos ${money(s.revenue_products)}</small></div>
-    <div class="kpi"><span>Recebido (entrou no caixa)</span><b>${money(s.received)}</b><small>pagamentos no período</small></div>
-    <div class="kpi"><span>Despesas do período</span><b>${money(s.expenses)}</b><small>pagas ${money(s.expenses_paid)} · em aberto ${money(s.expenses_open)}</small></div>
-    <div class="kpi"><span>Comissões geradas</span><b>${money(s.commissions)}</b><small>pagas no período ${money(s.commissions_paid)}</small></div>
-    <div class="kpi"><span>Custo dos produtos vendidos</span><b>${money(s.product_cost)}</b></div>
-    <div class="kpi hl"><span>Lucro estimado</span><b>${money(s.profit)}</b><small>faturamento − custos − comissões − despesas</small></div>
-    <div class="kpi"><span>A receber de clientes</span><b>${money(s.receivable_total)}</b><small><a href="#/vendas?pendentes=1">ver pendências</a></small></div>
-    <div class="kpi"><span>Contas vencidas</span><b class="${s.payable_overdue ? 'err-t' : ''}">${money(s.payable_overdue)}</b><small>${s.payable_overdue_count} conta(s)</small></div>
+async function summary(body, range) {
+  const [s, c] = await Promise.all([GET(`/api/finance/summary?from=${range.from}&to=${range.to}`), GET(`/api/finance/cashflow?from=${range.from}&to=${range.to}`)]);
+  const margin = s.revenue ? Math.round((s.profit / s.revenue) * 1000) / 10 : 0;
+  body.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><span class="k-ic">${ic('receipt', 20)}</span><span>Faturamento</span><b>${money(s.revenue)}</b><span class="explain">Tudo que foi vendido no período, mesmo o que a cliente ainda vai pagar.</span></div>
+    <div class="kpi"><span class="k-ic">${ic('coin', 20)}</span><span>Recebido</span><b class="ok-t">${money(s.received)}</b><span class="explain">Dinheiro que de fato entrou (Pix, cartão, dinheiro…).</span></div>
+    <div class="kpi"><span class="k-ic">${ic('wallet', 20)}</span><span>Saldo do período</span><b class="${c.total_in - c.total_out < 0 ? 'err-t' : ''}">${money(c.total_in - c.total_out)}</b><span class="explain">Entradas menos saídas pagas (despesas e comissões).</span></div>
+    <div class="kpi hl"><span class="k-ic">${ic('sparkle', 20)}</span><span>Lucro estimado</span><b>${money(s.profit)}</b><span class="explain">${margin}% do faturamento, depois de custos, comissões e despesas.</span></div>
   </div>
-  ${s.expenses_by_category.length ? `<div class="card"><h2>Despesas por categoria <small class="muted">${rangeLabel(range)}</small></h2>${bars(s.expenses_by_category, { label: (x) => x.category })}</div>` : ''}`;
+  <div class="grid g2">
+    <div class="card"><h2>Como o lucro é calculado</h2><table class="t"><tbody>
+      <tr><td>Faturamento <span class="muted small">(serviços ${money(s.revenue_services)} + produtos ${money(s.revenue_products)})</span></td><td class="num"><b>${money(s.revenue)}</b></td></tr>
+      <tr><td>− Custo dos produtos vendidos</td><td class="num err-t">${money(s.product_cost)}</td></tr>
+      <tr><td>− Comissões das profissionais</td><td class="num err-t">${money(s.commissions)}</td></tr>
+      <tr><td>− Despesas do período</td><td class="num err-t">${money(s.expenses)}</td></tr>
+      <tr><td><b>= Lucro estimado</b></td><td class="num"><b class="${s.profit < 0 ? 'err-t' : 'ok-t'}">${money(s.profit)}</b></td></tr></tbody></table>
+      <p class="legend">${ic('info', 14)} Faturamento não é lucro, e recebimento não é faturamento: vendas pendentes contam no faturamento, mas só entram no caixa quando pagas.</p></div>
+    <div class="stack">
+      <div class="sum-strip">
+        <div><span>A receber de clientes</span><b class="warn-t">${money(s.receivable_total)}</b><small>todas as vendas pendentes</small></div>
+        <div><span>Contas em aberto</span><b>${money(s.expenses_open)}</b><small>despesas do período não pagas</small></div>
+        <div><span>Contas vencidas</span><b class="${s.payable_overdue ? 'err-t' : ''}">${money(s.payable_overdue)}</b><small>${s.payable_overdue_count} conta(s)</small></div>
+        <div><span>Comissões pagas</span><b>${money(s.commissions_paid)}</b><small>no período</small></div>
+      </div>
+      <div class="card" style="margin:0"><h2>Entradas por forma de pagamento</h2>${bars(c.by_method, { label: (x) => x.method })}</div>
+    </div>
+  </div>
+  ${s.expenses_by_category.length ? `<div class="card" style="margin-top:16px"><div class="card-head"><h2>Despesas por categoria</h2><span class="tiny muted">${rangeLabel(range)}</span></div>${bars(s.expenses_by_category, { label: (x) => x.category })}</div>` : ''}`;
 }
 
 async function bills(body, range) {
   const rows = await GET(`/api/expenses?from=${range.from}&to=${range.to}`);
   const t = todayStr();
-  body.innerHTML = `<div class="card">${rows.length ? `<ul class="list">${rows.map((e) => {
+  const open = rows.filter((e) => !e.paid_at).reduce((a, e) => a + e.amount_cents, 0);
+  body.innerHTML = `<div class="sum-strip" style="margin-bottom:14px"><div><span>Em aberto</span><b class="warn-t">${money(open)}</b></div><div><span>Pagas</span><b class="ok-t">${money(rows.filter((e) => e.paid_at).reduce((a, e) => a + e.amount_cents, 0))}</b></div>
+    <div><span>Vencidas</span><b class="err-t">${rows.filter((e) => !e.paid_at && e.due_date < t).length}</b></div></div>
+    <div class="card" style="padding:6px 14px">${rows.length ? `<ul class="list">${rows.map((e) => {
     const late = !e.paid_at && e.due_date < t;
-    return `<li><div class="grow"><div class="title">${esc(e.description)} ${e.recurring_id ? '<span class="tag">fixa</span>' : ''} ${e.paid_at ? '<span class="tag ok">paga</span>' : late ? '<span class="tag err">vencida</span>' : ''}</div>
+    return `<li><span class="avatar sm" style="background:${e.paid_at ? 'var(--ok-soft)' : late ? 'var(--err-soft)' : 'var(--lav-100)'};color:${e.paid_at ? 'var(--ok)' : late ? 'var(--err)' : 'var(--brand)'}">${ic(e.paid_at ? 'check' : 'wallet', 16)}</span>
+      <div class="grow"><div class="title">${esc(e.description)} ${e.recurring_id ? '<span class="tag">fixa</span>' : ''} ${late ? '<span class="tag err">vencida</span>' : ''}</div>
       <div class="meta">${esc(e.category || 'Sem categoria')} · vence ${fmtDate(e.due_date)}${e.paid_at ? ` · paga em ${fmtDate(e.paid_at)}${e.method ? ' (' + esc(e.method) + ')' : ''}` : ''}</div></div>
-      <b>${money(e.amount_cents)}</b><div class="row-actions">${e.paid_at ? `<button class="btn sm ghost" data-undo="${e.id}">Desfazer</button>` : `<button class="btn sm ok" data-pay="${e.id}">Pagar</button>`}
-      <button class="btn sm ghost" data-edit="${e.id}">Editar</button></div></li>`;
-  }).join('')}</ul>` : empty('Nenhuma despesa no período.')}</div>`;
+      <b>${money(e.amount_cents)}</b><div class="row-actions">${e.paid_at ? `<button class="btn xs ghost" data-undo="${e.id}">Desfazer</button>` : `<button class="btn xs ok" data-pay="${e.id}">${ic('check', 14)} Pagar</button>`}
+      <button class="icon-btn" data-edit="${e.id}" aria-label="Editar ${esc(e.description)}">${ic('edit', 18)}</button></div></li>`;
+  }).join('')}</ul>` : empty('Nenhuma conta no período.', `<button class="btn primary sm" data-new2>${ic('plus', 16)} Lançar despesa</button>`, 'wallet')}</div>`;
+  body.querySelector('[data-new2]')?.addEventListener('click', () => editExpense());
   body.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editExpense(rows.find((r) => r.id === Number(b.dataset.edit)))));
   body.querySelectorAll('[data-pay]').forEach((b) => (b.onclick = () => payExpense(rows.find((r) => r.id === Number(b.dataset.pay)))));
   body.querySelectorAll('[data-undo]').forEach((b) => (b.onclick = async () => {
@@ -54,13 +74,57 @@ async function bills(body, range) {
   }));
 }
 
+async function receivable(body) {
+  const rows = await GET('/api/sales?pending=1');
+  const total = rows.reduce((s, r) => s + r.pending_cents, 0);
+  body.innerHTML = `<div class="kpis"><div class="kpi hl"><span class="k-ic">${ic('coin', 20)}</span><span>Contas a receber</span><b>${money(total)}</b><small>${rows.length} venda(s) com pagamento pendente</small></div></div>
+    <div class="card" style="padding:6px 14px">${rows.length ? `<ul class="list">${rows.map((s) => `<li>${avatar(s.client_name || '?', null, 'sm')}<div class="grow click" data-sale="${s.id}"><div class="title">${esc(s.client_name || '—')}</div>
+      <div class="meta">${fmtDate(s.created_at)} · total ${money(s.total_cents)}, pago ${money(s.paid_cents)}</div></div><b class="warn-t">${money(s.pending_cents)}</b>
+      <button class="btn xs ok" data-rec="${s.id}">${ic('check', 14)} Receber</button></li>`).join('')}</ul>` : empty('Nenhum valor a receber.', '', 'checkCircle')}</div>`;
+  body.querySelectorAll('[data-sale]').forEach((li) => (li.onclick = () => openSale(Number(li.dataset.sale), refresh)));
+  body.querySelectorAll('[data-rec]').forEach((b) => (b.onclick = () => receive(rows.find((r) => r.id === Number(b.dataset.rec)), refresh)));
+}
+
+/** Fechamento de caixa: confere o dinheiro da gaveta com o que o sistema espera. */
+async function closeCash(body) {
+  const date = ui.cashDate || todayStr();
+  const [d, hist] = await Promise.all([GET(`/api/finance/cash?date=${date}`), GET('/api/finance/cash/history')]);
+  body.innerHTML = `<div class="grid g2">
+    <div class="card"><div class="card-head"><h2>Caixa do dia</h2><input type="date" value="${date}" max="${todayStr()}" data-date style="width:auto;min-height:40px" aria-label="Dia do caixa"></div>
+      ${d.closing ? `<div class="alert ok" style="background:var(--ok-soft);border:0"><span class="a-ic" style="background:#fff;color:var(--ok)">${ic('checkCircle', 18)}</span><span>Caixa fechado por ${esc(d.closing.user_name || '—')} · contado ${money(d.closing.counted_cash_cents)}
+        ${d.closing.counted_cash_cents !== d.closing.expected_cash_cents ? ` · <b class="${d.closing.counted_cash_cents < d.closing.expected_cash_cents ? 'err-t' : 'ok-t'}">diferença ${money(d.closing.counted_cash_cents - d.closing.expected_cash_cents)}</b>` : ' · sem diferença'}</span></div>` : ''}
+      <h3 style="margin:8px 0">Recebido por forma de pagamento</h3>
+      ${d.by_method.length ? `<ul class="list">${d.by_method.map((m) => `<li><span class="avatar sm" style="background:var(--lav-100);color:var(--brand)">${ic(/dinheiro/i.test(m.method) ? 'coin' : /pix/i.test(m.method) ? 'zap' : 'card', 16)}</span><div class="grow"><div class="title">${esc(m.method)}</div><div class="meta">${m.n} pagamento(s)</div></div><b>${money(m.total)}</b></li>`).join('')}</ul>` : empty('Nenhum recebimento neste dia.', '', 'coin')}
+      <div class="total-box"><div class="line"><span>Total recebido no dia</span><b>${money(d.total_in)}</b></div>
+        <div class="line"><span>Dinheiro recebido</span><span>${money(d.cash_in)}</span></div><div class="line"><span>− Despesas pagas em dinheiro</span><span>${money(d.cash_out)}</span></div>
+        <div class="line big"><span>Esperado na gaveta</span><span>${money(d.expected_cash)}</span></div></div>
+      <form data-cashform novalidate><label class="field"><span>Dinheiro contado na gaveta (R$)</span><input name="counted" inputmode="decimal" value="${d.closing ? moneyIn(d.closing.counted_cash_cents) : ''}" placeholder="${moneyIn(d.expected_cash)}"></label>
+        <label class="field"><span>Observação</span><input name="notes" maxlength="300" value="${esc(d.closing?.notes || '')}" placeholder="Ex.: troco inicial de R$ 100 não incluso"></label>
+        <button class="btn primary block">${ic('lock', 18)} ${d.closing ? 'Atualizar fechamento' : 'Fechar caixa do dia'}</button></form></div>
+    <div class="card"><h2>Fechamentos anteriores</h2>${hist.length ? `<ul class="list">${hist.map((h) => `<li><span class="avatar sm" style="background:var(--lav-100);color:var(--brand)">${ic('lock', 16)}</span><div class="grow"><div class="title">${fmtDate(h.date)}</div>
+      <div class="meta">recebido ${money(h.total_in_cents)} · ${esc(h.user_name || '')}</div></div><div class="right"><b>${money(h.counted_cash_cents)}</b>
+      <div class="tiny ${h.counted_cash_cents === h.expected_cash_cents ? 'muted' : h.counted_cash_cents < h.expected_cash_cents ? 'err-t' : 'ok-t'}">${h.counted_cash_cents === h.expected_cash_cents ? 'sem diferença' : `dif. ${money(h.counted_cash_cents - h.expected_cash_cents)}`}</div></div></li>`).join('')}</ul>` : empty('Nenhum caixa fechado ainda.', '', 'lock')}</div></div>`;
+  body.querySelector('[data-date]').onchange = (e) => ((ui.cashDate = e.target.value), refresh());
+  body.querySelector('[data-cashform]').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    await submitting(f.querySelector('button'), async () => {
+      const counted = toCents(f.counted.value);
+      if (counted == null || Number.isNaN(counted)) throw new Error('Informe quanto há na gaveta');
+      await POST('/api/finance/cash', { date, counted_cash_cents: counted, notes: f.notes.value });
+      toast('Caixa fechado');
+      refresh();
+    }).catch(() => {});
+  };
+}
+
 function payExpense(e) {
   modal({
     title: `Pagar ${e.description}`,
-    body: `<form novalidate><p>Valor: <b>${money(e.amount_cents)}</b></p>
+    body: `<form novalidate><div class="total-box"><div class="line big"><span>Valor</span><span>${money(e.amount_cents)}</span></div></div>
       <div class="row"><label class="field"><span>Pago em</span><input type="date" name="paid_at" value="${todayStr()}"></label>
       <label class="field"><span>Forma</span><select name="method">${state.methods.map((m) => `<option>${esc(m.name)}</option>`).join('')}<option>Boleto</option><option>Transferência</option></select></label></div>
-      <div class="actions stretch"><button type="button" class="btn ghost" data-close>Voltar</button><button class="btn ok" type="submit">Confirmar pagamento</button></div></form>`,
+      <div class="actions stretch"><button type="button" class="btn ghost" data-close>Voltar</button><button class="btn ok" type="submit">${ic('check', 18)} Confirmar pagamento</button></div></form>`,
     onMount(el, close) {
       const f = el.querySelector('form');
       f.onsubmit = async (ev) => {
@@ -68,7 +132,7 @@ function payExpense(e) {
         await submitting(f.querySelector('[type=submit]'), async () => {
           await POST(`/api/expenses/${e.id}/pay`, { paid_at: f.paid_at.value, method: f.method.value });
           close();
-          toast('Conta paga ✓');
+          toast('Conta paga');
           refresh();
         }).catch(() => {});
       };
@@ -78,15 +142,15 @@ function payExpense(e) {
 
 function editExpense(e = null) {
   modal({
-    title: e ? 'Editar despesa' : 'Nova despesa',
+    title: e ? 'Editar despesa' : 'Lançar despesa',
     body: `<form novalidate>
-      <label class="field"><span>Descrição *</span><input name="description" maxlength="120" value="${esc(e?.description || '')}" autofocus></label>
+      <label class="field"><span>Descrição *</span><input name="description" maxlength="120" value="${esc(e?.description || '')}" autofocus placeholder="Ex.: Aluguel, conta de luz, fornecedor…"></label>
       <div class="row"><label class="field"><span>Valor (R$) *</span><input name="amount" inputmode="decimal" value="${moneyIn(e?.amount_cents)}"></label>
         <label class="field"><span>Vencimento *</span><input type="date" name="due_date" value="${e?.due_date || todayStr()}"></label></div>
       <label class="field"><span>Categoria</span><input name="category" list="ecats" maxlength="40" value="${esc(e?.category || '')}"><datalist id="ecats">${CATS.map((c) => `<option>${c}</option>`).join('')}</datalist></label>
-      ${e ? '' : `<label class="check"><input type="checkbox" name="paid"> Já está paga</label><label class="field hidden" data-m><span>Forma</span><select name="method">${state.methods.map((m) => `<option>${esc(m.name)}</option>`).join('')}<option>Boleto</option><option>Transferência</option></select></label>
-        <label class="check"><input type="checkbox" name="recurring"> Repetir todo mês (despesa fixa)</label>`}
-      <div class="actions stretch">${e && !e.recurring_id ? '<button type="button" class="btn ghost" data-del>Excluir</button>' : ''}<button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Salvar</button></div></form>`,
+      ${e ? '' : `<label class="check"><span class="switch"><input type="checkbox" name="paid"><i></i></span> Já está paga</label><label class="field hidden" data-m><span>Forma</span><select name="method">${state.methods.map((m) => `<option>${esc(m.name)}</option>`).join('')}<option>Boleto</option><option>Transferência</option></select></label>
+        <label class="check"><span class="switch"><input type="checkbox" name="recurring"><i></i></span> Repetir todo mês (despesa fixa)</label>`}
+      <div class="actions stretch">${e && !e.recurring_id ? `<button type="button" class="btn ghost" data-del>${ic('trash', 16)} Excluir</button>` : ''}<button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Salvar</button></div></form>`,
     onMount(el, close) {
       const f = el.querySelector('form');
       if (f.paid) f.paid.onchange = () => el.querySelector('[data-m]').classList.toggle('hidden', !f.paid.checked);
@@ -110,7 +174,7 @@ function editExpense(e = null) {
             }
           } else await POST('/api/expenses', { ...body, paid: f.paid.checked, method: f.method.value });
           close();
-          toast('Despesa salva ✓');
+          toast('Despesa salva');
           refresh();
         }).catch(() => {});
       };
@@ -120,21 +184,24 @@ function editExpense(e = null) {
 
 async function cash(body, range) {
   const c = await GET(`/api/finance/cashflow?from=${range.from}&to=${range.to}`);
-  body.innerHTML = `<div class="kpis"><div class="kpi"><span>Entradas</span><b class="ok-t">${money(c.total_in)}</b></div><div class="kpi"><span>Saídas</span><b class="err-t">${money(c.total_out)}</b></div>
-    <div class="kpi hl"><span>Saldo do período</span><b>${money(c.total_in - c.total_out)}</b></div></div>
+  body.innerHTML = `<div class="kpis"><div class="kpi"><span class="k-ic">${ic('trendUp', 20)}</span><span>Entradas</span><b class="ok-t">${money(c.total_in)}</b></div>
+    <div class="kpi"><span class="k-ic">${ic('trendDown', 20)}</span><span>Saídas</span><b class="err-t">${money(c.total_out)}</b></div>
+    <div class="kpi hl"><span class="k-ic">${ic('wallet', 20)}</span><span>Saldo do período</span><b>${money(c.total_in - c.total_out)}</b></div></div>
     <div class="grid g2"><div class="card"><h2>Por dia</h2>${c.daily.length ? `<div class="scroll-x"><table class="t"><thead><tr><th>Dia</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo acumulado</th></tr></thead><tbody>
-      ${c.daily.map((d) => `<tr><td>${fmtDate(d.date)}</td><td class="num ok-t">${money(d.in)}</td><td class="num err-t">${money(d.out)}</td><td class="num"><b>${money(d.balance)}</b></td></tr>`).join('')}</tbody></table></div>` : empty('Sem movimentações.')}</div>
-    <div class="card"><h2>Entradas por forma de pagamento</h2>${bars(c.by_method, { label: (x) => x.method })}</div></div>
-    <div class="card"><h2>Histórico de movimentações</h2>${c.moves.length ? `<ul class="list">${c.moves.map((m) => `<li><div class="grow"><div class="title">${esc(m.description)}</div><div class="meta">${fmtDate(m.date)}${m.method ? ' · ' + esc(m.method) : ''}</div></div>
-      <b class="${m.dir === 'in' ? 'ok-t' : 'err-t'}">${m.dir === 'in' ? '+' : '−'} ${money(m.amount)}</b></li>`).join('')}</ul>` : empty('Sem movimentações.')}</div>
-    <p class="legend">Fluxo de caixa mostra o dinheiro que efetivamente entrou e saiu (regime de caixa). Vendas pendentes só entram quando recebidas.</p>`;
+      ${c.daily.map((d) => `<tr><td>${fmtDate(d.date)}</td><td class="num ok-t">${money(d.in)}</td><td class="num err-t">${money(d.out)}</td><td class="num"><b>${money(d.balance)}</b></td></tr>`).join('')}</tbody></table></div>` : empty('Sem movimentações.', '', 'wallet')}</div>
+    <div class="card"><h2>Histórico de movimentações</h2>${c.moves.length ? `<ul class="list">${c.moves.map((m) => `<li><span class="avatar sm" style="background:${m.dir === 'in' ? 'var(--ok-soft)' : 'var(--err-soft)'};color:${m.dir === 'in' ? 'var(--ok)' : 'var(--err)'}">${ic(m.dir === 'in' ? 'trendUp' : 'trendDown', 16)}</span>
+      <div class="grow"><div class="title">${esc(m.description)}</div><div class="meta">${fmtDate(m.date)}${m.method ? ' · ' + esc(m.method) : ''}</div></div>
+      <b class="${m.dir === 'in' ? 'ok-t' : 'err-t'}">${m.dir === 'in' ? '+' : '−'} ${money(m.amount)}</b></li>`).join('')}</ul>` : empty('Sem movimentações.', '', 'wallet')}</div></div>
+    <p class="legend">${ic('info', 14)} O fluxo de caixa mostra o dinheiro que efetivamente entrou e saiu. Vendas pendentes só entram quando recebidas.</p>`;
 }
 
 async function recurring(body) {
   const rows = await GET('/api/recurring-expenses');
-  body.innerHTML = `<div class="card"><h2>Despesas fixas <button class="btn sm primary" data-new-rec>＋ Nova</button></h2>${rows.length ? `<ul class="list">${rows.map((r) => `<li>
+  body.innerHTML = `<div class="card"><div class="card-head"><h2>Despesas fixas</h2><button class="btn sm primary" data-new-rec>${ic('plus', 16)} Nova</button></div>${rows.length ? `<ul class="list">${rows.map((r) => `<li>
+    <span class="avatar sm" style="background:var(--lav-100);color:var(--brand)">${ic('refresh', 16)}</span>
     <div class="grow"><div class="title">${esc(r.description)} ${r.active ? '' : '<span class="tag">desativada</span>'}</div><div class="meta">${esc(r.category || 'Sem categoria')} · todo dia ${r.day_of_month}</div></div>
-    <b>${money(r.amount_cents)}</b><button class="btn sm ghost" data-edit-rec="${r.id}">Editar</button></li>`).join('')}</ul>` : empty('Cadastre aluguel, internet, sistema… e elas aparecem automaticamente em contas a pagar todo mês.')}</div>`;
+    <b>${money(r.amount_cents)}</b><button class="icon-btn" data-edit-rec="${r.id}" aria-label="Editar ${esc(r.description)}">${ic('edit', 18)}</button></li>`).join('')}</ul>`
+    : empty('Cadastre aluguel, internet, sistema… e elas aparecem sozinhas em contas a pagar todo mês.', '', 'refresh')}</div>`;
   body.querySelector('[data-new-rec]').onclick = () => editRec();
   body.querySelectorAll('[data-edit-rec]').forEach((b) => (b.onclick = () => editRec(rows.find((r) => r.id === Number(b.dataset.editRec)))));
 }
@@ -146,7 +213,7 @@ function editRec(r = null) {
       <div class="row"><label class="field"><span>Valor (R$) *</span><input name="amount" inputmode="decimal" value="${moneyIn(r?.amount_cents)}"></label>
       <label class="field"><span>Dia do vencimento</span><input name="day" inputmode="numeric" value="${r?.day_of_month || 10}"></label></div>
       <label class="field"><span>Categoria</span><input name="category" list="ecats2" maxlength="40" value="${esc(r?.category || '')}"><datalist id="ecats2">${CATS.map((c) => `<option>${c}</option>`).join('')}</datalist></label>
-      ${r ? `<label class="check"><input type="checkbox" name="active" ${r.active ? 'checked' : ''}> Ativa (gera a conta todo mês)</label>` : ''}
+      ${r ? `<label class="check"><span class="switch"><input type="checkbox" name="active" ${r.active ? 'checked' : ''}><i></i></span> Ativa (gera a conta todo mês)</label>` : ''}
       <p class="small muted">Alterações valem para os meses que ainda não foram gerados.</p>
       <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Salvar</button></div></form>`,
     onMount(el, close) {
@@ -159,7 +226,7 @@ function editRec(r = null) {
           if (r) await PUT(`/api/recurring-expenses/${r.id}`, body);
           else await POST('/api/recurring-expenses', body);
           close();
-          toast('Despesa fixa salva ✓');
+          toast('Despesa fixa salva');
           refresh();
         }).catch(() => {});
       };
