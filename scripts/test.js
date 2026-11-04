@@ -262,6 +262,27 @@ try {
     assert.equal(closed.closing.counted_cash_cents, cash.expected_cash);
   });
 
+  await step('modo "trabalho sozinha": profissional automática e troca de modo', async () => {
+    const solo = client();
+    ok(await solo('POST', '/api/auth/signup', { salon_name: 'Studio Solo', name: 'Rita Lima', email: 'rita@solo.com', password: 'senha1234', team_mode: 'solo' }));
+    const me = ok(await solo('GET', '/api/me')).user;
+    assert.equal(me.team_mode, 'solo');
+    const pros = ok(await solo('GET', '/api/professionals'));
+    assert.equal(pros.length, 1);
+    assert.equal(pros[0].name, 'Rita Lima');
+    assert.equal(me.professional_id, pros[0].id, 'acesso da dona ligado à profissional');
+    const svc = ok(await solo('POST', '/api/services', { name: 'Escova', price_cents: 5000, duration_min: 40, pros: [{ professional_id: pros[0].id }] })).id;
+    ok(await solo('POST', '/api/visits', { new_client: { name: 'Cliente da Rita' }, items: [{ service_id: svc, professional_id: pros[0].id, start_at: `${D} 23:00` }], force: true }));
+    // com equipe, uma segunda profissional; voltar para "sozinha" exige deixar só uma ativa
+    ok(await solo('PUT', '/api/salon/mode', { mode: 'team' }));
+    const p2 = ok(await solo('POST', '/api/professionals', { name: 'Assistente', start_time: '09:00', end_time: '18:00', work_days: '1,2,3' })).id;
+    assert.equal((await solo('PUT', '/api/salon/mode', { mode: 'solo' })).status, 409);
+    const p2data = ok(await solo('GET', '/api/professionals')).find((p) => p.id === p2);
+    ok(await solo('PUT', `/api/professionals/${p2}`, { ...p2data, active: false }));
+    assert.equal(ok(await solo('PUT', '/api/salon/mode', { mode: 'solo' })).team_mode, 'solo');
+    assert.equal(ok(await solo('GET', '/api/agenda?from=' + D + '&to=' + D)).visits.length, 1, 'agenda preservada ao trocar de modo');
+  });
+
   await step('perfil gerente: gestão sim, configurações não', async () => {
     ok(await owner('POST', '/api/users', { name: 'Gê', email: 'gerente@teste.com', password: 'senha1234', role: 'manager' }));
     const mgr = client();

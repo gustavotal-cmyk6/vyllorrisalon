@@ -99,7 +99,11 @@ export const can = {
   admin: () => ['owner', 'manager'].includes(state.user?.role),
   staff: () => ['owner', 'manager', 'reception'].includes(state.user?.role),
   pro: () => state.user?.role === 'pro',
+  // trabalha sozinha: sem telas de equipe, ela é a única profissional
+  solo: () => state.user?.team_mode === 'solo',
 };
+/** A profissional da dona, no modo "trabalho sozinha". */
+export const soloPro = () => state.pros.find((p) => p.id === state.user?.professional_id) || state.pros.find((p) => p.active);
 export const ROLE_LABEL = { owner: 'Proprietária', manager: 'Gerente', reception: 'Recepção', pro: 'Profissional' };
 
 /** Avatar com foto ou iniciais; a cor do degradê varia com o nome. */
@@ -239,7 +243,9 @@ export function formData(form) {
   const out = {};
   for (const el of form.elements) {
     if (!el.name || el.disabled) continue;
-    if (el.type === 'checkbox') {
+    if (el.type === 'radio') {
+      if (el.checked) out[el.name] = el.value;
+    } else if (el.type === 'checkbox') {
       if (el.dataset.multi) (out[el.name] ||= []).push(...(el.checked ? [el.value] : []));
       else out[el.name] = el.checked;
     } else if (el.dataset.money !== undefined) {

@@ -75,7 +75,7 @@ async function profile(p, login, today) {
   });
 }
 
-function editPro(p = null) {
+export function editPro(p = null) {
   const days = (p?.work_days ?? '1,2,3,4,5,6').split(',');
   modal({
     title: p ? `Editar ${p.name}` : 'Cadastrar profissional',

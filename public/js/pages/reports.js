@@ -1,4 +1,4 @@
-import { state, GET, esc, money, pct, periodPicker, mountPeriod, rangeLabel, fmtDate, fmtPhone, waLink, empty, bars, ic, avatar, pageHead, trend } from '../core.js';
+import { state, GET, esc, money, pct, periodPicker, mountPeriod, rangeLabel, fmtDate, fmtPhone, waLink, empty, bars, ic, avatar, pageHead, trend, can } from '../core.js';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ui = { pro: '' };
@@ -7,7 +7,7 @@ const ui = { pro: '' };
 export default async function reports(root) {
   root.innerHTML = `${pageHead('Relatórios', 'As respostas que a dona do salão precisa, sem planilha')}
     ${periodPicker('per')}
-    <div class="chips scroll" style="margin:-4px 0 14px"><button class="chip ${ui.pro ? '' : 'on'}" data-pro="">Salão inteiro</button>${state.pros.filter((p) => p.active).map((p) => `<button class="chip ${String(p.id) === ui.pro ? 'on' : ''}" data-pro="${p.id}">${esc(p.name.split(' ')[0])}</button>`).join('')}</div>
+    <div class="chips scroll" style="margin:-4px 0 14px" ${can.solo() ? 'hidden' : ''}><button class="chip ${ui.pro ? '' : 'on'}" data-pro="">Salão inteiro</button>${state.pros.filter((p) => p.active).map((p) => `<button class="chip ${String(p.id) === ui.pro ? 'on' : ''}" data-pro="${p.id}">${esc(p.name.split(' ')[0])}</button>`).join('')}</div>
     <div data-body><div class="loading">Carregando…</div></div>`;
   let range;
   const load = async () => {

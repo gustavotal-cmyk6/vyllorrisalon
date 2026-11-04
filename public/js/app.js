@@ -32,11 +32,12 @@ function navItems() {
     { k: 'comissoes', ico: 'percent', label: r === 'pro' ? 'Minhas comissões' : 'Comissões', roles: [...ADMIN, 'pro'], group: 'Gestão' },
     { k: 'relatorios', ico: 'chart', label: 'Relatórios', roles: ADMIN, group: 'Gestão' },
     { k: 'config', ico: 'settings', label: 'Configurações', group: 'Conta' },
-  ].filter((i) => !i.roles || i.roles.includes(r));
+  ].filter((i) => (!i.roles || i.roles.includes(r)) && !(can.solo() && ['equipe', 'comissoes'].includes(i.k)));
 }
 /** Barra inferior do celular: as 4 áreas mais usadas de cada perfil + "Mais". */
 function bottomItems() {
   const r = state.user.role;
+  if (can.solo() && can.admin()) return ['', 'agenda', 'clientes', 'financeiro'].map((k) => navItems().find((i) => i.k === k)).filter(Boolean);
   const pick = { owner: ['', 'agenda', 'equipe', 'financeiro'], manager: ['', 'agenda', 'equipe', 'financeiro'], reception: ['', 'agenda', 'clientes', 'vendas'], pro: ['', 'agenda', 'clientes', 'comissoes'] }[r];
   const items = navItems();
   return pick.map((k) => items.find((i) => i.k === k)).filter(Boolean);
@@ -115,7 +116,7 @@ export function quickActions() {
   const close = modal({
     title: 'O que você quer fazer?',
     body: `<div class="tiles">${A('visit', 'calendar', 'Novo agendamento')}${A('fit', 'zap', 'Encaixe agora')}${A('sale', 'cart', 'Registrar venda')}${A('client', 'userPlus', 'Cadastrar cliente')}
-      ${admin ? A('service', 'scissors', 'Adicionar serviço') + A('pro', 'sparkle', 'Cadastrar profissional') : ''}
+      ${admin ? A('service', 'scissors', 'Adicionar serviço') + (can.solo() ? '' : A('pro', 'sparkle', 'Cadastrar profissional')) : ''}
       ${staff ? A('block', 'ban', 'Bloquear horário') : ''}${admin ? A('expense', 'wallet', 'Lançar despesa') : ''}</div>`,
     onMount(el) {
       el.querySelectorAll('[data-q]').forEach((b) =>
@@ -255,7 +256,12 @@ function authScreen(mode) {
   document.getElementById('app').innerHTML = `<div class="auth"><form class="box" novalidate>
     <div class="logo"><span class="mark"><img src="/brand/vyllorri-v-192.png" alt=""></span><div class="name">Vyllorri <span style="font-weight:500">Beauty</span></div><p>${signup ? 'Crie a conta do seu salão em 1 minuto' : 'Gestão simples e elegante para o seu salão'}</p></div>
     ${signup ? `<label class="field"><span>Nome do salão</span><input name="salon_name" required maxlength="80" autofocus></label>
-      <label class="field"><span>Seu nome</span><input name="name" required maxlength="80" autocomplete="name"></label>` : ''}
+      <label class="field"><span>Seu nome</span><input name="name" required maxlength="80" autocomplete="name"></label>
+      <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend style="font-size:.8rem;font-weight:700;color:var(--plum-800);margin-bottom:6px">Como você trabalha?</legend>
+        <div class="mode-pick">
+          <label><input type="radio" name="team_mode" value="solo" class="sr"><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Só eu atendo</small></span></label>
+          <label><input type="radio" name="team_mode" value="team" class="sr" checked><span>${ic('users', 22)}<b>Tenho equipe</b><small>Mais profissionais</small></span></label>
+        </div><small>Dá para mudar depois em Configurações.</small></fieldset>` : ''}
     <label class="field"><span>E-mail</span><input name="email" type="email" required autocomplete="email" ${signup ? '' : 'autofocus'}></label>
     <label class="field"><span>Senha</span><input name="password" type="password" required minlength="8" autocomplete="${signup ? 'new-password' : 'current-password'}">
       ${signup ? '<small>Mínimo de 8 caracteres</small>' : ''}</label>
@@ -266,9 +272,10 @@ function authScreen(mode) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     await submitting(form.querySelector('button'), async () => {
-      await POST(signup ? '/api/auth/signup' : '/api/auth/login', formData(form));
+      const data = formData(form);
+      await POST(signup ? '/api/auth/signup' : '/api/auth/login', data);
       await boot();
-      if (signup) toast('Salão criado! Comece cadastrando sua equipe e seus serviços.');
+      if (signup) toast(data.team_mode === 'solo' ? 'Pronto! Agora cadastre seus serviços e confira seus horários.' : 'Salão criado! Comece cadastrando sua equipe e seus serviços.');
     }).catch(() => {});
   };
 }

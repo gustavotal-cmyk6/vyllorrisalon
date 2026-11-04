@@ -1,4 +1,4 @@
-import { state, GET, POST, PUT, DEL, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, empty, loadRefs, ic, avatar, pageHead, photoField } from '../core.js';
+import { state, GET, POST, PUT, DEL, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, empty, loadRefs, ic, avatar, pageHead, photoField, can, soloPro } from '../core.js';
 import { refresh } from '../app.js';
 
 // Sugestões para cadastrar rápido os serviços mais comuns de salão
@@ -72,7 +72,7 @@ function edit(s = null) {
       <label class="field"><span>Descrição <small>— aparece para a cliente no agendamento online</small></span><input name="description" maxlength="300" value="${esc(s?.description || '')}" placeholder="Ex.: inclui lavagem e finalização"></label>
       <label class="check"><span class="switch"><input type="checkbox" name="online" ${s?.online ? 'checked' : ''}><i></i></span> Disponível para agendamento online</label>
       ${!isNew ? `<label class="check"><span class="switch"><input type="checkbox" name="active" ${s.active ? 'checked' : ''}><i></i></span> Serviço ativo</label>` : ''}
-      <h3 style="margin:12px 0 4px">Profissionais que fazem este serviço *</h3>
+      <div ${can.solo() ? 'hidden' : ''}><h3 style="margin:12px 0 4px">Profissionais que fazem este serviço *</h3>
       <p class="small muted" style="margin:0 0 8px">Preço e comissão próprios são opcionais — deixe em branco para usar o padrão.</p>
       ${pros.length ? pros.map((p) => { const l = link(p.id); return `<div class="svc-line" style="padding:10px"><label class="check" style="margin:0">${avatar(p.name, p.photo_url, 'sm')}<input type="checkbox" data-pro="${p.id}" ${l || (isNew && pros.length === 1) ? 'checked' : ''}> <b>${esc(p.name)}</b> <span class="muted small">${esc(p.specialty || '')}</span></label>
         <div class="row3" style="margin-top:8px"><input placeholder="Preço próprio" inputmode="decimal" data-pp="${p.id}" value="${moneyIn(l?.price_cents)}" aria-label="Preço próprio de ${esc(p.name)}">
@@ -81,7 +81,7 @@ function edit(s = null) {
       <details style="margin-top:8px"><summary class="small" style="cursor:pointer;font-weight:700;color:var(--brand)">Comissão deste serviço (opcional)</summary>
         <div class="row" style="margin-top:10px"><label class="field"><span>Tipo</span><select name="ctype"><option value="">Usar padrão de cada profissional</option>
           <option value="pct" ${s?.commission_type === 'pct' ? 'selected' : ''}>% sobre o valor</option><option value="fixed" ${s?.commission_type === 'fixed' ? 'selected' : ''}>Valor fixo (R$)</option></select></label>
-          <label class="field"><span>Valor</span><input name="cvalue" inputmode="decimal" value="${s?.commission_type === 'fixed' ? moneyIn(s.commission_value) : s?.commission_value ?? ''}"></label></div></details>
+          <label class="field"><span>Valor</span><input name="cvalue" inputmode="decimal" value="${s?.commission_type === 'fixed' ? moneyIn(s.commission_value) : s?.commission_value ?? ''}"></label></div></details></div>
       <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Salvar</button></div></form>`,
     onMount(el, close) {
       const f = el.querySelector('form');
@@ -99,6 +99,8 @@ function edit(s = null) {
           const price = toCents(f.price.value);
           if (price == null || Number.isNaN(price)) throw new Error('Informe o preço');
           const c = commission(f.ctype.value, f.cvalue.value, 'comissão do serviço');
+          const solo = can.solo() && soloPro();
+          if (solo) el.querySelectorAll('[data-pro]').forEach((cb) => (cb.checked = Number(cb.dataset.pro) === solo.id));
           const pl = [...el.querySelectorAll('[data-pro]:checked')].map((cb) => {
             const id = cb.dataset.pro;
             const pp = el.querySelector(`[data-pp="${id}"]`).value.trim();

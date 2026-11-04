@@ -44,7 +44,7 @@ export default async function agenda(root, { query }) {
     <button class="btn sm m-filter" data-act="filters" aria-expanded="${view.filtersOpen ? 'true' : 'false'}">${ic('filter', 16)} Filtros${activeFilters ? ` (${activeFilters})` : ''}</button>
     <div class="agenda-filters ${view.filtersOpen ? 'open' : ''}">
     <input type="date" value="${view.date}" data-pick style="width:auto;min-height:40px" aria-label="Ir para data">
-    ${can.pro() ? '' : `<select data-pro aria-label="Profissional"><option value="">Todas as profissionais</option>${state.pros.filter((p) => p.active).map((p) => `<option value="${p.id}" ${String(p.id) === view.pro ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`}
+    ${can.pro() || can.solo() ? '' : `<select data-pro aria-label="Profissional"><option value="">Todas as profissionais</option>${state.pros.filter((p) => p.active).map((p) => `<option value="${p.id}" ${String(p.id) === view.pro ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`}
     <select data-svc aria-label="Serviço"><option value="">Todos os serviços</option>${state.services.map((s) => `<option value="${s.id}" ${String(s.id) === view.service ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
     </div>
   </div>

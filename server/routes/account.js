@@ -3,7 +3,7 @@ import { V } from '../validate.js';
 import { all, get, run } from '../db.js';
 import {
   createSalon, createSession, destroySession, sessionToken, cookieHeader, verifyPassword, hashPassword,
-  throttleLogin, clearThrottle, publicUser, loadUser, slugify,
+  throttleLogin, clearThrottle, publicUser, loadUser, slugify, ensureSoloPro,
 } from '../auth.js';
 import { nowStr } from '../util.js';
 import { imageRef, imageUrl } from './images.js';
@@ -21,6 +21,7 @@ route('POST', '/api/auth/signup', null, async ({ body, req }) => {
     email: V.email(body.email, 'E-mail'),
     password: strongPw(body.password),
     demo: !!body.demo,
+    teamMode: V.oneOf(body.team_mode, ['solo', 'team'], 'Modo de trabalho') || 'team',
   });
   const token = await createSession(userId);
   return { __cookie: cookieHeader(token, req), data: { ok: true, salon_id: salonId } };
@@ -56,7 +57,7 @@ route('POST', '/api/me/password', ALL, async ({ body, user }) => {
 
 // ---- Configurações do salão ----
 export async function salonProfile(sid) {
-  const s = await get(`SELECT id,name,slug,booking_enabled,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
+  const s = await get(`SELECT id,name,slug,booking_enabled,team_mode,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
                          FROM salons WHERE id=?`, sid);
   let gallery = [];
   try {
@@ -81,6 +82,14 @@ route('PUT', '/api/salon/profile', OWNER, async ({ body, sid }) => {
     V.int(body.cancel_hours ?? 12, 'Antecedência para cancelar', { min: 0, max: 168 }), sid);
   return salonProfile(sid);
 });
+/** Modo de trabalho: sozinha (sem telas de equipe) ou com equipe. Nada é apagado ao trocar. */
+route('PUT', '/api/salon/mode', OWNER, async ({ body, sid, user }) => {
+  const mode = V.oneOf(body.mode, ['solo', 'team'], 'Modo de trabalho', { req: true });
+  if (mode === 'solo') await ensureSoloPro(sid, user.id, user.name);
+  await run('UPDATE salons SET team_mode=? WHERE id=?', mode, sid);
+  return { team_mode: mode };
+});
+
 /** Agendamento online: liga/desliga e define o endereço público. */
 route('PUT', '/api/salon/booking', OWNER, async ({ body, sid }) => {
   const slug = slugify(V.str(body.slug, 'Endereço', { req: true, max: 40 }));

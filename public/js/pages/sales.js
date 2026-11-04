@@ -1,4 +1,4 @@
-import { state, GET, esc, money, periodPicker, mountPeriod, rangeLabel, bars, empty, fmtDate, fmtShort, ic, avatar, pageHead, trend } from '../core.js';
+import { state, GET, esc, money, periodPicker, mountPeriod, rangeLabel, bars, empty, fmtDate, fmtShort, ic, avatar, pageHead, trend, can } from '../core.js';
 import { openCheckout, openSale, receive } from './checkout.js';
 import { refresh } from '../app.js';
 
@@ -9,7 +9,7 @@ export default async function sales(root, { query }) {
   root.innerHTML = `${pageHead('Vendas', 'Serviços e produtos vendidos, recebimentos e valores a receber', `<button class="btn primary" data-new>${ic('plus', 18)} Registrar venda</button>`)}
     <div class="tabs"><button data-tab="panel" class="${ui.tab === 'panel' ? 'on' : ''}">Painel</button><button data-tab="list" class="${ui.tab === 'list' ? 'on' : ''}">Histórico de vendas</button><button data-tab="pending" class="${ui.tab === 'pending' ? 'on' : ''}">A receber</button></div>
     ${ui.tab !== 'pending' ? `${periodPicker('per', ui.period)}
-      ${ui.tab === 'panel' ? `<div class="chips scroll" style="margin:-4px 0 14px"><button class="chip ${ui.pro ? '' : 'on'}" data-pro="">Salão inteiro</button>${state.pros.filter((p) => p.active).map((p) => `<button class="chip ${String(p.id) === ui.pro ? 'on' : ''}" data-pro="${p.id}">${esc(p.name.split(' ')[0])}</button>`).join('')}</div>` : ''}` : ''}
+      ${ui.tab === 'panel' && !can.solo() ? `<div class="chips scroll" style="margin:-4px 0 14px"><button class="chip ${ui.pro ? '' : 'on'}" data-pro="">Salão inteiro</button>${state.pros.filter((p) => p.active).map((p) => `<button class="chip ${String(p.id) === ui.pro ? 'on' : ''}" data-pro="${p.id}">${esc(p.name.split(' ')[0])}</button>`).join('')}</div>` : ''}` : ''}
     <div data-body><div class="loading">Carregando…</div></div>`;
   root.querySelector('[data-new]').onclick = () => openCheckout({ onDone: refresh });
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), refresh())));

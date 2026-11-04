@@ -21,7 +21,7 @@ export default async function dashboard(root) {
   ${pageHead(hello, `${fmtDayLong(d.date)} · ${a.total} agendamento(s) hoje`, `<button class="btn primary" data-act="visit">${ic('plus', 18)} Novo agendamento</button>`)}
   ${setup ? `<div class="card" style="border:2px dashed var(--lav-300)"><div class="card-head"><h2>Vamos configurar seu salão</h2>${ic('sparkle', 22, 'brand-t')}</div>
     <div class="list">${[
-      [state.pros.length, '#/equipe?nova=1', 'Cadastre sua equipe', 'cabeleireiras, manicures… com horários e comissão'],
+      can.solo() ? [false, '#/config', 'Confira seus horários', 'dias e horários em que você atende'] : [state.pros.length, '#/equipe?nova=1', 'Cadastre sua equipe', 'cabeleireiras, manicures… com horários e comissão'],
       [state.services.length, '#/servicos?novo=1', 'Cadastre os serviços', 'com preço, duração e quem faz'],
       [false, '#/config', 'Personalize a página de agendamento', 'logo, fotos, endereço e link para as clientes'],
     ].map(([done, href, t, s]) => `<a href="${href}" style="display:flex;gap:12px;align-items:center;padding:10px 0;color:inherit">
@@ -54,7 +54,7 @@ export default async function dashboard(root) {
           <button data-act="visit"><span class="q-ic">${ic('calendar', 20)}</span>Agendar</button>
           <button data-act="client"><span class="q-ic">${ic('userPlus', 20)}</span>Cliente</button>
           ${can.pro() ? '' : `<button data-act="sale"><span class="q-ic">${ic('cart', 20)}</span>Venda</button>`}
-          ${can.admin() ? `<button data-act="service"><span class="q-ic">${ic('scissors', 20)}</span>Serviço</button><button data-act="pro"><span class="q-ic">${ic('sparkle', 20)}</span>Profissional</button>`
+          ${can.admin() ? `<button data-act="service"><span class="q-ic">${ic('scissors', 20)}</span>Serviço</button>${can.solo() ? `<button data-act="fit"><span class="q-ic">${ic('zap', 20)}</span>Encaixe</button>` : `<button data-act="pro"><span class="q-ic">${ic('sparkle', 20)}</span>Profissional</button>`}`
             : `<button data-act="fit"><span class="q-ic">${ic('zap', 20)}</span>Encaixe</button>`}
         </div></div>
       ${d.attention ? `<div class="card"><div class="card-head"><h2>Alertas importantes</h2>${d.attention.length ? `<span class="tag pink">${d.attention.length}</span>` : ''}</div>
@@ -67,7 +67,7 @@ export default async function dashboard(root) {
     </div>
   </div>
   ${d.role !== 'pro' ? `<div class="grid g3" style="margin-top:16px">
-    <div class="card"><div class="card-head"><h2>Desempenho da equipe</h2><span class="tiny muted">no mês</span></div>
+    <div class="card" ${can.solo() ? 'hidden' : ''}><div class="card-head"><h2>Desempenho da equipe</h2><span class="tiny muted">no mês</span></div>
       ${d.top_pros.length ? `<div class="rank">${d.top_pros.map((p, i) => `<div class="rank-row">${avatar(p.name, p.photo_url, 'sm')}<div style="flex:1;min-width:0">
         <div class="bar-top"><b class="small">${esc(p.name)}</b><b class="small">${money(p.total)}</b></div>
         <div class="bar"><i style="width:${Math.max(4, (p.total / d.top_pros[0].total) * 100)}%"></i></div><span class="tiny muted">${p.services_count} atendimento(s)</span></div></div>`).join('')}</div>` : empty('Sem vendas no mês ainda.', '', 'chart')}</div>

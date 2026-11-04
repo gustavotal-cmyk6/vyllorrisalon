@@ -1,5 +1,5 @@
 // Fechar conta: serviços da visita + produtos + desconto + pagamento (inclusive dividido) em uma única tela.
-import { state, GET, POST, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, can, fmtDate, todayStr , ic } from '../core.js';
+import { state, GET, POST, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, can, fmtDate, todayStr , ic, soloPro } from '../core.js';
 import { clientPicker } from './visits.js';
 
 export async function openCheckout({ visit = null, client = null, onDone = () => {} } = {}) {
@@ -29,7 +29,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
         ${products.length ? `<label class="field"><span>${ic('plus', 16)}  Produto</span><select data-add-prd><option value="">Adicionar produto…</option>
           ${products.map((p) => `<option value="${p.id}" ${p.stock <= 0 ? 'disabled' : ''}>${esc(p.name)} · ${money(p.price_cents)} (${p.stock} ${esc(p.unit)})</option>`).join('')}</select></label>` : '<div></div>'}
       </div>
-      ${products.length && !myPro ? `<label class="field"><span>Quem vendeu os produtos <small>(para comissão)</small></span><select name="seller"><option value="">Ninguém / recepção</option>
+      ${products.length && !myPro && !can.solo() ? `<label class="field"><span>Quem vendeu os produtos <small>(para comissão)</small></span><select name="seller"><option value="">Ninguém / recepção</option>
         ${state.pros.filter((p) => p.active).map((p) => `<option value="${p.id}" ${visit?.items[0]?.professional_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>` : ''}
       <div class="row"><label class="field"><span>Desconto</span><div style="display:flex;gap:6px"><input inputmode="decimal" name="discount" placeholder="0,00">
         <div class="seg"><button type="button" data-dm="value" class="on">R$</button><button type="button" data-dm="pct">%</button></div></div></label>
@@ -158,7 +158,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
           if (paid < total() && !(await confirmBox(`Ficará pendente ${money(total() - paid)} para receber depois. Confirmar?`, { ok: 'Sim, concluir' }))) return;
           const sale = await POST('/api/sales', {
             visit_id: visit?.id, ...(picker ? picker.payload() : {}),
-            professional_id: form.seller?.value || myPro || undefined,
+            professional_id: form.seller?.value || myPro || (can.solo() ? soloPro()?.id : undefined),
             date: form.date?.value || undefined,
             discount_cents: d,
             items: lines.map((l) => ({ kind: l.kind, visit_item_id: l.visit_item_id, service_id: l.service_id, product_id: l.product_id, professional_id: l.professional_id, qty: l.qty, price_cents: l.price })),

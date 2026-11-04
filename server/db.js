@@ -145,6 +145,8 @@ export const ready = (async () => {
     'ALTER TABLE salons ADD COLUMN cover_photo TEXT',
     "ALTER TABLE salons ADD COLUMN gallery TEXT NOT NULL DEFAULT '[]'",
     'ALTER TABLE salons ADD COLUMN cancel_hours INTEGER NOT NULL DEFAULT 12',
+    // 'solo' = profissional que trabalha sozinha; 'team' = salão com equipe
+    "ALTER TABLE salons ADD COLUMN team_mode TEXT NOT NULL DEFAULT 'team'",
   ])
     await client.execute(sql).catch(() => {});
   await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_salons_slug ON salons(slug)');

@@ -176,7 +176,7 @@ export function newVisit(opts = {}) {
           return `<div class="svc-line" data-i="${i}">
             <div class="head"><span>Serviço ${i + 1}</span>${lines.length > 1 ? `<button type="button" class="icon-btn" data-rm="${i}" aria-label="Remover">${ic('trash', 18)}</button>` : ''}</div>
             <label class="field"><select data-f="service_id">${serviceOptions(l.service_id)}</select></label>
-            <div class="row"><label class="field"><span>Profissional</span><select data-f="professional_id" ${!l.service_id ? 'disabled' : ''}>
+            <div class="row"><label class="field" ${can.solo() ? 'style="display:none"' : ''}><span>Profissional</span><select data-f="professional_id" ${!l.service_id ? 'disabled' : ''}>
               <option value="">${l.service_id ? (pros.length ? 'Escolha…' : 'Nenhuma habilitada') : '—'}</option>
               ${pros.map((p) => `<option value="${p.id}" ${p.id === l.professional_id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
               <label class="field"><span>Horário</span><input type="time" data-f="time" value="${l.time}" step="300"></label></div>

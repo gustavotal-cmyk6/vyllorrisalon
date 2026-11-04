@@ -63,7 +63,7 @@ export function quickClient({ client = null, onSaved } = {}) {
       <label class="field"><span>Nome *</span><input name="name" required maxlength="80" value="${esc(client?.name || '')}" autofocus autocomplete="off"></label>
       <div class="row"><label class="field"><span>WhatsApp</span><input name="phone" inputmode="tel" maxlength="20" placeholder="(11) 99999-9999" value="${esc(fmtPhone(client?.phone))}"></label>
         <label class="field"><span>Aniversário</span><input name="birthday" placeholder="dd/mm" maxlength="10" value="${client?.birthday ? client.birthday.slice(-2) + '/' + client.birthday.slice(-5, -3) : ''}"></label></div>
-      <label class="field"><span>Profissional preferida</span><select name="preferred_pro_id"><option value="">Sem preferência</option>
+      <label class="field" ${can.solo() ? 'hidden' : ''}><span>Profissional preferida</span><select name="preferred_pro_id"><option value="">Sem preferência</option>
         ${state.pros.filter((p) => p.active).map((p) => `<option value="${p.id}" ${p.id === client?.preferred_pro_id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
       <label class="field"><span>Observações importantes</span><textarea name="notes" maxlength="2000" placeholder="Alergias, preferências, fórmula da coloração, tipo de cabelo…">${esc(client?.notes || '')}</textarea></label>
       <div class="actions stretch"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Salvar</button></div></form>`,
