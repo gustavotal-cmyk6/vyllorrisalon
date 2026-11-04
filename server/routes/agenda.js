@@ -4,11 +4,24 @@ import { all, get, run, tx } from '../db.js';
 import { addMin, addDays, dow, toMin, fromMin, today, nowTime, nowStr, diffMin } from '../util.js';
 import { servicePriceFor } from './catalog.js';
 import { createClient } from './clients.js';
+import { sweepCharges } from './deposits.js';
 
 const OPEN = `('scheduled','confirmed','waiting','in_progress','completed')`; // ocupam horário
 
-/** Motivos que impedem o horário (outro atendimento, bloqueio, fora do expediente). */
-export async function findConflicts(sid, proId, start, end, excludeVisitId = 0) {
+/**
+ * Atendimentos a domicílio ocupam também o deslocamento (antes e depois).
+ * Retorna os compromissos da profissional que encostam no intervalo [from, to), já com essa margem.
+ */
+async function busyItems(sid, proId, from, to, excludeVisitId) {
+  const rows = await all(
+    `SELECT vi.start_at, vi.end_at, c.name, v.travel_buffer_min AS buf FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN clients c ON c.id=v.client_id
+      WHERE vi.salon_id=? AND vi.professional_id=? AND v.status IN ${OPEN} AND v.id<>? AND vi.start_at<? AND vi.end_at>?`,
+    sid, proId, excludeVisitId, addMin(to, 720), addMin(from, -720));
+  return rows.map((r) => ({ ...r, from: addMin(r.start_at, -(r.buf || 0)), to: addMin(r.end_at, r.buf || 0) })).filter((r) => r.from < to && r.to > from);
+}
+
+/** Motivos que impedem o horário (outro atendimento, deslocamento, bloqueio, fora do expediente). */
+export async function findConflicts(sid, proId, start, end, excludeVisitId = 0, buffer = 0) {
   const out = [];
   const pro = await get('SELECT * FROM professionals WHERE id=? AND salon_id=?', proId, sid);
   const date = start.slice(0, 10);
@@ -17,11 +30,9 @@ export async function findConflicts(sid, proId, start, end, excludeVisitId = 0) 
   const s = start.slice(11), e = end.slice(11);
   if (s < pro.start_time || e > pro.end_time) out.push(`fora do expediente de ${pro.name} (${pro.start_time}–${pro.end_time})`);
   if (pro.break_start && s < pro.break_end && e > pro.break_start) out.push(`intervalo de ${pro.name} (${pro.break_start}–${pro.break_end})`);
-  for (const c of await all(
-    `SELECT vi.start_at, vi.end_at, c.name FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN clients c ON c.id=v.client_id
-      WHERE vi.salon_id=? AND vi.professional_id=? AND v.status IN ${OPEN} AND v.id<>? AND vi.start_at<? AND vi.end_at>?`,
-    sid, proId, excludeVisitId, end, start))
-    out.push(`${pro.name} já atende ${c.name} das ${c.start_at.slice(11)} às ${c.end_at.slice(11)}`);
+  const from = addMin(start, -buffer), to = addMin(end, buffer);
+  for (const c of await busyItems(sid, proId, from, to, excludeVisitId))
+    out.push(`${pro.name} já atende ${c.name} das ${c.start_at.slice(11)} às ${c.end_at.slice(11)}${c.buf || buffer ? ' (contando o deslocamento)' : ''}`);
   for (const b of await all(
     `SELECT start_at,end_at,reason FROM blocks WHERE salon_id=? AND (professional_id IS NULL OR professional_id=?) AND start_at<? AND end_at>?`,
     sid, proId, end, start))
@@ -29,27 +40,29 @@ export async function findConflicts(sid, proId, start, end, excludeVisitId = 0) 
   return out;
 }
 
-/** Horários livres de uma profissional num dia, para uma duração. */
-export async function freeSlots(sid, proId, date, duration, { step = 15, excludeVisitId = 0, fromNow = true } = {}) {
+/**
+ * Horários livres de uma profissional num dia, para uma duração.
+ * buffer: minutos de deslocamento antes e depois (atendimento a domicílio); window: faixa de horário permitida.
+ */
+export async function freeSlots(sid, proId, date, duration, { step = 15, excludeVisitId = 0, fromNow = true, buffer = 0, window = null } = {}) {
   const pro = await get('SELECT * FROM professionals WHERE id=? AND salon_id=? AND active=1', proId, sid);
   if (!pro || !pro.work_days.split(',').includes(String(dow(date)))) return [];
   const busy = [];
   if (pro.break_start) busy.push([toMin(pro.break_start), toMin(pro.break_end)]);
   const dayStart = `${date} 00:00`, dayEnd = `${addDays(date, 1)} 00:00`;
-  for (const r of (await all(`SELECT vi.start_at, vi.end_at FROM visit_items vi JOIN visits v ON v.id=vi.visit_id
-                        WHERE vi.salon_id=? AND vi.professional_id=? AND v.status IN ${OPEN} AND v.id<>? AND vi.start_at<? AND vi.end_at>?`,
-    sid, proId, excludeVisitId, dayEnd, dayStart)).concat(await all(
-    `SELECT start_at,end_at FROM blocks WHERE salon_id=? AND (professional_id IS NULL OR professional_id=?) AND start_at<? AND end_at>?`,
-    sid, proId, dayEnd, dayStart)))
+  for (const r of await busyItems(sid, proId, dayStart, dayEnd, excludeVisitId)) busy.push([diffMin(dayStart, r.from), diffMin(dayStart, r.to)]);
+  for (const r of await all(`SELECT start_at,end_at FROM blocks WHERE salon_id=? AND (professional_id IS NULL OR professional_id=?) AND start_at<? AND end_at>?`, sid, proId, dayEnd, dayStart))
     busy.push([Math.max(0, diffMin(dayStart, r.start_at)), Math.min(1440, diffMin(dayStart, r.end_at))]);
   let t = toMin(pro.start_time);
-  const end = toMin(pro.end_time);
+  let end = toMin(pro.end_time);
+  if (window) (t = Math.max(t, toMin(window[0]))), (end = Math.min(end, toMin(window[1])));
   if (fromNow && date === today()) {
-    const n = toMin(nowTime());
+    const n = toMin(nowTime()) + buffer;
     t = Math.max(t, Math.ceil(n / step) * step);
   } else if (fromNow && date < today()) return [];
+  t = Math.ceil(t / step) * step;
   const slots = [];
-  for (; t + duration <= end; t += step) if (!busy.some(([a, b]) => t < b && t + duration > a)) slots.push(fromMin(t));
+  for (; t + duration <= end; t += step) if (!busy.some(([a, b]) => t - buffer < b && t + duration + buffer > a)) slots.push(fromMin(t));
   return slots;
 }
 
@@ -63,7 +76,12 @@ route('GET', '/api/availability', ALL, async ({ query, sid }) => {
 // ---- Leitura da agenda ----
 export async function loadVisits(sid, where, ...p) {
   const visits = await all(`SELECT v.*, c.name AS client_name, c.phone AS client_phone, c.notes AS client_notes,
-      (SELECT s.id FROM sales s WHERE s.visit_id=v.id AND s.status='active') AS sale_id
+      (SELECT s.id FROM sales s WHERE s.visit_id=v.id AND s.status='active') AS sale_id,
+      (SELECT c.id FROM charges c WHERE c.visit_id=v.id ORDER BY c.id DESC LIMIT 1) AS charge_id,
+      (SELECT c.status FROM charges c WHERE c.visit_id=v.id ORDER BY c.id DESC LIMIT 1) AS charge_status,
+      (SELECT c.amount_cents FROM charges c WHERE c.visit_id=v.id ORDER BY c.id DESC LIMIT 1) AS charge_amount,
+      (SELECT c.receipt_image IS NOT NULL FROM charges c WHERE c.visit_id=v.id ORDER BY c.id DESC LIMIT 1) AS charge_receipt,
+      (SELECT c.reject_reason FROM charges c WHERE c.visit_id=v.id ORDER BY c.id DESC LIMIT 1) AS charge_reject
       FROM visits v JOIN clients c ON c.id=v.client_id WHERE v.salon_id=? AND ${where} ORDER BY v.date`, sid, ...p);
   if (!visits.length) return [];
   const ids = visits.map((v) => v.id);
@@ -80,6 +98,7 @@ export async function loadVisits(sid, where, ...p) {
 }
 
 route('GET', '/api/agenda', ALL, async ({ query, sid, user }) => {
+  await sweepCharges(sid);
   const from = V.date(query.from, 'De', { req: true });
   const to = V.date(query.to || query.from, 'Até', { req: true });
   let pro = V.int(query.professional_id, 'Profissional');

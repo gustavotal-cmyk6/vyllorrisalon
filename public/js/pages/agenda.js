@@ -1,4 +1,4 @@
-import { state, GET, POST, esc, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail } from '../core.js';
+import { state, GET, POST, esc, money, modal, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail } from '../core.js';
 import { newVisit, openVisit, newBlock, removeBlock } from './visits.js';
 import { openCheckout } from './checkout.js';
 import { refresh } from '../app.js';
@@ -21,6 +21,7 @@ function rangeOf(mode, date) {
 
 export default async function agenda(root, { query }) {
   if (query.data && query.data !== view.fromLink) view.date = view.fromLink = query.data;
+  if (query.sinais && !view.depositsShown) (view.depositsShown = true), setTimeout(depositsToReview, 50);
   view.date ||= todayStr();
   if (can.pro()) view.pro = String(state.user.professional_id);
   const r = rangeOf(view.mode, view.date);
@@ -122,11 +123,13 @@ function card(v, item, { compact = false, showPro = false } = {}) {
   const n = !compact && NEXT[v.status];
   return `<div class="appt ${dim}" style="--c:${esc(own[0].pro_color)}" data-visit="${v.id}" role="button" tabindex="0">
     <div class="top"><span class="time">${own[0].start_at.slice(11)}${compact ? '' : '–' + own[own.length - 1].end_at.slice(11)}</span>${badge(v.status)}</div>
-    <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}${v.source === 'online' ? ' <span class="tag pink">online</span>' : ''}</div>
+    <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}${v.source === 'online' ? ' <span class="tag pink">online</span>' : ''}${v.location === 'home' ? ` <span class="tag brand">${ic('home', 11)} domicílio</span>` : ''}${depTag(v)}</div>
     <div class="what">${own.map((i) => esc(i.service_name)).join(' + ')}${showPro && !can.solo() ? ' · ' + [...new Set(v.items.map((i) => esc(i.pro_name)))].join(', ') : ''}</div>
     ${n ? `<div class="quick-acts"><button class="btn xs ${n[0] === 'checkout' ? 'ok' : 'soft'}" data-step="${n[0]}" data-id="${v.id}">${ic(n[2], 14)} ${n[1]}</button></div>` : ''}
   </div>`;
 }
+const DEP_TAG = { pending: ['warn', 'sinal pendente'], submitted: ['warn', 'conferir comprovante'], rejected: ['err', 'sinal recusado'], approved: ['ok', 'sinal pago'], refund_due: ['warn', 'devolver sinal'] };
+const depTag = (v) => (DEP_TAG[v.charge_status] ? ` <span class="tag ${DEP_TAG[v.charge_status][0]}">${DEP_TAG[v.charge_status][1]}</span>` : '');
 const blockCard = (b) => `<button class="appt block" data-block="${b.id}" title="Toque para remover"><div class="top"><span class="time">${b.start_at.slice(11)}–${b.end_at.slice(11)}</span><span class="tag">${ic('ban', 12)} bloqueado</span></div>
   <div class="what">${esc(b.reason || 'Bloqueio')}${b.professional_id ? '' : ' · salão inteiro'}</div></button>`;
 
@@ -185,4 +188,24 @@ function monthView(data, r) {
     return `<button data-day="${d}" class="${d < r.first || d > r.last ? 'out' : ''} ${d === todayStr() ? 'today' : ''}" aria-label="${fmtDayLong(d)}: ${vs.length} agendamentos">
       <b>${Number(d.slice(8))}</b>${vs.length ? `<span class="mc">${vs.length} agend.</span>` : ''}${pend ? `<span class="mc pend">${pend} a confirmar</span>` : ''}</button>`;
   }).join('')}</div><p class="legend">Toque em um dia para ver os horários.</p></div>`;
+}
+
+/** Sinais por Pix que precisam de ação do salão (conferir, recusar ou devolver). */
+async function depositsToReview() {
+  let rows = [];
+  try {
+    rows = await GET('/api/charges?status=review');
+  } catch (e) {
+    return fail(e);
+  }
+  const TXT = { pending: 'aguardando a cliente pagar', submitted: 'comprovante enviado', refund_due: 'devolver à cliente' };
+  modal({
+    title: 'Sinais para conferir',
+    body: rows.length ? `<ul class="list">${rows.map((c) => `<li class="click" data-v="${c.visit_id}"><div class="grow"><div class="title">${esc(c.client_name)}</div>
+        <div class="meta">${fmtDayLong(c.date)} às ${(c.start_at || '').slice(11)} · ${TXT[c.status]}</div></div><b>${money(c.amount_cents)}</b></li>`).join('')}</ul>`
+      : empty('Nenhum sinal aguardando conferência.', '', 'checkCircle'),
+    onMount(el, close) {
+      el.querySelectorAll('[data-v]').forEach((li) => (li.onclick = () => (close(), openVisit(Number(li.dataset.v), refresh))));
+    },
+  });
 }

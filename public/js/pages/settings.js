@@ -1,5 +1,6 @@
-import { state, GET, POST, PUT, esc, modal, toast, fail, submitting, can, empty, loadRefs, ic, avatar, pageHead, photoField, pickImage, fmtPhone, ROLE_LABEL, soloPro } from '../core.js';
+import { state, GET, POST, PUT, esc, modal, toast, fail, submitting, can, empty, loadRefs, ic, avatar, pageHead, photoField, pickImage, fmtPhone, ROLE_LABEL, soloPro, money, toCents } from '../core.js';
 import { refresh } from '../app.js';
+import { pushState, enablePush, disablePush } from '../push.js';
 import { editPro } from './team.js';
 
 const ROLE_HELP = {
@@ -12,7 +13,7 @@ const ui = { tab: 'salon' };
 
 export default async function settings(root) {
   const owner = can.owner();
-  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['payments', 'Formas de pagamento'], ['users', 'Acessos da equipe'], ['me', 'Minha conta']] : [['me', 'Minha conta']];
+  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal e Pix'], ['home', 'Domicílio'], ['payments', 'Formas de pagamento'], ['users', 'Acessos da equipe'], ['me', 'Minha conta']] : [['me', 'Minha conta']];
   if (!TABS.some(([k]) => k === ui.tab)) ui.tab = TABS[0][0];
   root.innerHTML = `${pageHead('Configurações', `${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]}`)}
     ${TABS.length > 1 ? `<div class="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
@@ -23,6 +24,8 @@ export default async function settings(root) {
   if (ui.tab === 'booking') return bookingTab(body);
   if (ui.tab === 'payments') return paymentsTab(body);
   if (ui.tab === 'users') return usersTab(body);
+  if (ui.tab === 'deposit') return depositTab(body);
+  if (ui.tab === 'home') return homeTab(body);
   meTab(body);
 }
 
@@ -175,7 +178,9 @@ function meTab(body) {
     <div class="row"><label class="field"><span>Senha atual</span><input type="password" name="current" autocomplete="current-password"></label>
     <label class="field"><span>Nova senha</span><input type="password" name="password" minlength="8" autocomplete="new-password"><small>Mínimo de 8 caracteres</small></label></div>
     <button class="btn primary">${ic('lock', 18)} Alterar senha</button></form></div>
+    <div class="card" data-push></div>
     <div class="card soft"><p class="small muted">${ic('lock', 16)} Os dados de cada salão ficam separados e só pessoas com acesso autorizado conseguem vê-los.</p></div>`;
+  pushCard(body.querySelector('[data-push]'));
   body.querySelector('[data-pw]').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -220,4 +225,129 @@ function editUser(u = null) {
       };
     },
   });
+}
+
+// ---------- Sinal antecipado com Pix do próprio salão ----------
+const KEY_TYPES = [['cpf', 'CPF'], ['cnpj', 'CNPJ'], ['email', 'E-mail'], ['phone', 'Celular'], ['random', 'Chave aleatória']];
+const moneyBR = (c) => ((c || 0) / 100).toFixed(2).replace('.', ',');
+
+async function depositTab(body) {
+  const c = await GET('/api/salon/deposit');
+  body.innerHTML = `<form novalidate data-dep>
+    <div class="card"><h2 style="margin-bottom:6px">Sua chave Pix</h2>
+      <p class="small muted" style="margin-bottom:12px">O sistema gera o QR Code e o Pix Copia e Cola com o valor exato do sinal. O dinheiro cai direto na sua conta; você confere no seu banco e confirma no agendamento.</p>
+      <div class="row"><label class="field"><span>Tipo da chave</span><select name="pix_key_type">${KEY_TYPES.map(([k, l]) => `<option value="${k}" ${c.pix_key_type === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="field"><span>Chave Pix</span><input name="pix_key" maxlength="80" value="${esc(c.pix_key || '')}" autocomplete="off"></label></div>
+      <div class="row"><label class="field"><span>Nome do beneficiário</span><input name="pix_name" maxlength="60" value="${esc(c.pix_name || '')}" placeholder="Como aparece no seu banco"></label>
+        <label class="field"><span>Cidade do beneficiário</span><input name="pix_city" maxlength="40" value="${esc(c.pix_city || '')}"></label></div>
+      <button type="button" class="btn sm soft" data-preview>${ic('zap', 16)} Testar minha chave</button><div data-preview-box></div></div>
+    <div class="card"><h2 style="margin-bottom:10px">Cobrança do sinal</h2>
+      <label class="check"><span class="switch"><input type="checkbox" name="enabled" ${c.deposit_enabled ? 'checked' : ''}><i></i></span> Exigir sinal no agendamento online</label>
+      <div class="row"><label class="field"><span>Porcentagem do sinal (%)</span><input name="pct" inputmode="decimal" value="${String(c.deposit_pct).replace('.', ',')}"></label>
+        <label class="field"><span>Prazo para pagar (minutos)</span><input name="expire_min" inputmode="numeric" value="${c.deposit_expire_min}"><small>Sem comprovante nesse prazo, o horário é liberado.</small></label></div>
+      <label class="check"><input type="checkbox" name="include_travel" ${c.deposit_include_travel ? 'checked' : ''}> Calcular o sinal também sobre a taxa de deslocamento (domicílio)</label>
+      <div class="field"><span>Quais serviços exigem sinal?</span><div class="seg"><button type="button" data-scope="all" class="${c.deposit_scope === 'all' ? 'on' : ''}">Todos</button><button type="button" data-scope="selected" class="${c.deposit_scope === 'selected' ? 'on' : ''}">Só os que eu escolher</button></div></div>
+      <div data-svcs class="${c.deposit_scope === 'selected' ? '' : 'hidden'}" style="display:grid;gap:4px;margin-bottom:12px">${c.services.map((s) => `<label class="check" style="margin:0"><input type="checkbox" data-svc="${s.id}" ${s.requires_deposit ? 'checked' : ''}> ${esc(s.name)} <span class="muted small">${money(s.price_cents)}</span></label>`).join('') || '<p class="small muted">Nenhum serviço cadastrado.</p>'}</div>
+      <label class="field"><span>Se a cliente cancelar dentro do prazo (até ${c.cancel_hours}h antes)</span><select name="refund"><option value="refund" ${c.deposit_refund === 'refund' ? 'selected' : ''}>Devolvo o sinal</option><option value="keep" ${c.deposit_refund === 'keep' ? 'selected' : ''}>O sinal não é devolvido</option></select>
+        <small>Em faltas, você decide no agendamento se devolve ou retém. O restante é pago no atendimento.</small></label>
+    </div>
+    <div class="actions" style="justify-content:flex-start"><button class="btn primary">${ic('check', 18)} Salvar</button></div></form>`;
+  const f = body.querySelector('[data-dep]');
+  let scope = c.deposit_scope;
+  f.querySelectorAll('[data-scope]').forEach((b) => (b.onclick = () => {
+    scope = b.dataset.scope;
+    f.querySelectorAll('[data-scope]').forEach((x) => x.classList.toggle('on', x === b));
+    f.querySelector('[data-svcs]').classList.toggle('hidden', scope !== 'selected');
+  }));
+  const pix = () => ({ pix_key_type: f.pix_key_type.value, pix_key: f.pix_key.value, pix_name: f.pix_name.value, pix_city: f.pix_city.value });
+  f.querySelector('[data-preview]').onclick = async (e) => {
+    await submitting(e.currentTarget, async () => {
+      const r = await POST('/api/salon/deposit/preview', pix());
+      f.querySelector('[data-preview-box]').innerHTML = `<div style="display:flex;gap:14px;align-items:center;margin-top:12px;flex-wrap:wrap"><div style="width:150px">${r.svg}</div>
+        <p class="small" style="flex:1;min-width:200px">Pix de teste de <b>R$ 1,00</b>. Abra o app do seu banco, leia o QR Code e confira se aparecem <b>seu nome e sua chave</b>. Não é preciso pagar.</p></div>`;
+    }).catch(() => {});
+  };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    await submitting(f.querySelector('.actions .btn'), async () => {
+      await PUT('/api/salon/deposit', { ...pix(), enabled: f.enabled.checked, pct: Number(f.pct.value.replace(',', '.')), expire_min: Number(f.expire_min.value), include_travel: f.include_travel.checked,
+        scope, refund: f.refund.value, service_ids: [...f.querySelectorAll('[data-svc]:checked')].map((x) => Number(x.dataset.svc)) });
+      toast(f.enabled.checked ? 'Sinal ativado no agendamento online' : 'Configuração salva');
+      refresh();
+    }).catch(() => {});
+  };
+}
+
+// ---------- Atendimento a domicílio ----------
+async function homeTab(body) {
+  const h = await GET('/api/salon/home');
+  const areas = h.areas.map((a) => ({ ...a }));
+  body.innerHTML = `<form novalidate data-home>
+    <div class="card"><label class="check"><span class="switch"><input type="checkbox" name="enabled" ${h.enabled ? 'checked' : ''}><i></i></span> <b>Oferecer atendimento a domicílio</b></label>
+      <p class="small muted">Na página de agendamento, a cliente escolhe entre o salão e a casa dela.</p></div>
+    <div class="card"><h2 style="margin-bottom:10px">Quem atende e o quê</h2>
+      <div class="grid g2"><div><h3 class="small muted" style="margin-bottom:6px">Profissionais que vão até a cliente</h3>${h.pros.map((p) => `<label class="check" style="margin:0 0 4px"><input type="checkbox" data-pro="${p.id}" ${p.home_service ? 'checked' : ''}> ${esc(p.name)}</label>`).join('') || '<p class="small muted">Nenhuma profissional ativa.</p>'}</div>
+        <div><h3 class="small muted" style="margin-bottom:6px">Serviços que podem ser feitos em casa</h3>${h.services.map((s) => `<label class="check" style="margin:0 0 4px"><input type="checkbox" data-svc="${s.id}" ${s.home_allowed ? 'checked' : ''}> ${esc(s.name)}</label>`).join('') || '<p class="small muted">Nenhum serviço cadastrado.</p>'}</div></div></div>
+    <div class="card"><h2 style="margin-bottom:10px">Taxa de deslocamento e regiões</h2>
+      <div class="seg" style="margin-bottom:12px"><button type="button" data-mode="fixed" class="${h.fee_mode === 'fixed' ? 'on' : ''}">Mesma taxa para todos</button><button type="button" data-mode="by_area" class="${h.fee_mode === 'by_area' ? 'on' : ''}">Taxa por bairro</button></div>
+      <label class="field" data-fixed style="max-width:240px"><span>Taxa (R$)</span><input name="fee" inputmode="decimal" value="${moneyBR(h.fee_cents)}"></label>
+      <div class="field"><span>Bairros ou regiões atendidas <small>(vazio = atende qualquer bairro)</small></span><div data-areas></div>
+        <button type="button" class="btn sm soft" data-add-area style="margin-top:6px;width:fit-content">${ic('plus', 16)} Adicionar bairro</button></div></div>
+    <div class="card"><h2 style="margin-bottom:10px">Horários do atendimento externo</h2>
+      <div class="row3"><label class="field"><span>A partir de</span><input type="time" name="start" value="${h.start}"></label><label class="field"><span>Até</span><input type="time" name="end" value="${h.end}"></label>
+        <label class="field"><span>Deslocamento (min)</span><input name="buffer" inputmode="numeric" value="${h.buffer_min}"></label></div>
+      <p class="small muted">A agenda da profissional fica bloqueada esse tempo antes e depois de cada atendimento em casa, para não haver conflito com o salão.</p></div>
+    <div class="actions" style="justify-content:flex-start"><button class="btn primary">${ic('check', 18)} Salvar</button></div></form>`;
+  const f = body.querySelector('[data-home]');
+  let mode = h.fee_mode;
+  const box = f.querySelector('[data-areas]');
+  const drawAreas = () => {
+    box.innerHTML = areas.map((a, i) => `<div style="display:grid;grid-template-columns:1fr ${mode === 'by_area' ? '110px ' : ''}40px;gap:6px;margin-bottom:6px">
+      <input data-an="${i}" value="${esc(a.name)}" placeholder="Bairro ou região" aria-label="Bairro">${mode === 'by_area' ? `<input data-af="${i}" inputmode="decimal" value="${moneyBR(a.fee_cents)}" placeholder="Taxa" aria-label="Taxa do bairro">` : ''}
+      <button type="button" class="icon-btn" data-ar="${i}" aria-label="Remover bairro">${ic('trash', 18)}</button></div>`).join('');
+    box.querySelectorAll('[data-an]').forEach((x) => (x.oninput = () => (areas[x.dataset.an].name = x.value)));
+    box.querySelectorAll('[data-af]').forEach((x) => (x.oninput = () => (areas[x.dataset.af].fee_cents = toCents(x.value) || 0)));
+    box.querySelectorAll('[data-ar]').forEach((x) => (x.onclick = () => (areas.splice(Number(x.dataset.ar), 1), drawAreas())));
+    f.querySelector('[data-fixed]').classList.toggle('hidden', mode !== 'fixed');
+  };
+  drawAreas();
+  f.querySelector('[data-add-area]').onclick = () => (areas.push({ name: '', fee_cents: 0 }), drawAreas());
+  f.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => {
+    mode = b.dataset.mode;
+    f.querySelectorAll('[data-mode]').forEach((x) => x.classList.toggle('on', x === b));
+    drawAreas();
+  }));
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    await submitting(f.querySelector('.actions .btn'), async () => {
+      await PUT('/api/salon/home', { enabled: f.enabled.checked, fee_mode: mode, fee_cents: toCents(f.fee.value) || 0, areas: areas.filter((a) => a.name.trim()),
+        buffer_min: Number(f.buffer.value), start: f.start.value, end: f.end.value,
+        pro_ids: [...f.querySelectorAll('[data-pro]:checked')].map((x) => Number(x.dataset.pro)), service_ids: [...f.querySelectorAll('[data-svc]:checked')].map((x) => Number(x.dataset.svc)) });
+      toast('Atendimento a domicílio salvo');
+      refresh();
+    }).catch(() => {});
+  };
+}
+
+// ---------- Notificações do app neste aparelho ----------
+async function pushCard(box) {
+  const draw = (s) => {
+    box.innerHTML = `<div class="card-head"><h2>Notificações no aparelho</h2>${s.on ? '<span class="tag ok">ativas</span>' : ''}</div>
+      <p class="small muted" style="margin-bottom:12px">Receba avisos de novos agendamentos online, comprovantes de sinal e cancelamentos, mesmo com o app fechado.</p>
+      ${!s.supported ? `<p class="small warn-t">${esc(s.reason)}</p>`
+        : s.denied ? '<p class="small warn-t">As notificações estão bloqueadas neste navegador. Libere nas configurações do navegador e volte aqui.</p>'
+        : s.on ? `<div class="chips"><button class="btn sm soft" data-test>${ic('bell', 16)} Enviar teste</button><button class="btn sm ghost" data-off>Desativar neste aparelho</button></div>`
+        : `<button class="btn sm primary" data-on>${ic('bell', 16)} Ativar notificações</button>`}`;
+    box.querySelector('[data-on]')?.addEventListener('click', async (e) => {
+      await submitting(e.currentTarget, async () => {
+        draw(await enablePush());
+        toast('Notificações ativadas neste aparelho');
+      }).catch(() => {});
+    });
+    box.querySelector('[data-off]')?.addEventListener('click', async () => draw(await disablePush()));
+    box.querySelector('[data-test]')?.addEventListener('click', async (e) => {
+      await submitting(e.currentTarget, () => POST('/api/push/test')).then(() => toast('Teste enviado')).catch(() => {});
+    });
+  };
+  draw(await pushState());
 }

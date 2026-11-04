@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vyllorri-test-'));
 const PORT = 3999;
 const srv = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir }, stdio: ['ignore', 'pipe', 'inherit'],
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50' }, stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((r) => srv.stdout.once('data', r));
 
@@ -281,6 +281,174 @@ try {
     ok(await solo('PUT', `/api/professionals/${p2}`, { ...p2data, active: false }));
     assert.equal(ok(await solo('PUT', '/api/salon/mode', { mode: 'solo' })).team_mode, 'solo');
     assert.equal(ok(await solo('GET', '/api/agenda?from=' + D + '&to=' + D)).visits.length, 1, 'agenda preservada ao trocar de modo');
+  });
+
+  // ---------------- Sinal por Pix + atendimento a domicílio ----------------
+  const future = (n) => {
+    const t = new Date(Date.now() + n * 864e5);
+    return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+  };
+  const anonP = client();
+  let colorId;
+  await step('1. sem sinal: agendamento online não gera cobrança', async () => {
+    colorId = ok(await owner('POST', '/api/services', { name: 'Coloração', price_cents: 10000, duration_min: 60, online: true, pros: [{ professional_id: bia }, { professional_id: carla }] })).id;
+    const b = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: bia, start_at: `${future(3)} 09:00`, name: 'Sem Sinal', phone: '11 91111-0001' }));
+    assert.equal(b.charge, null);
+    assert.equal(b.total_cents, 10000);
+  });
+
+  await step('chave Pix validada e QR Code de teste', async () => {
+    assert.equal((await owner('PUT', '/api/salon/deposit', { enabled: true, pix_key_type: 'cpf', pix_key: '111.111.111-11', pix_name: 'Ana', pix_city: 'SP' })).status, 400, 'CPF inválido recusado');
+    const pv = ok(await owner('POST', '/api/salon/deposit/preview', { pix_key_type: 'phone', pix_key: '(11) 98888-7777', pix_name: 'Salão Teste', pix_city: 'São Paulo' }));
+    assert.ok(pv.brcode.startsWith('000201') && pv.brcode.includes('br.gov.bcb.pix') && pv.svg.includes('<svg'));
+    ok(await owner('PUT', '/api/salon/deposit', { enabled: true, pct: 50, scope: 'all', include_travel: true, expire_min: 30, refund: 'refund', pix_key_type: 'cpf', pix_key: '529.982.247-25', pix_name: 'Ana Teste', pix_city: 'São Paulo' }));
+  });
+
+  let paidToken, paidCharge;
+  await step('2/3. sinal de 50%: QR com valor exato, comprovante, confirmação e abatimento na conta', async () => {
+    const pub = ok(await anonP('GET', '/api/public/salao-teste'));
+    assert.equal(pub.deposit.pct, 50);
+    const b = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: bia, start_at: `${future(3)} 11:00`, name: 'Com Sinal', phone: '11 91111-0002' }));
+    assert.equal(b.charge.status, 'pending');
+    assert.equal(b.charge.amount_cents, 5000);
+    assert.equal(b.charge.remaining_cents, 5000);
+    assert.ok(b.charge.brcode.includes('540550.00'), 'valor exato no Pix Copia e Cola');
+    assert.ok(b.charge.qr_svg.includes('<svg'));
+    assert.equal(b.status_text, 'Aguardando pagamento do sinal');
+    paidToken = b.token;
+    // cliente clicar não confirma nada: só o comprovante, e só o salão aprova
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const sent = ok(await anonP('POST', `/api/public/salao-teste/booking/${b.token}/receipt`, { data: png }));
+    assert.equal(sent.charge.status, 'submitted');
+    assert.equal(sent.status, 'scheduled');
+    const ag = ok(await owner('GET', `/api/agenda?from=${future(3)}&to=${future(3)}`));
+    const v = ag.visits.find((x) => x.client_name === 'Com Sinal');
+    assert.equal(v.charge_status, 'submitted');
+    paidCharge = v.charge_id;
+    // comprovante é privado: não abre pelo link público de imagens, só para a equipe
+    const r = await fetch(`http://localhost:${PORT}/api/charges/${paidCharge}/receipt`);
+    assert.equal(r.status, 401);
+    ok(await owner('POST', `/api/charges/${paidCharge}/approve`));
+    const after = ok(await anonP('GET', `/api/public/salao-teste/booking/${b.token}`));
+    assert.equal(after.status, 'confirmed');
+    assert.equal(after.paid_cents, 5000);
+    assert.equal(after.remaining_cents, 5000);
+    // fechamento: sinal abatido automaticamente
+    ok(await owner('POST', `/api/visits/${v.id}/status`, { status: 'in_progress' }));
+    const vis = ok(await owner('GET', `/api/visits/${v.id}`));
+    assert.equal((await owner('POST', '/api/sales', { visit_id: v.id, items: [{ kind: 'service', visit_item_id: vis.items[0].id }], payments: [{ method: 'Pix', amount_cents: 6000 }] })).status, 400, 'não deixa pagar além do restante');
+    const sale = ok(await owner('POST', '/api/sales', { visit_id: v.id, items: [{ kind: 'service', visit_item_id: vis.items[0].id }], payments: [{ method: 'Dinheiro', amount_cents: 5000 }] }));
+    assert.equal(sale.total_cents, 10000);
+    assert.equal(sale.pending_cents, 0);
+    assert.ok(sale.payments.some((p) => p.method === 'Pix (sinal)' && p.amount_cents === 5000));
+  });
+
+  await step('4. pagamento recusado: cliente vê o motivo e reenvia', async () => {
+    const b = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: carla, start_at: `${future(4)} 10:00`, name: 'Recusada', phone: '11 91111-0003' }));
+    assert.equal((await owner('POST', '/api/charges/999999/approve')).status, 404);
+    const ag = ok(await owner('GET', `/api/agenda?from=${future(4)}&to=${future(4)}`));
+    const v = ag.visits.find((x) => x.client_name === 'Recusada');
+    ok(await owner('POST', `/api/charges/${v.charge_id}/reject`, { reason: 'Valor não encontrado no extrato' }));
+    const seen = ok(await anonP('GET', `/api/public/salao-teste/booking/${b.token}`));
+    assert.equal(seen.charge.status, 'rejected');
+    assert.equal(seen.charge.reject_reason, 'Valor não encontrado no extrato');
+    assert.ok(seen.charge.brcode, 'QR continua disponível para pagar');
+    // outro salão não consegue mexer nesse pagamento
+    const other = client();
+    ok(await other('POST', '/api/auth/signup', { salon_name: 'Intruso', name: 'X', email: 'x@intruso.com', password: 'senha1234' }));
+    assert.equal((await other('POST', `/api/charges/${v.charge_id}/approve`)).status, 404);
+  });
+
+  await step('5/6/7/8. domicílio: endereço, taxa por bairro, total e sinal de 50% sobre o total', async () => {
+    assert.equal((await owner('PUT', '/api/salon/home', { enabled: true, fee_mode: 'by_area', areas: [], start: '08:00', end: '18:00', pro_ids: [bia], service_ids: [colorId] })).status, 400, 'por bairro exige bairros');
+    ok(await owner('PUT', '/api/salon/home', { enabled: true, fee_mode: 'by_area', areas: [{ name: 'Centro', fee_cents: 1500 }, { name: 'Jardins', fee_cents: 2500 }], buffer_min: 30, start: '08:00', end: '18:00', pro_ids: [bia], service_ids: [colorId] }));
+    const pub = ok(await anonP('GET', '/api/public/salao-teste'));
+    const svc = pub.services.find((s) => s.id === colorId);
+    assert.equal(svc.home, true);
+    assert.deepEqual(pub.home.areas.map((a) => a.name), ['Centro', 'Jardins']);
+    // no salão continua normal
+    const inSalon = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: carla, start_at: `${future(5)} 09:00`, location: 'salon', name: 'No Salão', phone: '11 91111-0004' }));
+    assert.equal(inSalon.location, 'salon');
+    assert.equal(inSalon.travel_fee_cents, 0);
+    const address = { cep: '01310-100', street: 'Av. Paulista', number: '1000', complement: 'ap 12', district: 'Bela Vista', city: 'São Paulo/SP', reference: 'perto do metrô' };
+    assert.equal((await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, start_at: `${future(5)} 10:00`, location: 'home', address, area: 'Moema', name: 'Fora', phone: '11 91111-0005' })).status, 400, 'bairro não atendido');
+    const h = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, start_at: `${future(5)} 10:00`, location: 'home', address, area: 'Centro', name: 'Em Casa', phone: '11 91111-0006', lat: -23.56, lng: -46.65 }));
+    assert.equal(h.location, 'home');
+    assert.equal(h.professional, 'Bia', 'só quem atende a domicílio');
+    assert.equal(h.travel_fee_cents, 1500);
+    assert.equal(h.total_cents, 11500);
+    assert.equal(h.charge.amount_cents, 5750);
+    assert.equal(h.charge.remaining_cents, 5750);
+    assert.ok(h.charge.brcode.includes('540557.50'), 'QR com R$ 57,50');
+    assert.equal(h.home_address.street, 'Av. Paulista');
+    const ag = ok(await owner('GET', `/api/agenda?from=${future(5)}&to=${future(5)}`));
+    const v = ag.visits.find((x) => x.client_name === 'Em Casa');
+    assert.equal(v.location, 'home');
+    assert.equal(v.travel_fee_cents, 1500);
+    assert.equal(v.travel_buffer_min, 30);
+    assert.ok(JSON.parse(v.home_address).cep === '01310100');
+    // na conta, a taxa entra automaticamente e o sinal (após aprovado) é abatido
+    ok(await owner('POST', `/api/charges/${v.charge_id}/approve`));
+    const vis = ok(await owner('GET', `/api/visits/${v.id}`));
+    const sale = ok(await owner('POST', '/api/sales', { visit_id: v.id, items: [{ kind: 'service', visit_item_id: vis.items[0].id }], payments: [{ method: 'Pix', amount_cents: 5750 }] }));
+    assert.equal(sale.total_cents, 11500);
+    assert.ok(sale.items.some((i) => i.kind === 'fee' && i.net_cents === 1500 && i.commission_cents === 0));
+    assert.equal(sale.pending_cents, 0);
+  });
+
+  await step('9. sem disponibilidade externa: profissional e deslocamento respeitados', async () => {
+    const address = { cep: '01310100', street: 'Rua A', number: '1', district: 'Centro' };
+    assert.equal((await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: carla, start_at: `${future(6)} 10:00`, location: 'home', address, area: 'Centro', name: 'Quer Carla', phone: '11 91111-0007' })).status, 400, 'Carla não atende a domicílio');
+    // Bia atende em casa das 10:00 às 11:00; com 30 min de deslocamento fica ocupada das 09:30 às 11:30 (serviço de 60 min)
+    ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: bia, start_at: `${future(6)} 10:00`, location: 'home', address, area: 'Centro', name: 'Casa Bia', phone: '11 91111-0008' }));
+    const slots = ok(await anonP('GET', `/api/public/salao-teste/slots?service_id=${colorId}&professional_id=${bia}&date=${future(6)}`)).slots;
+    assert.ok(!slots.includes('11:00') && !slots.includes('09:00') && slots.includes('11:30') && slots.includes('08:30'));
+    assert.equal((await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: bia, start_at: `${future(6)} 11:00`, name: 'Colada', phone: '11 91111-0009' })).status, 409);
+    // fora do horário do atendimento externo (até 18:00)
+    assert.equal((await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: bia, start_at: `${future(6)} 17:30`, location: 'home', address, area: 'Centro', name: 'Tarde', phone: '11 91111-0010' })).status, 400);
+    const homeSlots = ok(await anonP('GET', `/api/public/salao-teste/slots?service_id=${colorId}&date=${future(6)}&location=home`)).slots;
+    assert.ok(homeSlots.every((t) => t >= '08:00' && t <= '17:00'));
+  });
+
+  await step('10. cancelamento: devolução ou retenção do sinal conforme a regra; prazo vencido libera o horário', async () => {
+    // regra "devolvo": sinal aprovado vira "a devolver"
+    const b1 = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: carla, start_at: `${future(7)} 09:00`, name: 'Cancela Devolve', phone: '11 91111-0011' }));
+    let v = ok(await owner('GET', `/api/agenda?from=${future(7)}&to=${future(7)}`)).visits.find((x) => x.client_name === 'Cancela Devolve');
+    ok(await owner('POST', `/api/charges/${v.charge_id}/approve`));
+    const c1 = ok(await anonP('POST', `/api/public/salao-teste/booking/${b1.token}/cancel`));
+    assert.equal(c1.status, 'cancelled');
+    assert.equal(c1.charge.status, 'refund_due');
+    ok(await owner('POST', `/api/charges/${v.charge_id}/refund`));
+    // regra "não devolvo": sinal retido entra como receita
+    const cfg = ok(await owner('GET', '/api/salon/deposit'));
+    ok(await owner('PUT', '/api/salon/deposit', { enabled: true, pct: cfg.deposit_pct, scope: 'all', include_travel: true, expire_min: 30, refund: 'keep', pix_key_type: 'cpf', pix_key: cfg.pix_key, pix_name: cfg.pix_name, pix_city: cfg.pix_city }));
+    const b2 = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: carla, start_at: `${future(7)} 11:00`, name: 'Cancela Retem', phone: '11 91111-0012' }));
+    v = ok(await owner('GET', `/api/agenda?from=${future(7)}&to=${future(7)}`)).visits.find((x) => x.client_name === 'Cancela Retem');
+    ok(await owner('POST', `/api/charges/${v.charge_id}/approve`));
+    const c2 = ok(await anonP('POST', `/api/public/salao-teste/booking/${b2.token}/cancel`));
+    assert.equal(c2.charge.status, 'retained');
+    const today = D;
+    const fin = ok(await owner('GET', `/api/sales?from=${today}&to=${today}`));
+    assert.ok(fin.some((s) => s.items_text.includes('Sinal retido') && s.total_cents === 5000));
+    // sem comprovante dentro do prazo: cobrança expira e o horário volta a ficar livre
+    const b3 = ok(await anonP('POST', '/api/public/salao-teste/book', { service_id: colorId, professional_id: carla, start_at: `${future(7)} 14:00`, name: 'Nao Pagou', phone: '11 91111-0013' }));
+    const { createClient: libsql } = await import('@libsql/client');
+    const dbc = libsql({ url: 'file:' + path.join(dir, 'vyllorri.db').replace(/\\/g, '/') });
+    await dbc.execute("UPDATE charges SET expires_at='2000-01-01 00:00:00' WHERE status='pending'");
+    dbc.close();
+    const exp = ok(await anonP('GET', `/api/public/salao-teste/booking/${b3.token}`));
+    assert.equal(exp.status, 'cancelled');
+    assert.equal(exp.charge.status, 'expired');
+    const free = ok(await anonP('GET', `/api/public/salao-teste/slots?service_id=${colorId}&professional_id=${carla}&date=${future(7)}`)).slots;
+    assert.ok(free.includes('14:00'), 'horário liberado');
+  });
+
+  await step('notificações do app: inscrição do aparelho', async () => {
+    const k = ok(await owner('GET', '/api/push/key'));
+    assert.ok(k.key && k.key.length > 40);
+    assert.equal((await owner('POST', '/api/push/subscribe', { endpoint: 'http://inseguro', keys: { p256dh: 'a', auth: 'b' } })).status, 400);
+    ok(await owner('POST', '/api/push/subscribe', { endpoint: 'https://push.exemplo.invalid/abc', keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' } }));
+    ok(await owner('POST', '/api/push/unsubscribe', { endpoint: 'https://push.exemplo.invalid/abc' }));
   });
 
   await step('perfil gerente: gestão sim, configurações não', async () => {

@@ -286,12 +286,14 @@ export async function openVisit(id, onChange = () => {}) {
       <ul class="list">${v.items.map((i) => `<li><span class="dot" style="background:${esc(i.pro_color)}"></span><div class="grow"><div class="title">${esc(i.service_name)}</div>
         <div class="meta">${i.start_at.slice(11)}–${i.end_at.slice(11)} · ${esc(i.pro_name)}</div></div><b>${money(i.price_cents)}</b></li>`).join('')}</ul>
       ${v.notes ? `<p class="small"><b>Obs.:</b> ${esc(v.notes)}</p>` : ''}
+      ${homeBox(v)}${depositBox(v)}
       <div class="actions" style="justify-content:flex-start;margin:6px 0 14px">
         <a class="btn sm" href="#/clientes/${v.client_id}" data-close>${ic('user', 16)}  Ficha da cliente</a>
         ${wa ? `<a class="btn sm" href="${wa}" target="_blank" rel="noopener">${ic('whatsapp', 16)}  WhatsApp</a>` : ''}
       </div>
       <div class="sheet-actions">${acts.join('')}</div>`,
     onMount(el, close) {
+      el.querySelectorAll('[data-dep]').forEach((b) => (b.onclick = () => depositAction(b.dataset.dep, v, close, onChange)));
       el.querySelectorAll('[data-a]').forEach((b) => (b.onclick = async () => {
         const a = b.dataset.a;
         try {
@@ -404,4 +406,81 @@ export async function removeBlock(b, onChange) {
   if (!can.staff()) return;
   if (!(await confirmBox(`Remover o bloqueio ${b.reason ? `“${b.reason}” ` : ''}das ${b.start_at.slice(11)} às ${b.end_at.slice(11)}?`, { ok: 'Remover', danger: true }))) return;
   await DEL(`/api/blocks/${b.id}`).then(() => (toast('Bloqueio removido'), onChange())).catch(fail);
+}
+
+// ---------- Atendimento a domicílio e sinal (Pix) na ficha do agendamento ----------
+function homeBox(v) {
+  if (v.location !== 'home') return '';
+  let a = {};
+  try {
+    a = JSON.parse(v.home_address || '{}');
+  } catch {}
+  const line = [`${a.street || ''}, ${a.number || ''}`, a.complement, a.district, a.city].filter(Boolean).join(' · ');
+  const map = v.home_lat != null ? `https://www.google.com/maps/search/?api=1&query=${v.home_lat},${v.home_lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${a.street || ''} ${a.number || ''}, ${a.district || ''}, ${a.city || ''}, ${a.cep || ''}`)}`;
+  return `<div class="card soft" style="margin:10px 0;padding:12px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="tag brand">${ic('home', 12)} A domicílio</span>
+      ${v.travel_fee_cents ? `<span class="small">deslocamento <b>${money(v.travel_fee_cents)}</b></span>` : ''}</div>
+    <div class="small"><b>${esc(line)}</b>${a.cep ? ` · CEP ${esc(a.cep.replace(/(d{5})(d{3})/, '$1-$2'))}` : ''}</div>
+    ${a.reference ? `<div class="small muted">Referência: ${esc(a.reference)}</div>` : ''}
+    <div class="tiny muted" style="margin-top:4px">${v.travel_buffer_min ? `A agenda reserva ${v.travel_buffer_min} min de deslocamento antes e depois.` : ''}</div>
+    <a class="btn xs soft" href="${map}" target="_blank" rel="noopener" style="margin-top:8px">${ic('pin', 14)} Abrir no mapa</a></div>`;
+}
+
+const DEP_TEXT = {
+  pending: ['Aguardando a cliente pagar o Pix', 'warn'], submitted: ['Comprovante enviado — confira no seu banco', 'warn'], approved: ['Sinal recebido', 'ok'],
+  rejected: ['Pagamento recusado — aguardando novo comprovante', 'err'], expired: ['Prazo para pagar terminou', ''], cancelled: ['Cobrança cancelada', ''],
+  refund_due: ['A devolver para a cliente', 'warn'], refunded: ['Sinal devolvido', ''], retained: ['Sinal retido (lançado como receita)', ''],
+};
+function depositBox(v) {
+  if (!v.charge_id) return '';
+  const [txt, cls] = DEP_TEXT[v.charge_status] || ['', ''];
+  const total = v.total_cents + (v.travel_fee_cents || 0);
+  const paid = ['approved', 'retained'].includes(v.charge_status) ? v.charge_amount : 0;
+  const B = (k, label, c = 'soft') => `<button class="btn xs ${c}" data-dep="${k}">${label}</button>`;
+  const btns = [];
+  if (v.charge_receipt) btns.push(B('receipt', ic('image', 14) + ' Ver comprovante'));
+  if (can.staff() && ['pending', 'submitted', 'rejected', 'expired'].includes(v.charge_status)) btns.push(B('approve', ic('check', 14) + ' Confirmar recebimento', 'ok'));
+  if (can.staff() && ['pending', 'submitted'].includes(v.charge_status)) btns.push(B('reject', ic('x', 14) + ' Não recebi'));
+  if (can.admin() && ['approved', 'refund_due'].includes(v.charge_status) && ['cancelled', 'no_show'].includes(v.status)) btns.push(B('refund', 'Marcar como devolvido'), B('retain', 'Reter sinal'));
+  return `<div class="card soft" style="margin:10px 0;padding:12px">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><b>Sinal por Pix: ${money(v.charge_amount)}</b><span class="tag ${cls}">${txt}</span></div>
+    <div class="small muted" style="margin-top:4px">Total ${money(total)} · pago ${money(paid)} · restante ${money(total - paid)}</div>
+    ${v.charge_reject ? `<div class="small err-t">Motivo: ${esc(v.charge_reject)}</div>` : ''}
+    ${btns.length ? `<div class="chips" style="margin-top:8px">${btns.join('')}</div>` : ''}</div>`;
+}
+
+async function depositAction(kind, v, close, onChange) {
+  try {
+    if (kind === 'receipt') {
+      const res = await fetch(`/api/charges/${v.charge_id}/receipt`, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Não foi possível abrir o comprovante.');
+      const url = URL.createObjectURL(await res.blob());
+      return modal({ title: `Comprovante · ${v.client_name}`, body: `<img src="${url}" alt="Comprovante do Pix" style="width:100%;border-radius:12px"><p class="small muted" style="margin-top:10px">Confira no app do seu banco se ${money(v.charge_amount)} entrou antes de confirmar.</p>` });
+    }
+    if (kind === 'approve') {
+      if (!(await confirmBox(`Você conferiu no seu banco que o Pix de ${money(v.charge_amount)} de ${v.client_name} entrou?`, { ok: 'Sim, recebi' }))) return;
+      await POST(`/api/charges/${v.charge_id}/approve`);
+      toast('Sinal confirmado e agendamento confirmado');
+    }
+    if (kind === 'reject') {
+      const reason = await confirmBox('A cliente verá este motivo e poderá enviar outro comprovante.', { ok: 'Recusar', danger: true, input: 'Motivo (ex.: valor não encontrado no extrato)' });
+      if (!reason) return;
+      await POST(`/api/charges/${v.charge_id}/reject`, { reason });
+      toast('Pagamento recusado');
+    }
+    if (kind === 'refund') {
+      if (!(await confirmBox(`Confirma que você já devolveu ${money(v.charge_amount)} para ${v.client_name}?`, { ok: 'Já devolvi' }))) return;
+      await POST(`/api/charges/${v.charge_id}/refund`);
+      toast('Devolução registrada');
+    }
+    if (kind === 'retain') {
+      if (!(await confirmBox(`Reter o sinal de ${money(v.charge_amount)}? Ele entra como receita do salão.`, { ok: 'Reter' }))) return;
+      await POST(`/api/charges/${v.charge_id}/retain`);
+      toast('Sinal retido e lançado como receita');
+    }
+    close();
+    onChange();
+  } catch (e) {
+    fail(e);
+  }
 }

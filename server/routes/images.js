@@ -18,7 +18,7 @@ route('POST', '/api/images', ADMIN, async ({ body, sid }) => {
 
 route('GET', '/api/images/:id', null, async ({ params }) => {
   if (!/^[0-9a-f]{32}$/.test(params.id)) throw new HttpError(404, 'Imagem não encontrada');
-  const img = await get('SELECT mime, data FROM images WHERE id=?', params.id);
+  const img = await get('SELECT mime, data FROM images WHERE id=? AND private=0', params.id);
   if (!img) throw new HttpError(404, 'Imagem não encontrada');
   return { __raw: { type: img.mime, body: Buffer.from(img.data, 'base64'), cache: 'public, max-age=31536000, immutable' } };
 });

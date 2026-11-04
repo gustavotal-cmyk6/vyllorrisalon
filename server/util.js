@@ -51,3 +51,4 @@ export const prevPeriod = (from, to) => {
   return { from: addDays(from, -days), to: addDays(from, -1) };
 };
 export const pctChange = (cur, prev) => (prev ? Math.round(((cur - prev) / prev) * 1000) / 10 : cur ? null : 0);
+export const fmtBRL = (c) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`;

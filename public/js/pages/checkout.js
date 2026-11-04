@@ -13,6 +13,9 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
     ? visit.items.map((i) => ({ kind: 'service', visit_item_id: i.id, name: i.service_name, professional_id: i.professional_id, pro_name: i.pro_name, price: i.price_cents, qty: 1 }))
     : [];
   let discountMode = 'value';
+  // domicílio: taxa de deslocamento combinada; sinal por Pix já confirmado é abatido (o servidor faz o mesmo)
+  const fee = visit?.travel_fee_cents || 0;
+  const deposit = visit && visit.charge_status === 'approved' ? visit.charge_amount : 0;
   let payments = [{ method: state.methods.find((m) => m.name === 'Pix')?.name || state.methods[0]?.name, amount: null }];
   const myPro = can.pro() ? state.user.professional_id : null;
 
@@ -46,7 +49,8 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
       const picker = visit ? null : clientPicker(el.querySelector('[data-client]'), { required: false, initial: client });
       const linesBox = el.querySelector('[data-lines]');
 
-      const subtotal = () => lines.reduce((s, l) => s + Math.round((l.price || 0) * l.qty), 0);
+      const subtotal = () => fee + lines.reduce((s, l) => s + Math.round((l.price || 0) * l.qty), 0);
+      const due = () => total() - deposit;
       const discount = () => {
         const raw = form.discount.value.trim();
         if (!raw) return 0;
@@ -80,10 +84,12 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
         el.querySelector('[data-total]').innerHTML = `
           <div class="line"><span>Serviços</span><span>${money(svc)}</span></div>
           ${prd ? `<div class="line"><span>Produtos</span><span>${money(prd)}</span></div>` : ''}
+          ${fee ? `<div class="line"><span>Deslocamento</span><span>${money(fee)}</span></div>` : ''}
           ${d ? `<div class="line"><span>Desconto</span><span class="err-t">− ${Number.isNaN(d) ? '?' : money(d)}</span></div>` : ''}
-          <div class="line big"><span>Total</span><span>${money(total())}</span></div>`;
+          ${deposit ? `<div class="line"><span>Total</span><span>${money(total())}</span></div><div class="line"><span>Sinal já pago (Pix)</span><span class="ok-t">− ${money(deposit)}</span></div>` : ''}
+          <div class="line big"><span>${deposit ? 'Falta receber' : 'Total'}</span><span>${money(due())}</span></div>`;
         // forma única acompanha o total automaticamente
-        if (payments.length === 1 && !payments[0].touched) payments[0].amount = total();
+        if (payments.length === 1 && !payments[0].touched) payments[0].amount = due();
         renderPays();
       }
       function renderPays() {
@@ -102,7 +108,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
       }
       function renderRest() {
         const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
-        const rest = total() - paid;
+        const rest = due() - paid;
         el.querySelector('[data-rest]').innerHTML = rest > 0 ? `<span class="warn-t">Fica pendente: <b>${money(rest)}</b> (a receber da cliente)</span>`
           : rest < 0 ? `<span class="err-t">Pagamentos passam do total em ${money(-rest)}. Troco: informe só o valor da conta.</span>` : `<span class="ok-t">${ic('check', 16)} Pagamento completo</span>`;
       }
@@ -134,7 +140,7 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
       el.querySelector('[data-split]').onclick = () => {
         const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
         payments.forEach((p) => (p.touched = true));
-        payments.push({ method: state.methods.find((m) => !payments.some((p) => p.method === m.name))?.name || state.methods[0].name, amount: Math.max(0, total() - paid), touched: true });
+        payments.push({ method: state.methods.find((m) => !payments.some((p) => p.method === m.name))?.name || state.methods[0].name, amount: Math.max(0, due() - paid), touched: true });
         renderPays();
       };
       el.querySelector('[data-later]').onclick = () => {
@@ -154,8 +160,8 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
           if (payments.some((p) => Number.isNaN(p.amount))) throw new Error('Confira os valores do pagamento');
           const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
           const client = picker?.get();
-          if (paid < total() && !visit && !client) throw new Error('Para deixar valor pendente, identifique a cliente');
-          if (paid < total() && !(await confirmBox(`Ficará pendente ${money(total() - paid)} para receber depois. Confirmar?`, { ok: 'Sim, concluir' }))) return;
+          if (paid < due() && !visit && !client) throw new Error('Para deixar valor pendente, identifique a cliente');
+          if (paid < due() && !(await confirmBox(`Ficará pendente ${money(due() - paid)} para receber depois. Confirmar?`, { ok: 'Sim, concluir' }))) return;
           const sale = await POST('/api/sales', {
             visit_id: visit?.id, ...(picker ? picker.payload() : {}),
             professional_id: form.seller?.value || myPro || (can.solo() ? soloPro()?.id : undefined),

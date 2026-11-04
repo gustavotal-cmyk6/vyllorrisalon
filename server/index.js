@@ -16,6 +16,7 @@ import './routes/finance.js';
 import './routes/reports.js';
 import './routes/public.js';
 import './routes/images.js';
+import './routes/deposits.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = {
@@ -26,7 +27,7 @@ const HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'same-origin',
-  'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'self'; connect-src 'self' https://viacep.com.br; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'",
 };
 
 function send(res, status, body, headers = {}) {

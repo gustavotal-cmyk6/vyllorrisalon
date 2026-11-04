@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS commission_payments(
 -- net_cents = valor da linha já com o desconto rateado; é a base de receita e de comissão
 CREATE TABLE IF NOT EXISTS sale_items(
   id INTEGER PRIMARY KEY, sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE, salon_id INTEGER NOT NULL,
-  kind TEXT NOT NULL CHECK(kind IN ('service','product')),
+  kind TEXT NOT NULL CHECK(kind IN ('service','product','fee')),
   service_id INTEGER REFERENCES services(id), product_id INTEGER REFERENCES products(id), visit_item_id INTEGER REFERENCES visit_items(id),
   name TEXT NOT NULL, professional_id INTEGER REFERENCES professionals(id), qty REAL NOT NULL DEFAULT 1,
   unit_cents INTEGER NOT NULL, gross_cents INTEGER NOT NULL, net_cents INTEGER NOT NULL, cost_cents INTEGER NOT NULL DEFAULT 0,
@@ -116,6 +116,20 @@ CREATE INDEX IF NOT EXISTS ix_expenses_due ON expenses(salon_id, due_date);
 -- imagens (fotos de profissionais, serviços, salão), servidas por um identificador aleatório
 CREATE TABLE IF NOT EXISTS images(
   id TEXT PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), mime TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL);
+-- sinal pago por Pix (QR Code estático): a cliente envia o comprovante e o salão confirma
+CREATE TABLE IF NOT EXISTS charges(
+  id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), visit_id INTEGER NOT NULL REFERENCES visits(id),
+  kind TEXT NOT NULL DEFAULT 'deposit', amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','submitted','approved','rejected','expired','cancelled','refund_due','refunded','retained')),
+  txid TEXT NOT NULL, brcode TEXT NOT NULL, receipt_image TEXT, receipt_at TEXT, reject_reason TEXT,
+  reviewed_by INTEGER, reviewed_at TEXT, applied_sale_id INTEGER REFERENCES sales(id),
+  expires_at TEXT NOT NULL, paid_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_charges_visit ON charges(visit_id);
+CREATE INDEX IF NOT EXISTS ix_charges_status ON charges(salon_id, status);
+-- notificações do app (Web Push) por aparelho
+CREATE TABLE IF NOT EXISTS push_subscriptions(
+  id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL);
 -- fechamento de caixa diário
 CREATE TABLE IF NOT EXISTS cash_closings(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), date TEXT NOT NULL,
@@ -147,10 +161,56 @@ export const ready = (async () => {
     'ALTER TABLE salons ADD COLUMN cancel_hours INTEGER NOT NULL DEFAULT 12',
     // 'solo' = profissional que trabalha sozinha; 'team' = salão com equipe
     "ALTER TABLE salons ADD COLUMN team_mode TEXT NOT NULL DEFAULT 'team'",
+    // pagamento antecipado (sinal)
+    'ALTER TABLE salons ADD COLUMN deposit_enabled INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE salons ADD COLUMN deposit_pct REAL NOT NULL DEFAULT 50',
+    "ALTER TABLE salons ADD COLUMN deposit_scope TEXT NOT NULL DEFAULT 'all'",
+    'ALTER TABLE salons ADD COLUMN deposit_include_travel INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE salons ADD COLUMN deposit_expire_min INTEGER NOT NULL DEFAULT 30',
+    // 'refund' = sinal devolvido se a cliente cancelar dentro do prazo; 'keep' = sinal não é devolvido
+    "ALTER TABLE salons ADD COLUMN deposit_refund TEXT NOT NULL DEFAULT 'refund'",
+    // chave Pix do próprio salão (QR Code estático, confirmação manual)
+    'ALTER TABLE salons ADD COLUMN pix_key_type TEXT',
+    'ALTER TABLE salons ADD COLUMN pix_key TEXT',
+    'ALTER TABLE salons ADD COLUMN pix_name TEXT',
+    'ALTER TABLE salons ADD COLUMN pix_city TEXT',
+    'ALTER TABLE images ADD COLUMN private INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE services ADD COLUMN requires_deposit INTEGER NOT NULL DEFAULT 0',
+    // atendimento a domicílio
+    'ALTER TABLE salons ADD COLUMN home_enabled INTEGER NOT NULL DEFAULT 0',
+    "ALTER TABLE salons ADD COLUMN home_fee_mode TEXT NOT NULL DEFAULT 'fixed'",
+    'ALTER TABLE salons ADD COLUMN home_fee_cents INTEGER NOT NULL DEFAULT 0',
+    "ALTER TABLE salons ADD COLUMN home_areas TEXT NOT NULL DEFAULT '[]'",
+    'ALTER TABLE salons ADD COLUMN home_buffer_min INTEGER NOT NULL DEFAULT 30',
+    "ALTER TABLE salons ADD COLUMN home_start TEXT NOT NULL DEFAULT '08:00'",
+    "ALTER TABLE salons ADD COLUMN home_end TEXT NOT NULL DEFAULT '20:00'",
+    'ALTER TABLE professionals ADD COLUMN home_service INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE services ADD COLUMN home_allowed INTEGER NOT NULL DEFAULT 0',
+    "ALTER TABLE visits ADD COLUMN location TEXT NOT NULL DEFAULT 'salon'",
+    'ALTER TABLE visits ADD COLUMN home_address TEXT',
+    'ALTER TABLE visits ADD COLUMN home_area TEXT',
+    'ALTER TABLE visits ADD COLUMN home_lat REAL',
+    'ALTER TABLE visits ADD COLUMN home_lng REAL',
+    'ALTER TABLE visits ADD COLUMN travel_fee_cents INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE visits ADD COLUMN travel_buffer_min INTEGER NOT NULL DEFAULT 0',
   ])
     await client.execute(sql).catch(() => {});
   await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_salons_slug ON salons(slug)');
   await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_visits_token ON visits(public_token)');
+  const si = (await client.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='sale_items'")).rows[0];
+  if (si && !String(si[0]).includes("'fee'")) {
+    const def = String(si[0]).replace("CHECK(kind IN ('service','product'))", "CHECK(kind IN ('service','product','fee'))").replace(/CREATE TABLE \"?sale_items\"?/, 'CREATE TABLE sale_items_new');
+    await client.executeMultiple(`PRAGMA foreign_keys=OFF;
+      BEGIN;
+      ${def};
+      INSERT INTO sale_items_new SELECT * FROM sale_items;
+      DROP TABLE sale_items;
+      ALTER TABLE sale_items_new RENAME TO sale_items;
+      CREATE INDEX IF NOT EXISTS ix_sitems_sale ON sale_items(sale_id);
+      CREATE INDEX IF NOT EXISTS ix_sitems_pro ON sale_items(salon_id, professional_id);
+      COMMIT;
+      PRAGMA foreign_keys=ON;`);
+  }
   // perfil "gerente": bancos antigos têm a restrição de papéis sem ele; recria a tabela preservando os dados
   const users = (await client.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")).rows[0];
   if (users && !String(users[0]).includes("'manager'")) {

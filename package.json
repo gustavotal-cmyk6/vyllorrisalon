@@ -13,6 +13,8 @@
     "demo": "node scripts/demo.js"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15"
+    "@libsql/client": "^0.15.15",
+    "qrcode": "^1.5.4",
+    "web-push": "^3.6.7"
   }
 }

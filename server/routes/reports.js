@@ -94,6 +94,10 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
   const tomorrow = addDays(d, 1);
   const unconfirmed = (await get(`SELECT COUNT(*) n FROM visits WHERE salon_id=? AND date=? AND status='scheduled'`, sid, tomorrow)).n;
   if (unconfirmed) attention.push({ type: 'confirm', level: 'info', text: `${unconfirmed} agendamento(s) de amanhã ainda não confirmados`, link: `#/agenda?data=${tomorrow}` });
+  const receipts = (await get(`SELECT COUNT(*) n FROM charges WHERE salon_id=? AND status='submitted'`, sid)).n;
+  if (receipts) attention.unshift({ type: 'deposit', level: 'warn', text: `${receipts} comprovante(s) de sinal para conferir`, link: '#/agenda?sinais=1' });
+  const refunds = (await get(`SELECT COUNT(*) n, COALESCE(SUM(amount_cents),0) v FROM charges WHERE salon_id=? AND status='refund_due'`, sid));
+  if (refunds.n) attention.push({ type: 'deposit', level: 'warn', text: `${refunds.n} sinal(is) para devolver a clientes que cancelaram`, amount: refunds.v, link: '#/agenda?sinais=1' });
   const online = (await get(`SELECT COUNT(*) n FROM visits WHERE salon_id=? AND date>=? AND status='scheduled' AND source='online'`, sid, d)).n;
   if (online) attention.unshift({ type: 'online', level: 'info', text: `${online} agendamento(s) online aguardando sua confirmação`, link: '#/agenda' });
   const low = await all(`SELECT name, stock, min_stock, unit FROM products WHERE salon_id=? AND active=1 AND stock<=min_stock AND min_stock>0 ORDER BY name LIMIT 5`, sid);

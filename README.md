@@ -22,10 +22,23 @@ Variáveis de ambiente:
 | `TZ` | `America/Sao_Paulo` | Fuso horário do salão |
 | `SECURE_COOKIES` | — | `1` para forçar cookie `Secure` (atrás de HTTPS) |
 | `ALLOW_SIGNUP` | — | `0` para bloquear o cadastro de novos salões |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | gerado em `DATA_DIR` localmente | Notificações do app (Web Push); obrigatórias na Vercel |
 
 ## Agendamento online
 
 Cada salão tem uma página pública em `/agendar/<endereço>`, com capa, logo, fotos do espaço, equipe, endereço e WhatsApp (configurados em **Configurações → Perfil do salão**). A cliente agenda em 5 passos sem cadastro (serviço, profissional, dia e horário, dados, revisão) e recebe um link para consultar ou cancelar a reserva (respeitando a antecedência mínima definida pelo salão). Ative em **Configurações → Agendamento online** e marque os serviços como “Disponível para agendamento online”. Os pedidos entram na agenda como *Agendado* (etiqueta **online**) e aparecem no painel para confirmação.
+
+## Sinal por Pix (sem gateway)
+
+Cada salão cadastra a própria chave Pix (tipo, chave, nome e cidade) em **Configurações → Sinal e Pix**. O sistema gera o Pix Copia e Cola e o QR Code **estático** no padrão BR Code do Banco Central com o valor exato do sinal (padrão 50%, por serviço ou para todos). A cliente paga no app do banco e envia o comprovante; **o salão confere no próprio banco e confirma** no agendamento (não há confirmação automática). Sem comprovante dentro do prazo, a cobrança expira e o horário é liberado. Ao fechar a conta, o sinal confirmado é abatido automaticamente. Cancelamentos seguem a regra do salão: devolver (fica "a devolver") ou reter (entra como receita).
+
+## Atendimento a domicílio
+
+Em **Configurações → Domicílio**: profissionais e serviços habilitados, taxa fixa ou por bairro, bairros atendidos, faixa de horário e tempo de deslocamento. A cliente escolhe *No salão* ou *Na minha casa*, informa o endereço (CEP preenche o resto via ViaCEP) e vê serviço + deslocamento + total + sinal + restante. A agenda bloqueia o deslocamento antes e depois, evitando conflito com o salão; a taxa entra na conta sem comissão.
+
+## Notificações do app
+
+Em **Configurações → Minha conta → Notificações no aparelho**. Avisos de novo agendamento online, comprovante de sinal enviado e cancelamento pela cliente. No iPhone é preciso adicionar o app à Tela de Início antes.
 
 ## Deploy na Vercel
 
@@ -38,7 +51,7 @@ Cada salão tem uma página pública em `/agendar/<endereço>`, com capa, logo, 
 - `api/index.js` — entrada da função serverless da Vercel.
 - `server/` — API HTTP (Node puro), `db.js` (esquema), `auth.js` (sessões, senhas scrypt), `routes/*` por área.
 - `public/` — interface (SPA em JavaScript puro, mobile-first).
-- `scripts/test.js` — 17 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
+- `scripts/test.js` — 25 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
 
 ## Regras de negócio importantes
 

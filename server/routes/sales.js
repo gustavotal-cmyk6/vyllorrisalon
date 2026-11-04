@@ -110,7 +110,12 @@ route('POST', '/api/sales', ALL, async ({ body, sid, user }) => {
     if (visitId) {
       const missing = (await all('SELECT vi.id, s.name FROM visit_items vi JOIN services s ON s.id=vi.service_id WHERE vi.visit_id=?', visitId)).filter((x) => !usedVisitItems.has(x.id));
       if (missing.length) throw new HttpError(400, `Inclua todos os serviços do agendamento (faltando: ${missing.map((m) => m.name).join(', ')}). Se algum não foi feito, remova-o do agendamento antes.`);
+      // atendimento a domicílio: a taxa de deslocamento combinada entra sempre na conta (sem comissão)
+      if (visit.travel_fee_cents > 0)
+        items.push({ kind: 'fee', name: 'Taxa de deslocamento', qty: 1, unit: visit.travel_fee_cents, gross: visit.travel_fee_cents, cost: 0, rule: null });
     }
+    // sinal já confirmado pelo salão: é abatido como pagamento desta conta
+    const charge = visitId ? await get(`SELECT * FROM charges WHERE visit_id=? AND status='approved' AND applied_sale_id IS NULL ORDER BY id DESC LIMIT 1`, visitId) : null;
 
     const subtotal = items.reduce((s, i) => s + i.gross, 0);
     const discount = V.cents(body.discount_cents ?? 0, 'Desconto') || 0;
@@ -127,6 +132,10 @@ route('POST', '/api/sales', ALL, async ({ body, sid, user }) => {
     });
 
     const payments = await parsePayments(body.payments, sid);
+    if (charge) {
+      if (charge.amount_cents > total) throw new HttpError(400, `O sinal já pago (R$ ${(charge.amount_cents / 100).toFixed(2)}) é maior que o total da conta. Revise o desconto.`);
+      payments.unshift({ method: 'Pix (sinal)', amount: charge.amount_cents, at: charge.paid_at, charge: charge.id });
+    }
     const paid = payments.reduce((s, p) => s + p.amount, 0);
     if (paid > total) throw new HttpError(400, `Os pagamentos (R$ ${(paid / 100).toFixed(2)}) passam do total (R$ ${(total / 100).toFixed(2)}). Informe o troco fora do sistema.`);
     if (paid < total && !clientId) throw new HttpError(400, 'Para deixar valor pendente, identifique a cliente.');
@@ -142,7 +151,8 @@ route('POST', '/api/sales', ALL, async ({ body, sid, user }) => {
         await run('INSERT INTO stock_moves(salon_id,product_id,type,qty,note,sale_id,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)', sid, it.productId, 'sale', -it.qty, 'Venda', saleId, user.id, createdAt);
       }
     }
-    for (const p of payments) await run('INSERT INTO payments(salon_id,sale_id,method,amount_cents,created_by,created_at) VALUES(?,?,?,?,?,?)', sid, saleId, p.method, p.amount, user.id, createdAt);
+    for (const p of payments) await run('INSERT INTO payments(salon_id,sale_id,method,amount_cents,created_by,created_at) VALUES(?,?,?,?,?,?)', sid, saleId, p.method, p.amount, user.id, p.at || createdAt);
+    if (charge) await run('UPDATE charges SET applied_sale_id=?, updated_at=? WHERE id=?', saleId, nowStr(), charge.id);
     if (visitId) await run(`UPDATE visits SET status='completed' WHERE id=?`, visitId);
     return await saleDetail(sid, saleId);
   });
@@ -197,6 +207,8 @@ route('POST', '/api/sales/:id/void', ADMIN, async ({ params, body, sid, user }) 
     if (s.items.some((i) => i.commission_payment_id)) throw new HttpError(409, 'A comissão desta venda já foi paga à profissional. Não é possível estornar.');
     const reason = V.str(body.reason, 'Motivo', { req: true, max: 200 });
     await run(`UPDATE sales SET status='void', void_reason=?, voided_at=? WHERE id=?`, reason, nowStr(), s.id);
+    // o sinal volta a ficar disponível para a próxima conta deste atendimento
+    await run(`UPDATE charges SET applied_sale_id=NULL, updated_at=? WHERE applied_sale_id=? AND status='approved'`, nowStr(), s.id);
     for (const it of s.items.filter((i) => i.kind === 'product')) {
       await run('UPDATE products SET stock=stock+? WHERE id=?', it.qty, it.product_id);
       await run('INSERT INTO stock_moves(salon_id,product_id,type,qty,note,sale_id,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)', sid, it.product_id, 'void', it.qty, 'Estorno de venda', s.id, user.id, nowStr());
