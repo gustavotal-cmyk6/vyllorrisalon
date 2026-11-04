@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Vyllorri Beauty — gestão inteligente e simples para salões de beleza",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server/index.js",
-    "test": "node --disable-warning=ExperimentalWarning scripts/test.js",
-    "demo": "node --disable-warning=ExperimentalWarning scripts/demo.js"
+    "start": "node server/index.js",
+    "test": "node scripts/test.js",
+    "demo": "node scripts/demo.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.15"
   }
 }

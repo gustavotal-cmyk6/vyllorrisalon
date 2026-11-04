@@ -62,7 +62,7 @@ function card(v, item, { compact = false } = {}) {
   const own = item ? [item] : v.items;
   return `<button class="appt ${dim}" style="--c:${esc(own[0].pro_color)}" data-visit="${v.id}">
     <div class="top"><span class="time">${own[0].start_at.slice(11)}${compact ? '' : '–' + own[own.length - 1].end_at.slice(11)}</span>${badge(v.status)}</div>
-    <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}</div>
+    <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}${v.source === 'online' ? ' <span class="tag ok">online</span>' : ''}</div>
     <div class="what">${own.map((i) => esc(i.service_name)).join(' + ')}${item ? '' : ' · ' + [...new Set(v.items.map((i) => esc(i.pro_name)))].join(', ')}${compact ? '' : ' · ' + money(own.reduce((s, i) => s + i.price_cents, 0))}</div>
   </button>`;
 }

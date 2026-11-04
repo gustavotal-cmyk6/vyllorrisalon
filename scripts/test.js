@@ -201,6 +201,36 @@ try {
     assert.ok(s.clients.some((c) => c.name === 'Maria Souza'));
   });
 
+  await step('agendamento online público', async () => {
+    const anon = client();
+    const settings = ok(await owner('GET', '/api/salon'));
+    assert.equal(settings.slug, 'salao-teste');
+    assert.equal((await anon('GET', '/api/public/salao-teste')).status, 404, 'desligado por padrão');
+    ok(await owner('PUT', '/api/salon/booking', { slug: 'salao-teste', enabled: true }));
+    const svc = ok(await owner('GET', '/api/services')).find((s) => s.id === escova);
+    ok(await owner('PUT', `/api/services/${escova}`, { ...svc, online: true, pros: svc.pros }));
+    const pub = ok(await anon('GET', '/api/public/salao-teste'));
+    assert.deepEqual(pub.services.map((s) => s.name), ['Escova']);
+    assert.ok(!JSON.stringify(pub).includes('Maria'), 'não expõe clientes');
+    const day = (() => {
+      const t = new Date(Date.now() + 2 * 864e5);
+      return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+    })();
+    const slots = ok(await anon('GET', `/api/public/salao-teste/slots?service_id=${escova}&date=${day}`)).slots;
+    assert.ok(slots.includes('10:00'));
+    const b = ok(await anon('POST', '/api/public/salao-teste/book', { service_id: escova, start_at: `${day} 10:00`, name: 'Cliente Online', phone: '11 98888-7777' }));
+    assert.equal(b.professional, 'Bia');
+    const again = await anon('POST', '/api/public/salao-teste/book', { service_id: escova, start_at: `${day} 10:00`, name: 'Outra', phone: '11977776666' });
+    assert.equal(again.status, 409, 'horário já ocupado');
+    assert.ok(!ok(await anon('GET', `/api/public/salao-teste/slots?service_id=${escova}&date=${day}`)).slots.includes('10:00'));
+    const ag = ok(await owner('GET', `/api/agenda?from=${day}&to=${day}`));
+    const v = ag.visits.find((x) => x.client_name === 'Cliente Online');
+    assert.equal(v.source, 'online');
+    assert.equal(v.status, 'scheduled');
+    const bad = await anon('POST', '/api/public/salao-teste/book', { service_id: manicure, start_at: `${day} 11:00`, name: 'X', phone: '11966665555' });
+    assert.equal(bad.status, 400, 'serviço não liberado online');
+  });
+
   console.log(`\n${passed} cenários passaram.`);
 } catch (e) {
   console.error('\n✗ FALHOU:', e.message);

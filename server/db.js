@@ -1,14 +1,23 @@
-import { DatabaseSync } from 'node:sqlite';
+import { createClient } from '@libsql/client';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const dir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-fs.mkdirSync(dir, { recursive: true });
-export const db = new DatabaseSync(process.env.DB_FILE || path.join(dir, 'vyllorri.db'));
-db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
+// Produção (Vercel): banco Turso/libSQL em nuvem via TURSO_DATABASE_URL + TURSO_AUTH_TOKEN.
+// Desenvolvimento: arquivo SQLite local em DATA_DIR.
+let url = process.env.TURSO_DATABASE_URL;
+// na Vercel o disco é temporário: sem banco em nuvem os dados se perderiam
+if (!url && process.env.VERCEL) throw new Error('Configure TURSO_DATABASE_URL e TURSO_AUTH_TOKEN nas variáveis de ambiente da Vercel.');
+if (!url) {
+  const dir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+  fs.mkdirSync(dir, { recursive: true });
+  url = 'file:' + path.join(dir, 'vyllorri.db').replace(/\\/g, '/');
+}
+const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+const local = url.startsWith('file:');
 
 // Todos os valores monetários em centavos (INTEGER). Toda tabela de negócio tem salon_id (isolamento por salão).
-db.exec(`
+const SCHEMA = `
 CREATE TABLE IF NOT EXISTS salons(
   id INTEGER PRIMARY KEY, name TEXT NOT NULL, is_demo INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS professionals(
@@ -104,30 +113,47 @@ CREATE TABLE IF NOT EXISTS expenses(
   recurring_id INTEGER REFERENCES recurring_expenses(id), ref_month TEXT, created_at TEXT NOT NULL,
   UNIQUE(recurring_id, ref_month));
 CREATE INDEX IF NOT EXISTS ix_expenses_due ON expenses(salon_id, due_date);
-`);
+`;
 
-const stmts = new Map();
-const prep = (sql) => {
-  let s = stmts.get(sql);
-  if (!s) stmts.set(sql, (s = db.prepare(sql)));
-  return s;
-};
+export const ready = (async () => {
+  if (local) await client.executeMultiple('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
+  await client.executeMultiple(SCHEMA);
+  // migrações aditivas (ignoradas se a coluna já existe)
+  for (const sql of [
+    'ALTER TABLE salons ADD COLUMN slug TEXT',
+    'ALTER TABLE salons ADD COLUMN booking_enabled INTEGER NOT NULL DEFAULT 0',
+    "ALTER TABLE visits ADD COLUMN source TEXT NOT NULL DEFAULT 'internal'",
+  ])
+    await client.execute(sql).catch(() => {});
+  await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_salons_slug ON salons(slug)');
+})();
+
 const clean = (a) => a.map((x) => (x === undefined ? null : typeof x === 'boolean' ? (x ? 1 : 0) : x));
+const txStore = new AsyncLocalStorage();
+async function exec(sql, p) {
+  const rs = await (txStore.getStore() || client).execute({ sql, args: clean(p) });
+  return rs;
+}
+const toObjects = (rs) => rs.rows.map((r) => Object.fromEntries(rs.columns.map((c, i) => [c, r[i]])));
 
-export const all = (sql, ...p) => prep(sql).all(...clean(p));
-export const get = (sql, ...p) => prep(sql).get(...clean(p));
-export const run = (sql, ...p) => {
-  const r = prep(sql).run(...clean(p));
-  return { changes: Number(r.changes), id: Number(r.lastInsertRowid) };
+export const all = async (sql, ...p) => toObjects(await exec(sql, p));
+export const get = async (sql, ...p) => toObjects(await exec(sql, p))[0];
+export const run = async (sql, ...p) => {
+  const r = await exec(sql, p);
+  return { changes: Number(r.rowsAffected), id: Number(r.lastInsertRowid ?? 0) };
 };
-export function tx(fn) {
-  db.exec('BEGIN IMMEDIATE');
+/** Transação: todas as chamadas a all/get/run dentro de fn usam a mesma transação. */
+export async function tx(fn) {
+  if (txStore.getStore()) return fn();
+  const t = await client.transaction('write');
   try {
-    const r = fn();
-    db.exec('COMMIT');
+    const r = await txStore.run(t, fn);
+    await t.commit();
     return r;
   } catch (e) {
-    db.exec('ROLLBACK');
+    await t.rollback().catch(() => {});
     throw e;
+  } finally {
+    t.close();
   }
 }

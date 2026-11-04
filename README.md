@@ -4,7 +4,7 @@ Gestão simples para salões de beleza: agenda, vendas, clientes, equipe e comis
 
 ## Como rodar
 
-Requer **Node.js 22.13+** (usa o SQLite embutido do Node — não há dependências para instalar).
+Requer **Node.js 20+**. Rode `npm install` uma vez. Localmente o banco é um arquivo SQLite; em produção usa Turso (libSQL na nuvem).
 
 ```bash
 npm start            # http://localhost:3000
@@ -17,16 +17,28 @@ Variáveis de ambiente:
 | Variável | Padrão | Uso |
 |---|---|---|
 | `PORT` | 3000 | Porta HTTP |
-| `DATA_DIR` | `./data` | Pasta do banco SQLite (`vyllorri.db`) — faça backup dela |
+| `DATA_DIR` | `./data` | Pasta do banco SQLite local (`vyllorri.db`) |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | — | Banco em nuvem (obrigatório na Vercel) |
 | `TZ` | `America/Sao_Paulo` | Fuso horário do salão |
 | `SECURE_COOKIES` | — | `1` para forçar cookie `Secure` (atrás de HTTPS) |
 | `ALLOW_SIGNUP` | — | `0` para bloquear o cadastro de novos salões |
 
+## Agendamento online
+
+Cada salão tem uma página pública em `/agendar/<endereço>`. Ative em **Configurações → Agendamento online** e marque os serviços como “Disponível para agendamento online”. Os pedidos entram na agenda como *Agendado* (etiqueta **online**) e aparecem no painel para confirmação.
+
+## Deploy na Vercel
+
+1. Importe o repositório na Vercel (framework: *Other*).
+2. Crie um banco Turso (Vercel → Storage → Turso, ou turso.tech) e defina `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` no projeto.
+3. As tabelas são criadas automaticamente na primeira requisição.
+
 ## Estrutura
 
+- `api/index.js` — entrada da função serverless da Vercel.
 - `server/` — API HTTP (Node puro), `db.js` (esquema), `auth.js` (sessões, senhas scrypt), `routes/*` por área.
 - `public/` — interface (SPA em JavaScript puro, mobile-first).
-- `scripts/test.js` — 13 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
+- `scripts/test.js` — 14 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
 
 ## Regras de negócio importantes
 

@@ -280,7 +280,7 @@ export async function openVisit(id, onChange = () => {}) {
   const close = modal({
     title: v.client_name,
     body: `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">${badge(st)}
-        ${v.late_min ? `<span class="tag warn">atraso ${v.late_min} min</span>` : ''}${v.items.some((i) => i.overbook) ? '<span class="tag">encaixe</span>' : ''}
+        ${v.late_min ? `<span class="tag warn">atraso ${v.late_min} min</span>` : ''}${v.items.some((i) => i.overbook) ? '<span class="tag">encaixe</span>' : ''}${v.source === 'online' ? '<span class="tag ok">agendado online</span>' : ''}
         <span class="muted small">${fmtDayLong(v.date)} · ${v.start_at.slice(11)}–${v.end_at.slice(11)}</span></div>
       ${v.client_notes ? `<div class="note-box" style="margin-bottom:10px">⚠ ${esc(v.client_notes)}</div>` : ''}
       <ul class="list">${v.items.map((i) => `<li><span class="dot" style="background:${esc(i.pro_color)}"></span><div class="grow"><div class="title">${esc(i.service_name)}</div>

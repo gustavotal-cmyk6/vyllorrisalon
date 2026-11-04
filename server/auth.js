@@ -17,12 +17,12 @@ export function verifyPassword(pw, stored) {
   return crypto.timingSafeEqual(calc, Buffer.from(h, 'hex'));
 }
 
-export function createSession(userId) {
+export async function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
-  run('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)', sha(token), userId, Date.now() + SESSION_DAYS * 864e5);
+  await run('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)', sha(token), userId, Date.now() + SESSION_DAYS * 864e5);
   return token;
 }
-export const destroySession = (token) => token && run('DELETE FROM sessions WHERE token_hash=?', sha(token));
+export const destroySession = async (token) => token && run('DELETE FROM sessions WHERE token_hash=?', sha(token));
 
 export function parseCookies(req) {
   const out = {};
@@ -34,10 +34,10 @@ export function parseCookies(req) {
 }
 export const sessionToken = (req) => parseCookies(req).vb_session;
 
-export function loadUser(req) {
+export async function loadUser(req) {
   const token = sessionToken(req);
   if (!token) return null;
-  const u = get(
+  const u = await get(
     `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, se.expires_at
        FROM sessions se JOIN users u ON u.id=se.user_id JOIN salons s ON s.id=u.salon_id
       WHERE se.token_hash=? AND u.active=1`,
@@ -66,13 +66,24 @@ export const clearThrottle = (key) => attempts.delete(key);
 export const DEFAULT_METHODS = ['Dinheiro', 'Pix', 'Cartão de débito', 'Cartão de crédito'];
 export const DEFAULT_CATEGORIES = ['Cabelo', 'Unhas', 'Sobrancelhas', 'Maquiagem', 'Estética'];
 
-export function createSalon({ salonName, name, email, password, demo = false }) {
-  if (get('SELECT 1 x FROM users WHERE email=?', email)) throw new HttpError(409, 'Este e-mail já está cadastrado.');
-  return tx(() => {
-    const salonId = run('INSERT INTO salons(name,is_demo,created_at) VALUES(?,?,?)', salonName, demo ? 1 : 0, nowStr()).id;
-    const userId = run('INSERT INTO users(salon_id,name,email,pass_hash,role,created_at) VALUES(?,?,?,?,?,?)', salonId, name, email, hashPassword(password), 'owner', nowStr()).id;
-    for (const m of DEFAULT_METHODS) run('INSERT INTO payment_methods(salon_id,name) VALUES(?,?)', salonId, m);
-    for (const c of DEFAULT_CATEGORIES) run('INSERT INTO categories(salon_id,name) VALUES(?,?)', salonId, c);
+/** Endereço público do salão (ex.: /agendar/studio-bela). */
+export const slugify = (t) =>
+  String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'salao';
+export async function uniqueSlug(name, exceptId = 0) {
+  const base = slugify(name);
+  for (let i = 1; ; i++) {
+    const slug = i === 1 ? base : `${base}-${i}`;
+    if (!(await get('SELECT 1 x FROM salons WHERE slug=? AND id<>?', slug, exceptId))) return slug;
+  }
+}
+
+export async function createSalon({ salonName, name, email, password, demo = false }) {
+  if (await get('SELECT 1 x FROM users WHERE email=?', email)) throw new HttpError(409, 'Este e-mail já está cadastrado.');
+  return await tx(async () => {
+    const salonId = (await run('INSERT INTO salons(name,is_demo,created_at,slug) VALUES(?,?,?,?)', salonName, demo ? 1 : 0, nowStr(), await uniqueSlug(salonName))).id;
+    const userId = (await run('INSERT INTO users(salon_id,name,email,pass_hash,role,created_at) VALUES(?,?,?,?,?,?)', salonId, name, email, hashPassword(password), 'owner', nowStr())).id;
+    for (const m of DEFAULT_METHODS) await run('INSERT INTO payment_methods(salon_id,name) VALUES(?,?)', salonId, m);
+    for (const c of DEFAULT_CATEGORIES) await run('INSERT INTO categories(salon_id,name) VALUES(?,?)', salonId, c);
     return { salonId, userId };
   });
 }

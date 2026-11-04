@@ -253,3 +253,35 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: v
 .qa .q small { font-size: .78rem; color: var(--muted); }
 .note-box { background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; font-size: .88rem; white-space: pre-wrap; }
 .legend { font-size: .8rem; color: var(--muted); margin-top: 8px; }
+
+/* ---------- Página pública de agendamento ---------- */
+body.booking { background: linear-gradient(170deg, #fbf0f5, var(--bg) 320px); }
+.book-wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }
+.book-head { display: flex; gap: 12px; align-items: center; margin: 8px 0 16px; }
+.book-head img { width: 44px; height: 44px; }
+.book-head h1 { color: var(--brand); font-size: 1.3rem; }
+.book-head p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.book-steps { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0; margin: 0 0 12px; counter-reset: s; }
+.book-steps li { font-size: .72rem; text-align: center; color: var(--muted); padding-top: 8px; border-top: 3px solid var(--line); }
+.book-steps li.on { color: var(--brand); font-weight: 700; border-color: var(--brand); }
+.book-steps li.done { border-color: var(--accent); }
+.book-summary { background: var(--brand-soft); border-radius: 12px; padding: 10px 12px; font-size: .88rem; margin-bottom: 12px; }
+.book-group { font-size: 1rem; margin: 16px 0 8px; }
+.book-list { display: grid; gap: 8px; }
+.book-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; width: 100%; background: #fff; border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px; font: inherit; color: var(--ink); cursor: pointer; box-shadow: var(--shadow); min-height: 60px; }
+.book-item:hover, .book-item:focus { border-color: var(--brand-2); outline: none; }
+.book-item small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+.book-item > span { font-weight: 700; color: var(--brand); white-space: nowrap; }
+.book-days { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; -webkit-overflow-scrolling: touch; }
+.book-day { flex: 0 0 58px; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 8px 0; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; color: var(--ink); }
+.book-day b { font-size: 1.15rem; }
+.book-day small { font-size: .7rem; color: var(--muted); }
+.book-day.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.book-day.on small { color: rgba(255, 255, 255, .85); }
+.book-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.book-slots .chip { padding: 11px 0; font-size: .95rem; text-align: center; }
+.book-done { text-align: center; padding: 24px 18px; }
+.book-check { width: 64px; height: 64px; border-radius: 50%; background: var(--ok); color: #fff; font-size: 34px; display: grid; place-items: center; margin: 0 auto 12px; }
+.book-done p { line-height: 1.6; }
+.booking-link { display: flex; gap: 6px; align-items: center; background: var(--bg); border-radius: 10px; padding: 8px 10px; word-break: break-all; font-size: .9rem; }

@@ -18,6 +18,16 @@ export function route(method, pattern, roles, handler) {
 }
 
 export async function readBody(req) {
+  // na Vercel o corpo pode já vir lido pelo runtime
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
+    try {
+      const b = JSON.parse(String(req.body) || '{}');
+      return b && typeof b === 'object' ? b : {};
+    } catch {
+      throw new HttpError(400, 'JSON inválido');
+    }
+  }
   const chunks = [];
   let size = 0;
   for await (const c of req) {
@@ -43,7 +53,7 @@ export async function dispatch(req, url, loadUser) {
     if (!m) continue;
     const params = {};
     r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
-    const user = r.roles ? loadUser(req) : null;
+    const user = r.roles ? await loadUser(req) : null;
     if (r.roles) {
       if (!user) throw new HttpError(401, 'Sessão expirada. Entre novamente.');
       if (r.roles !== 'any' && !r.roles.includes(user.role)) throw new HttpError(403, 'Você não tem permissão para isso.');

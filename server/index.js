@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dispatch, HttpError } from './http.js';
 import { loadUser } from './auth.js';
+import { ready } from './db.js';
 import './routes/account.js';
 import './routes/catalog.js';
 import './routes/clients.js';
@@ -13,6 +14,7 @@ import './routes/sales.js';
 import './routes/stock.js';
 import './routes/finance.js';
 import './routes/reports.js';
+import './routes/public.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = {
@@ -34,12 +36,15 @@ function send(res, status, body, headers = {}) {
 function serveStatic(req, res, pathname) {
   let file = path.normalize(path.join(PUBLIC, pathname === '/' ? 'index.html' : pathname));
   if (!file.startsWith(PUBLIC)) return send(res, 403, 'Forbidden');
+  if (pathname.startsWith('/agendar/')) file = path.join(PUBLIC, 'agendar.html');
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(PUBLIC, 'index.html'); // SPA
   send(res, 200, fs.readFileSync(file), { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
 }
 
-const server = http.createServer(async (req, res) => {
+/** Handler HTTP único: usado pelo servidor local e pela função da Vercel (api/index.js). */
+export async function handler(req, res) {
   try {
+    await ready;
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
       const result = await dispatch(req, url, loadUser);
@@ -61,7 +66,9 @@ const server = http.createServer(async (req, res) => {
     console.error(e);
     send(res, 500, JSON.stringify({ error: 'Erro interno. Tente novamente.' }), { 'Content-Type': 'application/json; charset=utf-8' });
   }
-});
+}
 
-const port = Number(process.env.PORT) || 3000;
-server.listen(port, () => console.log(`Vyllorri Beauty rodando em http://localhost:${port}`));
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  const port = Number(process.env.PORT) || 3000;
+  http.createServer(handler).listen(port, () => console.log(`Vyllorri Beauty rodando em http://localhost:${port}`));
+}
