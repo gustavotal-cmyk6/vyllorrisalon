@@ -1,0 +1,13 @@
+{
+  "name": "vyllorri-beauty",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Vyllorri Beauty — gestão inteligente e simples para salões de beleza",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning scripts/test.js",
+    "demo": "node --disable-warning=ExperimentalWarning scripts/demo.js"
+  }
+}
