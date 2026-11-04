@@ -522,3 +522,16 @@ body.booking { background: var(--bg); }
 .mode-pick input:focus-visible + span { box-shadow: 0 0 0 4px rgba(157, 92, 232, .25); }
 
 [hidden] { display: none !important; }
+
+/* ---------- Simplificação: menos peso visual ---------- */
+.kpis.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 600px) { .kpis.three { grid-template-columns: 1fr 1fr; } .kpis.three .kpi.hl { grid-column: 1 / -1; } }
+.card { box-shadow: 0 1px 2px rgba(42, 10, 77, .05), 0 4px 14px rgba(42, 10, 77, .05); }
+.kpi { box-shadow: 0 1px 2px rgba(42, 10, 77, .05); }
+.page-head { padding: 6px 16px 18px; }
+.page-head .sub { font-size: .86rem; }
+@media (min-width: 1024px) { .page-head { min-height: 0; padding: 22px 28px; } }
+details.more { margin-top: 12px; }
+details.more > summary { cursor: pointer; font-weight: 700; font-size: .88rem; color: var(--brand); list-style: none; display: flex; align-items: center; gap: 6px; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more[open] > summary .ic { transform: rotate(180deg); }

@@ -1,4 +1,4 @@
-import { state, GET, POST, esc, money, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail } from '../core.js';
+import { state, GET, POST, esc, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail } from '../core.js';
 import { newVisit, openVisit, newBlock, removeBlock } from './visits.js';
 import { openCheckout } from './checkout.js';
 import { refresh } from '../app.js';
@@ -7,7 +7,7 @@ const view = { mode: 'day', date: null, pro: '', service: '', status: 'active' }
 const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const STATUS_FILTERS = [['active', 'Ativos'], ['scheduled', 'A confirmar'], ['confirmed', 'Confirmados'], ['completed', 'Concluídos'], ['cancelled', 'Cancelados e faltas'], ['all', 'Todos']];
+const STATUS_FILTERS = [['active', 'Ativos'], ['scheduled', 'A confirmar'], ['completed', 'Concluídos'], ['cancelled', 'Cancelados'], ['all', 'Todos']];
 const NEXT = { scheduled: ['confirmed', 'Confirmar', 'check'], confirmed: ['waiting', 'Chegou', 'user'], waiting: ['in_progress', 'Iniciar', 'play'], in_progress: ['checkout', 'Concluir e receber', 'receipt'] };
 
 const weekStart = (d) => addDays(d, -((new Date(d + 'T12:00:00').getDay() + 6) % 7));
@@ -51,7 +51,7 @@ export default async function agenda(root, { query }) {
   <div class="chips scroll" style="margin-bottom:14px">${STATUS_FILTERS.map(([k, l]) => `<button class="chip ${view.status === k ? 'on' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
   ${view.mode === 'day' ? dayStrip(view.date) : ''}
   <div data-body></div>
-  <p class="legend">${Object.values(STATUS).map((s) => `<span class="badge ${s.cls}">${s.label}</span>`).join(' ')}</p>`;
+`;
 
   const body = root.querySelector('[data-body]');
   if (!state.pros.length) body.innerHTML = `<div class="card">${empty('Nenhuma profissional cadastrada ainda.', can.admin() ? '<a class="btn primary" href="#/equipe?nova=1">Cadastrar equipe</a>' : '', 'users')}</div>`;
@@ -116,14 +116,14 @@ function dayStrip(date) {
 }
 
 /** Cartão do agendamento com a próxima ação à mão. */
-function card(v, item, { compact = false } = {}) {
+function card(v, item, { compact = false, showPro = false } = {}) {
   const dim = ['cancelled', 'no_show'].includes(v.status) ? 'dim' : '';
   const own = item ? [item] : v.items;
   const n = !compact && NEXT[v.status];
   return `<div class="appt ${dim}" style="--c:${esc(own[0].pro_color)}" data-visit="${v.id}" role="button" tabindex="0">
     <div class="top"><span class="time">${own[0].start_at.slice(11)}${compact ? '' : '–' + own[own.length - 1].end_at.slice(11)}</span>${badge(v.status)}</div>
     <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}${v.source === 'online' ? ' <span class="tag pink">online</span>' : ''}</div>
-    <div class="what">${own.map((i) => esc(i.service_name)).join(' + ')}${item ? '' : ' · ' + [...new Set(v.items.map((i) => esc(i.pro_name)))].join(', ')}${compact ? '' : ' · ' + money(own.reduce((s, i) => s + i.price_cents, 0))}</div>
+    <div class="what">${own.map((i) => esc(i.service_name)).join(' + ')}${showPro && !can.solo() ? ' · ' + [...new Set(v.items.map((i) => esc(i.pro_name)))].join(', ') : ''}</div>
     ${n ? `<div class="quick-acts"><button class="btn xs ${n[0] === 'checkout' ? 'ok' : 'soft'}" data-step="${n[0]}" data-id="${v.id}">${ic(n[2], 14)} ${n[1]}</button></div>` : ''}
   </div>`;
 }
@@ -170,7 +170,7 @@ function weekView(data, from) {
     const vs = data.visits.filter((v) => v.date === d);
     const bs = data.blocks.filter((b) => b.start_at.slice(0, 10) <= d && b.end_at.slice(0, 10) >= d);
     return `<div class="day ${d === todayStr() ? 'today' : ''}"><h3 data-day="${d}" style="cursor:pointer">${weekday(d)} ${fmtShort(d)}<br><small>${vs.length} agend.</small></h3>
-      ${vs.map((v) => card(v, null, { compact: true })).join('')}${bs.map(blockCard).join('')}
+      ${vs.map((v) => card(v, null, { compact: true, showPro: true })).join('')}${bs.map(blockCard).join('')}
       ${!vs.length && !bs.length ? `<button class="slot-free" data-free="${view.pro || state.pros.find((p) => p.active)?.id || ''}" data-date="${d}">${ic('plus', 16)} Livre</button>` : ''}</div>`;
   }).join('')}</div>`;
 }

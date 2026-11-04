@@ -25,7 +25,7 @@ Variáveis de ambiente:
 
 ## Agendamento online
 
-Cada salão tem uma página pública em `/agendar/<endereço>`, com capa, logo, fotos do espaço, equipe, endereço e WhatsApp (configurados em **Configurações → Perfil do salão**). A cliente agenda em 6 passos sem cadastro e recebe um link para consultar ou cancelar a reserva (respeitando a antecedência mínima definida pelo salão). Ative em **Configurações → Agendamento online** e marque os serviços como “Disponível para agendamento online”. Os pedidos entram na agenda como *Agendado* (etiqueta **online**) e aparecem no painel para confirmação.
+Cada salão tem uma página pública em `/agendar/<endereço>`, com capa, logo, fotos do espaço, equipe, endereço e WhatsApp (configurados em **Configurações → Perfil do salão**). A cliente agenda em 5 passos sem cadastro (serviço, profissional, dia e horário, dados, revisão) e recebe um link para consultar ou cancelar a reserva (respeitando a antecedência mínima definida pelo salão). Ative em **Configurações → Agendamento online** e marque os serviços como “Disponível para agendamento online”. Os pedidos entram na agenda como *Agendado* (etiqueta **online**) e aparecem no painel para confirmação.
 
 ## Deploy na Vercel
 
@@ -38,7 +38,7 @@ Cada salão tem uma página pública em `/agendar/<endereço>`, com capa, logo, 
 - `api/index.js` — entrada da função serverless da Vercel.
 - `server/` — API HTTP (Node puro), `db.js` (esquema), `auth.js` (sessões, senhas scrypt), `routes/*` por área.
 - `public/` — interface (SPA em JavaScript puro, mobile-first).
-- `scripts/test.js` — 16 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
+- `scripts/test.js` — 17 cenários ponta a ponta (conflitos, checkout, comissões, estorno, financeiro, permissões, isolamento entre salões).
 
 ## Regras de negócio importantes
 

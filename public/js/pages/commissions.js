@@ -7,7 +7,7 @@ const ui = { tab: 'summary' };
 export default async function commissions(root) {
   const mine = can.pro();
   root.innerHTML = `${pageHead(mine ? 'Minhas comissões' : 'Comissões', 'Quanto cada profissional produziu, quanto ganhou e quanto falta pagar')}
-    <div class="tabs">${[['summary', 'Resumo'], ['rules', 'Regras'], ['history', 'Pagamentos feitos']].filter(([k]) => !mine || k !== 'rules').map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="tabs">${[['summary', 'Resumo'], ['rules', 'Regras'], ['history', 'Histórico de pagamentos']].filter(([k]) => !mine || k !== 'rules').map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div data-tabbody></div>`;
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), refresh())));
   const body = root.querySelector('[data-tabbody]');
@@ -19,22 +19,20 @@ export default async function commissions(root) {
     const rows = await GET(`/api/commissions?from=${range.from}&to=${range.to}`);
     if (!rows.length) return (box.innerHTML = `<div class="card">${empty('Nenhuma profissional cadastrada.', '', 'users')}</div>`);
     const tot = rows.reduce((a, r) => ({ produced: a.produced + r.produced, commission: a.commission + r.commission, pending: a.pending + r.pending, paid: a.paid + r.paid_in_period }), { produced: 0, commission: 0, pending: 0, paid: 0 });
-    box.innerHTML = `<div class="kpis">
-        <div class="kpi hl"><span class="k-ic">${ic('percent', 20)}</span><span>Comissões geradas</span><b>${money(tot.commission)}</b><small>${rangeLabel(range)}</small></div>
-        <div class="kpi"><span class="k-ic">${ic('sparkle', 20)}</span><span>Produção da equipe</span><b>${money(tot.produced)}</b><small>base de cálculo</small></div>
-        <div class="kpi"><span class="k-ic">${ic('checkCircle', 20)}</span><span>Pagas no período</span><b>${money(tot.paid)}</b></div>
-        <div class="kpi"><span class="k-ic">${ic('hourglass', 20)}</span><span>A pagar (total)</span><b class="${tot.pending ? 'warn-t' : ''}">${money(tot.pending)}</b><small>todas as pendentes</small></div></div>
+    box.innerHTML = `<div class="kpis three">
+        <div class="kpi hl"><span>Falta pagar</span><b>${money(tot.pending)}</b><small>somando todas as profissionais</small></div>
+        <div class="kpi"><span>Pago no período</span><b>${money(tot.paid)}</b></div>
+        <div class="kpi"><span>Gerado no período</span><b>${money(tot.commission)}</b><small>${rangeLabel(range)}</small></div></div>
       <div class="card" style="padding:6px 14px"><ul class="list">${rows.map((r) => {
         const p = state.pros.find((x) => x.id === r.id) || r;
-        return `<li>${avatar(p.name, p.photo_url)}
+        return `<li class="click" data-detail="${r.id}">${avatar(p.name, p.photo_url)}
           <div class="grow"><div class="title">${esc(p.name)} ${p.active ? '' : '<span class="tag">inativa</span>'}</div>
-            <div class="meta">Produziu ${money(r.produced)} · ${r.services_count} atend. · comissão ${money(r.commission)}</div>
-            <div class="meta">${p.commission_type ? esc(ruleText(p)) : ''}</div></div>
-          <div class="right"><b class="${r.pending ? 'warn-t' : 'ok-t'}">${money(r.pending)}</b><div class="tiny muted">a pagar</div></div>
-          <div class="row-actions"><button class="btn xs soft" data-detail="${r.id}">Detalhes</button>${can.admin() && r.pending ? `<button class="btn xs ok" data-pay="${r.id}">Pagar</button>` : ''}</div></li>`;
+            <div class="meta">pago no período ${money(r.paid_in_period)}</div></div>
+          <div class="right"><b class="${r.pending ? 'warn-t' : 'ok-t'}">${money(r.pending)}</b><div class="tiny muted">a receber</div></div>
+          ${can.admin() && r.pending ? `<button class="btn xs ok" data-pay="${r.id}">Pagar</button>` : ''}</li>`;
       }).join('')}</ul></div>
-      <p class="legend">${ic('info', 14)} A comissão nasce quando o atendimento é concluído (venda registrada), sobre o valor já com desconto. Vendas estornadas não geram comissão, e cada comissão só pode ser paga uma vez.</p>`;
-    box.querySelectorAll('[data-pay]').forEach((b) => (b.onclick = () => pay(rows.find((r) => r.id === Number(b.dataset.pay)))));
+      <p class="legend">Toque em uma profissional para ver cada comissão. As porcentagens ficam na aba Regras.</p>`;
+    box.querySelectorAll('[data-pay]').forEach((b) => (b.onclick = (e) => (e.stopPropagation(), pay(rows.find((r) => r.id === Number(b.dataset.pay))))));
     box.querySelectorAll('[data-detail]').forEach((b) => (b.onclick = () => detail(rows.find((r) => r.id === Number(b.dataset.detail)), range)));
   });
 }

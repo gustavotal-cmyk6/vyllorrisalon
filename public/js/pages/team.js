@@ -17,15 +17,13 @@ export default async function team(root, { query }) {
 
   root.innerHTML = `${pageHead('Equipe', `${active.length} profissional(is) ativa(s)`, `<button class="btn primary" data-new>${ic('plus', 18)} Cadastrar profissional</button>`)}
     ${pros.length ? `<div class="grid g3">${pros.map((p) => {
-      const login = loginOf(p.id);
       const svc = state.services.filter((s) => s.pros.some((l) => l.professional_id === p.id)).length;
+      const worksToday = p.work_days.split(',').includes(String(new Date().getDay()));
       return `<div class="card pro-card" data-open="${p.id}" role="button" tabindex="0" aria-label="Abrir perfil de ${esc(p.name)}" style="${p.active ? '' : 'opacity:.6'}">
-        ${avatar(p.name, p.photo_url, 'xl')}
-        <div><b style="font-size:1.05rem">${esc(p.name)}</b><div class="small muted">${esc(p.specialty || 'Profissional')}</div></div>
-        <div class="chips" style="justify-content:center"><span class="tag ${p.active ? 'ok' : ''}">${p.active ? 'Ativa' : 'Inativa'}</span>
-          ${users ? `<span class="tag ${login ? 'brand' : ''}">${ic(login ? 'lock' : 'user', 12)} ${login ? 'Com acesso' : 'Sem acesso'}</span>` : ''}</div>
-        <div class="stat-row" style="width:100%;margin-top:4px"><div><span>Hoje</span><b>${todayCount(p.id)}</b></div><div><span>Serviços</span><b>${svc}</b></div></div>
-        <div class="tiny muted">${esc(daysText(p))} · ${p.start_time}–${p.end_time}</div>
+        ${avatar(p.name, p.photo_url, 'lg')}
+        <div><b style="font-size:1.02rem">${esc(p.name)}</b><div class="small muted">${esc(p.specialty || 'Profissional')} · ${svc} serviço(s)</div></div>
+        <div class="small">${!p.active ? '<span class="tag">Inativa</span>' : worksToday ? `<span class="tag ok">Atende hoje</span> <span class="muted">${p.start_time}–${p.end_time}</span>` : '<span class="tag">Folga hoje</span>'}
+          ${p.active && todayCount(p.id) ? ` · <b>${todayCount(p.id)}</b> agend.` : ''}</div>
       </div>`;
     }).join('')}</div>`
       : `<div class="card">${empty('Nenhuma profissional cadastrada. Cadastre cabeleireiras, manicures, maquiadoras… para começar a agendar.', `<button class="btn primary" data-first>${ic('plus', 18)} Cadastrar a primeira</button>`, 'users')}</div>`}`;

@@ -4,8 +4,8 @@ import { esc, money, toast, addDays, todayStr, weekday, fmtDayLong, fmtPhone, wa
 const slug = decodeURIComponent(location.pathname.split('/')[2] || '');
 const root = document.getElementById('book');
 const st = { salon: null, step: 'home', service: null, pro: undefined, date: todayStr(), time: null, contact: {} };
-const STEPS = ['service', 'pro', 'date', 'time', 'details', 'review'];
-const STEP_LABEL = { service: 'Escolha o serviço', pro: 'Escolha a profissional', date: 'Escolha o dia', time: 'Escolha o horário', details: 'Seus dados', review: 'Revise e confirme' };
+const STEPS = ['service', 'pro', 'time', 'details', 'review'];
+const STEP_LABEL = { service: 'Escolha o serviço', pro: 'Escolha a profissional', time: 'Escolha o dia e o horário', details: 'Seus dados', review: 'Revise e confirme' };
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const KEY = `vb_reservas_${slug}`;
 
@@ -57,7 +57,7 @@ window.addEventListener('popstate', (e) => {
 });
 
 function render() {
-  const fn = { home, service: chooseService, pro: choosePro, date: chooseDate, time: chooseTime, details, review, done: () => {}, mine }[st.step];
+  const fn = { home, service: chooseService, pro: choosePro, date: chooseTime, time: chooseTime, details, review, done: () => {}, mine }[st.step];
   fn?.();
 }
 
@@ -66,7 +66,7 @@ function top(step) {
   const i = STEPS.indexOf(step);
   return `<div class="bk-top"><div class="r"><button class="back" data-back aria-label="Voltar">${ic('arrowLeft', 20)}</button>
     <div style="flex:1;min-width:0"><h2>${STEP_LABEL[step]}</h2><div class="bk-step-label">Etapa ${i + 1} de ${STEPS.length} · ${esc(st.salon.name)}</div></div></div>
-    <div class="bk-steps" aria-hidden="true">${STEPS.map((_, k) => `<i class="${k < i ? 'done' : k === i ? 'on' : ''}"></i>`).join('')}</div></div>`;
+    <div class="bk-steps" aria-hidden="true" style="grid-template-columns:repeat(${STEPS.length},1fr)">${STEPS.map((_, k) => `<i class="${k < i ? 'done' : k === i ? 'on' : ''}"></i>`).join('')}</div></div>`;
 }
 function summaryChip() {
   if (!st.service) return '';
@@ -118,7 +118,7 @@ function pickService(id) {
   st.service = st.salon.services.find((s) => s.id === id);
   st.time = null;
   st.pro = st.service.pros.length === 1 ? { id: st.service.pros[0].id } : undefined;
-  go(st.service.pros.length === 1 ? 'date' : 'pro');
+  go(st.service.pros.length === 1 ? 'time' : 'pro');
 }
 
 // ---------- 1. Serviço ----------
@@ -141,71 +141,64 @@ function choosePro() {
   root.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => {
     st.pro = Number(b.dataset.p) ? { id: Number(b.dataset.p) } : null;
     st.time = null;
-    go('date');
+    go('time');
   }));
 }
 
 // ---------- 3. Data ----------
-function chooseDate() {
+// ---------- 3. Dia e horário (na mesma tela) ----------
+async function chooseTime() {
   if (!st.service) return go('service', false);
   const days = [...Array(30)].map((_, i) => addDays(todayStr(), i));
   if (st.date < todayStr()) st.date = todayStr();
-  const m = Number(st.date.slice(5, 7)) - 1;
-  root.innerHTML = `<div class="bk">${top('date')}<div class="bk-body">${summaryChip()}
-    <div class="card" style="margin:0"><div class="card-head"><h2 style="text-transform:capitalize">${MONTHS[m]} ${st.date.slice(0, 4)}</h2>${ic('calendar', 20, 'brand-t')}</div>
-      <div class="bk-days">${days.map((d) => `<button class="bk-day ${d === st.date ? 'on' : ''}" data-d="${d}" aria-label="${fmtDayLong(d)}"><small>${weekday(d)}</small><b>${d.slice(8)}</b><small>${MONTHS[Number(d.slice(5, 7)) - 1].slice(0, 3)}</small></button>`).join('')}</div>
-      <p class="small muted" style="margin-top:8px">${ic('info', 14)} Na próxima etapa mostramos só os horários realmente livres.</p></div></div>
-    <div class="bk-bar"><div class="in"><button class="btn primary block" data-next>Ver horários de ${fmtDayLong(st.date).toLowerCase()} ${ic('arrowRight', 18)}</button></div></div></div>`;
+  root.innerHTML = `<div class="bk">${top('time')}<div class="bk-body">${summaryChip()}
+    <div class="card" style="margin:0"><h2 style="margin-bottom:10px;text-transform:capitalize">${MONTHS[Number(st.date.slice(5, 7)) - 1]} ${st.date.slice(0, 4)}</h2>
+      <div class="bk-days">${days.map((d) => `<button class="bk-day ${d === st.date ? 'on' : ''}" data-d="${d}" aria-label="${fmtDayLong(d)}"><small>${weekday(d)}</small><b>${d.slice(8)}</b></button>`).join('')}</div></div>
+    <div class="card" style="margin:0"><h2 style="margin-bottom:10px" data-dayname>${fmtDayLong(st.date)}</h2><div data-slots></div></div></div>
+    <div class="bk-bar"><div class="in"><button class="btn primary block" data-next disabled>Escolha um horário</button></div></div></div>`;
   bindBack();
+  const box = root.querySelector('[data-slots]');
+  const next = root.querySelector('[data-next]');
+  const sync = () => {
+    next.disabled = !st.time;
+    next.innerHTML = st.time ? `Continuar com ${fmtDayLong(st.date).toLowerCase()} às ${st.time} ${ic('arrowRight', 18)}` : 'Escolha um horário';
+  };
+  next.onclick = () => st.time && go('details');
+  let seq = 0;
+  const loadSlots = async () => {
+    const my = ++seq;
+    box.innerHTML = '<div class="loading" style="padding:20px"><span class="spin"></span></div>';
+    root.querySelector('[data-dayname]').textContent = fmtDayLong(st.date);
+    sync();
+    try {
+      const r = await call('GET', `/api/public/${encodeURIComponent(slug)}/slots?service_id=${st.service.id}&date=${st.date}${st.pro ? '&professional_id=' + st.pro.id : ''}`);
+      if (my !== seq) return;
+      if (!r.slots.length) return (box.innerHTML = '<p class="muted" style="padding:6px 0">Sem horários livres neste dia. Toque em outro dia acima.</p>');
+      const parts = [['Manhã', (t) => t < '12:00'], ['Tarde', (t) => t >= '12:00' && t < '18:00'], ['Noite', (t) => t >= '18:00']];
+      box.innerHTML = parts.map(([label, test]) => {
+        const list = r.slots.filter(test);
+        return list.length ? `<h3 class="muted" style="margin:4px 0 8px;font-size:.8rem">${label}</h3><div class="bk-slots" style="margin-bottom:10px">${list.map((t) => `<button data-t="${t}" class="${t === st.time ? 'on' : ''}">${t}</button>`).join('')}</div>` : '';
+      }).join('');
+      box.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => {
+        st.time = b.dataset.t;
+        box.querySelectorAll('[data-t]').forEach((x) => x.classList.toggle('on', x === b));
+        sync();
+      }));
+    } catch (e) {
+      box.innerHTML = `<p class="err-t">${esc(e.message)}</p>`;
+    }
+  };
   root.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => {
     st.date = b.dataset.d;
     st.time = null;
-    go('time');
+    root.querySelectorAll('[data-d]').forEach((x) => x.classList.toggle('on', x === b));
+    loadSlots();
   }));
-  root.querySelector('[data-next]').onclick = () => go('time');
   root.querySelector('.bk-day.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  loadSlots();
 }
 
-// ---------- 4. Horário ----------
-async function chooseTime() {
-  if (!st.service) return go('service', false);
-  root.innerHTML = `<div class="bk">${top('time')}<div class="bk-body">${summaryChip()}
-    <div class="card" style="margin:0"><div class="card-head"><h2>${fmtDayLong(st.date)}</h2><button class="btn xs soft" data-change>Trocar dia</button></div>
-      <div data-slots><div class="loading"><span class="spin"></span></div></div></div></div>
-    <div class="bk-bar"><div class="in"><button class="btn primary block" data-next disabled>Escolha um horário</button></div></div></div>`;
-  bindBack();
-  root.querySelector('[data-change]').onclick = () => history.back();
-  const box = root.querySelector('[data-slots]');
-  const next = root.querySelector('[data-next]');
-  try {
-    const r = await call('GET', `/api/public/${encodeURIComponent(slug)}/slots?service_id=${st.service.id}&date=${st.date}${st.pro ? '&professional_id=' + st.pro.id : ''}`);
-    if (!r.slots.length) {
-      box.innerHTML = `<div class="empty"><div class="e-ic">${ic('calendar', 26)}</div><p>Sem horários livres neste dia.</p><button class="btn soft" data-other>Escolher outro dia</button></div>`;
-      box.querySelector('[data-other]').onclick = () => history.back();
-      return;
-    }
-    const parts = [['Manhã', (t) => t < '12:00'], ['Tarde', (t) => t >= '12:00' && t < '18:00'], ['Noite', (t) => t >= '18:00']];
-    box.innerHTML = parts.map(([label, test]) => {
-      const list = r.slots.filter(test);
-      return list.length ? `<h3 class="muted" style="margin:6px 0 8px;font-size:.8rem">${label}</h3><div class="bk-slots" style="margin-bottom:10px">${list.map((t) => `<button data-t="${t}" class="${t === st.time ? 'on' : ''}">${t}</button>`).join('')}</div>` : '';
-    }).join('');
-    const sync = () => {
-      next.disabled = !st.time;
-      next.innerHTML = st.time ? `Continuar com ${st.time} ${ic('arrowRight', 18)}` : 'Escolha um horário';
-    };
-    box.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => {
-      st.time = b.dataset.t;
-      box.querySelectorAll('[data-t]').forEach((x) => x.classList.toggle('on', x === b));
-      sync();
-    }));
-    next.onclick = () => st.time && go('details');
-    sync();
-  } catch (e) {
-    box.innerHTML = `<p class="err-t">${esc(e.message)}</p>`;
-  }
-}
-
-// ---------- 5. Dados ----------
+// ---------- 4. Dados ----------
 function details() {
   if (!st.time) return go('time', false);
   const saved = { ...store.get('vb_contato', {}), ...st.contact };
@@ -229,7 +222,7 @@ function details() {
   };
 }
 
-// ---------- 6. Revisão ----------
+// ---------- 5. Revisão ----------
 function review() {
   if (!st.contact.name) return go('details', false);
   const p = st.pro ? proOf(st.pro.id) : null;
@@ -270,7 +263,7 @@ function review() {
   };
 }
 
-// ---------- 7. Confirmação / consulta da reserva ----------
+// ---------- Confirmação / consulta da reserva ----------
 function bookingCard(r, fresh = false) {
   const cancelled = r.status === 'cancelled';
   const wa = waLink(r.phone, `Olá! Tenho um agendamento de ${r.service} em ${fmtDayLong(r.start_at.slice(0, 10)).toLowerCase()} às ${r.start_at.slice(11)}.`);

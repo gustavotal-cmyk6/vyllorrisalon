@@ -9,11 +9,7 @@ const ui = { q: '', filter: '', tab: 'history' };
 export default async function clients(root, { id, query }) {
   if (id) return detail(root, Number(id));
   if (query.filtro === 'aniversario' && !ui.linked) (ui.filter = 'birthday'), (ui.linked = true);
-  root.innerHTML = `${pageHead('Clientes', 'Encontre, cadastre e acompanhe cada cliente', `<button class="btn primary" data-new>${ic('userPlus', 18)} Nova cliente</button>`)}
-    <div class="card soft" style="display:flex;gap:14px;align-items:center">
-      <span class="avatar lg" style="background:var(--hero)">${ic('users', 30)}</span>
-      <div style="flex:1"><span class="small muted" style="font-weight:600">Clientes nesta lista</span><div style="font-size:1.8rem;font-weight:800;line-height:1.1" data-count>—</div><span class="tiny muted" data-sub></span></div>
-    </div>
+  root.innerHTML = `${pageHead('Clientes', '<span data-count>Carregando…</span>', `<button class="btn primary" data-new>${ic('userPlus', 18)} Nova cliente</button>`)}
     <div class="searchbox" style="margin-bottom:12px">${ic('search', 18)}<input type="search" placeholder="Buscar por nome ou telefone" value="${esc(ui.q)}" data-q aria-label="Buscar cliente"></div>
     <div class="chips scroll" style="margin-bottom:14px">${FILTERS.map(([k, l]) => `<button class="chip ${ui.filter === k ? 'on' : ''}" data-f="${k}">${l}</button>`).join('')}</div>
     <div class="card" style="padding:6px 14px"><ul class="list" data-list><li class="muted">Carregando…</li></ul></div>`;
@@ -23,15 +19,13 @@ export default async function clients(root, { id, query }) {
     const my = ++seq;
     const rows = await GET(`/api/clients?q=${encodeURIComponent(ui.q)}&filter=${ui.filter}`).catch((e) => (fail(e), []));
     if (my !== seq) return;
-    root.querySelector('[data-count]').textContent = rows.length;
-    root.querySelector('[data-sub]').textContent = rows.length === 500 ? 'mostrando as 500 primeiras — use a busca' : `${rows.filter((r) => r.visits_count).length} já atendida(s)`;
+    root.querySelector('[data-count]').textContent = rows.length === 500 ? 'Mostrando as 500 primeiras — use a busca' : `${rows.length} cliente(s)`;
     list.innerHTML = rows.length ? rows.map((c) => {
       const wa = waLink(c.phone);
       return `<li>${avatar(c.name)}
         <a class="grow" href="#/clientes/${c.id}" style="color:inherit"><div class="title">${esc(c.name)}</div>
         <div class="meta">${fmtPhone(c.phone) || 'sem telefone'}${c.last_visit ? ` · última visita ${fmtDate(c.last_visit)}` : ''}</div></a>
         <div class="row-actions">${wa ? `<a class="icon-btn" href="${wa}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(c.name)}">${ic('whatsapp', 20)}</a>` : ''}
-        <button class="icon-btn" data-book="${c.id}" aria-label="Agendar para ${esc(c.name)}">${ic('calendar', 20)}</button>
         <a class="icon-btn" href="#/clientes/${c.id}" aria-label="Abrir ficha">${ic('chevRight', 20)}</a></div></li>`;
     }).join('') : `<li style="display:block">${empty(ui.q ? 'Nenhuma cliente encontrada com essa busca.' : 'Nenhuma cliente aqui ainda.', `<button class="btn primary" data-new2>${ic('userPlus', 18)} Cadastrar cliente</button>`, 'users')}</li>`;
     list.querySelectorAll('[data-book]').forEach((b) => (b.onclick = () => {
@@ -123,18 +117,17 @@ async function detail(root, id) {
       <div class="sub">${fmtPhone(c.phone) || 'sem telefone'}${c.birthday ? ` · aniversário ${c.birthday.slice(-2)}/${c.birthday.slice(-5, -3)}` : ''} · cliente desde ${fmtDate(c.created_at)}</div></div></div>
     <div class="actions"><button class="btn primary" data-act="book">${ic('calendar', 18)} Agendar</button>
       ${wa ? `<a class="btn" href="${wa}" target="_blank" rel="noopener">${ic('whatsapp', 18)} WhatsApp</a>` : ''}
-      ${c.phone ? `<a class="btn" href="tel:${esc(c.phone)}">${ic('phone', 18)} Ligar</a>` : ''}</div></div>
+</div></div>
   ${c.notes ? `<div class="note-box" style="margin-bottom:14px;display:flex;gap:8px">${ic('alert', 18)}<span><b>Observações:</b> ${esc(c.notes)}</span></div>` : ''}
-  <div class="kpis">
-    <div class="kpi"><span class="k-ic">${ic('clock', 20)}</span><span>Última visita</span><b>${c.last_visit ? fmtDate(c.last_visit) : '—'}</b><small>${daysSince != null ? `há ${daysSince} dia(s)` : 'ainda não atendida'}</small></div>
-    <div class="kpi"><span class="k-ic">${ic('heart', 20)}</span><span>Visitas</span><b>${c.visits_count}</b><small>${d.avg_interval_days ? `volta a cada ~${d.avg_interval_days} dias` : 'frequência ainda sem dados'}${d.no_shows ? ` · ${d.no_shows} falta(s)` : ''}</small></div>
-    ${money_ ? `<div class="kpi"><span class="k-ic">${ic('coin', 20)}</span><span>Total gasto</span><b>${money(c.spent_cents)}</b><small>${pending ? `<span class="warn-t">${money(pending)} pendente</span>` : c.visits_count ? `média ${money(Math.round(c.spent_cents / c.visits_count))}` : ''}</small></div>` : ''}
-    <div class="kpi"><span class="k-ic">${ic('sparkle', 20)}</span><span>Costuma ser atendida por</span><b style="font-size:1.1rem">${esc(d.usual_pro || c.preferred_pro_name || '—')}</b><small>${c.preferred_pro_name ? `preferida: ${esc(c.preferred_pro_name)}` : ''}</small></div>
+  <div class="sum-strip" style="margin-bottom:12px">
+    <div><span>Última visita</span><b>${c.last_visit ? fmtDate(c.last_visit) : '—'}</b><small>${daysSince != null ? `há ${daysSince} dia(s)` : 'ainda não atendida'}</small></div>
+    <div><span>Visitas</span><b>${c.visits_count}</b><small>${d.avg_interval_days ? `volta a cada ~${d.avg_interval_days} dias` : ''}${d.no_shows ? ` · ${d.no_shows} falta(s)` : ''}</small></div>
+    ${money_ ? `<div><span>Total gasto</span><b>${money(c.spent_cents)}</b><small>${pending ? `<span class="warn-t">${money(pending)} a receber</span>` : ''}</small></div>` : ''}
+    ${d.usual_pro || c.preferred_pro_name ? `<div><span>Costuma ser atendida por</span><b style="font-size:1rem">${esc(d.usual_pro || c.preferred_pro_name)}</b></div>` : ''}
   </div>
   <div class="actions" style="justify-content:flex-start;margin:0 0 14px">
-    ${can.staff() ? `<button class="btn sm soft" data-act="sale">${ic('cart', 16)} Registrar venda</button>` : ''}
-    <button class="btn sm soft" data-act="edit">${ic('edit', 16)} Editar dados e observações</button>
-    ${can.staff() ? `<button class="btn sm ghost" data-act="archive">${ic('trash', 16)} Arquivar</button>` : ''}
+    <button class="btn sm soft" data-act="edit">${ic('edit', 16)} Editar dados</button>
+    <button class="btn sm ghost" data-act="more">${ic('more', 16)} Mais opções</button>
   </div>
   <div class="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
   <div class="card" data-panel></div>`;
@@ -173,7 +166,27 @@ async function detail(root, id) {
     if (a === 'book') newVisit({ client: pick, onSaved: refresh });
     if (a === 'sale') openCheckout({ onDone: refresh, client: pick });
     if (a === 'edit') quickClient({ client: c, onSaved: refresh });
+    if (a === 'more') return moreClient(c, pick);
     if (a === 'archive' && (await confirmBox(`Arquivar ${c.name}? O histórico financeiro é mantido, mas ela sai das listas e buscas.`, { ok: 'Arquivar', danger: true })))
       await DEL(`/api/clients/${c.id}`).then(() => (toast('Cliente arquivada'), (location.hash = '#/clientes'))).catch(fail);
+  });
+}
+
+/** Ações menos usadas da ficha, reunidas num só lugar. */
+function moreClient(c, pick) {
+  modal({
+    title: c.name,
+    body: `<div class="sheet-actions">
+      ${can.staff() ? `<button class="btn" data-m="sale">${ic('cart', 18)} Registrar venda</button>` : ''}
+      ${c.phone ? `<a class="btn" href="tel:${esc(c.phone)}" data-close>${ic('phone', 18)} Ligar</a>` : ''}
+      ${can.staff() ? `<button class="btn" data-m="archive" style="color:var(--err)">${ic('trash', 18)} Arquivar cliente</button>` : ''}</div>`,
+    onMount(el, close) {
+      el.querySelector('[data-m="sale"]')?.addEventListener('click', () => (close(), openCheckout({ onDone: refresh, client: pick })));
+      el.querySelector('[data-m="archive"]')?.addEventListener('click', async () => {
+        close();
+        if (await confirmBox(`Arquivar ${c.name}? O histórico é mantido, mas ela sai das listas e da busca.`, { ok: 'Arquivar', danger: true }))
+          await DEL(`/api/clients/${c.id}`).then(() => (toast('Cliente arquivada'), (location.hash = '#/clientes'))).catch(fail);
+      });
+    },
   });
 }

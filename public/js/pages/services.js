@@ -30,9 +30,8 @@ export default async function services(root, { query }) {
     grid.innerHTML = rows.length ? rows.map((s) => `<div class="svc-card" data-edit="${s.id}" role="button" tabindex="0" style="${s.active ? '' : 'opacity:.55'}">
       <div class="thumb">${s.photo_url ? `<img src="${esc(s.photo_url)}" alt="" loading="lazy">` : ic('scissors', 26)}</div>
       <div class="grow"><b>${esc(s.name)}</b>
-        <div class="small muted">${s.duration_min} min · ${esc(s.category_name || 'Sem categoria')}</div>
-        <div style="display:flex;gap:4px;margin-top:6px;align-items:center">${s.pros.slice(0, 4).map((l) => { const p = state.pros.find((x) => x.id === l.professional_id); return p ? avatar(p.name, p.photo_url, 'sm') : ''; }).join('')}
-          ${!s.pros.length ? '<span class="tag err">sem profissional</span>' : ''}${s.online ? `<span class="tag pink">${ic('globe', 12)} online</span>` : ''}${s.active ? '' : '<span class="tag">inativo</span>'}</div></div>
+        <div class="small muted">${s.duration_min} min${!s.pros.length && !can.solo() ? ' · <span class="err-t">sem profissional</span>' : ''}</div>
+        <div style="margin-top:4px">${s.active ? (s.online ? `<span class="tag pink">${ic('globe', 12)} agendamento online</span>` : '<span class="tag">só no salão</span>') : '<span class="tag">inativo</span>'}</div></div>
       <div class="price">${money(s.price_cents)}</div></div>`).join('') : `<div class="card" style="grid-column:1/-1">${empty('Nenhum serviço encontrado.', '', 'search')}</div>`;
     grid.querySelectorAll('[data-edit]').forEach((c) => {
       const open = () => edit(list.find((s) => s.id === Number(c.dataset.edit)));

@@ -137,9 +137,24 @@ export function quickActions() {
   });
 }
 
-// ---- Notificações: o que precisa de atenção agora ----
+// ---- Notificações: o que precisa de atenção, por tipo; as já vistas ficam marcadas ----
 let attention = [];
 const ALERT_IC = { online: 'globe', late: 'clock', checkout: 'receipt', receivable: 'coin', confirm: 'message', stock: 'box', bills: 'wallet', birthday: 'heart' };
+const ALERT_GROUP = { online: 'Agenda', late: 'Agenda', confirm: 'Agenda', checkout: 'Agenda', receivable: 'Dinheiro', bills: 'Dinheiro', stock: 'Estoque', birthday: 'Clientes' };
+const seenKey = () => `vb_vistas_${state.user?.id}`;
+const alertKey = (a) => `${a.type}|${a.text}`;
+function seen() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(seenKey()) || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function markSeen() {
+  try {
+    localStorage.setItem(seenKey(), JSON.stringify(attention.map(alertKey)));
+  } catch {}
+}
 async function refreshBell() {
   if (can.pro()) return;
   try {
@@ -147,17 +162,26 @@ async function refreshBell() {
   } catch {
     attention = [];
   }
+  const fresh = attention.filter((a) => !seen().has(alertKey(a))).length;
   const dot = document.querySelector('[data-bell-count]');
-  if (dot) (dot.textContent = attention.length), dot.classList.toggle('hidden', !attention.length);
+  if (dot) (dot.textContent = fresh), dot.classList.toggle('hidden', !fresh);
 }
-async function notifications() {
+export async function notifications() {
   await refreshBell();
+  const was = seen();
+  const groups = {};
+  for (const a of attention) (groups[ALERT_GROUP[a.type] || 'Outros'] ||= []).push(a);
   modal({
     title: 'Notificações',
     body: attention.length
-      ? attention.map((a) => `<a class="alert ${a.level}" href="${a.link}" data-close><span class="a-ic">${ic(ALERT_IC[a.type] || 'info', 18)}</span><span>${esc(a.text)}</span>${a.amount ? `<b>${money(a.amount)}</b>` : ''}</a>`).join('')
-      : `<div class="empty"><div class="e-ic">${ic('checkCircle', 26)}</div><p>Tudo em dia por aqui.</p></div>`,
+      ? Object.entries(groups).map(([g, list]) => `<h3 class="tiny muted" style="text-transform:uppercase;letter-spacing:.08em;margin:6px 0 8px">${g}</h3>
+          ${list.map((a) => { const old = was.has(alertKey(a)); return `<a class="alert ${a.level}" href="${a.link}" data-close style="${old ? 'opacity:.6' : ''}"><span class="a-ic">${ic(ALERT_IC[a.type] || 'info', 18)}</span>
+            <span style="flex:1">${esc(a.text)}${old ? '' : ' <span class="tag pink">nova</span>'}</span>${a.amount ? `<b>${money(a.amount)}</b>` : ''}</a>`; }).join('')}`).join('')
+      : `<div class="empty"><div class="e-ic">${ic('checkCircle', 26)}</div><p>Tudo em dia. Nada precisa da sua atenção agora.</p></div>`,
   });
+  markSeen();
+  const dot = document.querySelector('[data-bell-count]');
+  if (dot) dot.classList.add('hidden');
 }
 
 function mobileSearch() {

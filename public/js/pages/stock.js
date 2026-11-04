@@ -11,14 +11,8 @@ export default async function stock(root) {
   const low = products.filter((p) => p.active && p.min_stock > 0 && p.stock <= p.min_stock);
   const value = products.filter((p) => p.active).reduce((s, p) => s + Math.max(0, p.stock) * p.cost_cents, 0);
   const cats = [...new Set(products.filter((p) => p.kind === ui.tab).map((p) => p.category || 'Sem categoria'))];
-  root.innerHTML = `${pageHead('Estoque', 'Produtos de venda e materiais de uso interno ficam separados', can.admin() ? `<button class="btn primary" data-new>${ic('plus', 18)} Cadastrar produto</button>` : '')}
-    <div class="kpis">
-      <div class="kpi"><span class="k-ic">${ic('cart', 20)}</span><span>Para venda</span><b>${products.filter((p) => p.kind === 'retail' && p.active).length}</b><small>produtos ativos</small></div>
-      <div class="kpi"><span class="k-ic">${ic('scissors', 20)}</span><span>Uso interno</span><b>${products.filter((p) => p.kind === 'internal' && p.active).length}</b><small>materiais</small></div>
-      <div class="kpi ${low.length ? 'hl' : ''}"><span class="k-ic">${ic('alert', 20)}</span><span>Repor agora</span><b>${low.length}</b><small>${low.length ? low.map((l) => esc(l.name)).slice(0, 2).join(', ') : 'nada abaixo do mínimo'}</small></div>
-      ${can.admin() ? `<div class="kpi"><span class="k-ic">${ic('coin', 20)}</span><span>Valor em estoque</span><b>${money(value)}</b><small>pelo custo</small></div>` : `<div class="kpi"><span class="k-ic">${ic('refresh', 20)}</span><span>Movimentações</span><b>${moves.length}</b><small>recentes</small></div>`}
-    </div>
-    ${low.length ? `<div class="alert warn"><span class="a-ic">${ic('alert', 18)}</span><span><b>${low.length} produto(s) com estoque baixo:</b> ${low.map((l) => `${esc(l.name)} (${fmtQty(l.stock)} ${esc(l.unit)})`).join(', ')}</span></div>` : ''}
+  root.innerHTML = `${pageHead('Estoque', `${products.filter((p) => p.active).length} produto(s)${can.admin() ? ` · ${money(value)} em estoque (pelo custo)` : ''}`, can.admin() ? `<button class="btn primary" data-new>${ic('plus', 18)} Cadastrar produto</button>` : '')}
+    ${low.length ? `<a class="alert warn" href="#" data-lowlink><span class="a-ic">${ic('alert', 18)}</span><span><b>${low.length} produto(s) para repor:</b> ${low.map((l) => esc(l.name)).slice(0, 3).join(', ')}${low.length > 3 ? '…' : ''}</span><b>Ver</b></a>` : ''}
     <div class="tabs"><button data-tab="retail" class="${ui.tab === 'retail' ? 'on' : ''}">Vendidos às clientes</button><button data-tab="internal" class="${ui.tab === 'internal' ? 'on' : ''}">Uso interno</button><button data-tab="moves" class="${ui.tab === 'moves' ? 'on' : ''}">Movimentações</button></div>
     ${ui.tab === 'moves' ? `<div class="card">${movesTable(moves)}</div>` : `
       <div class="searchbox" style="margin-bottom:12px">${ic('search', 18)}<input type="search" placeholder="Buscar produto" value="${esc(ui.q)}" data-q aria-label="Buscar produto"></div>
@@ -33,22 +27,20 @@ export default async function stock(root) {
     const rows = products.filter((p) => p.kind === ui.tab && (!q || p.name.toLowerCase().includes(q)) && (!ui.cat || (p.category || 'Sem categoria') === ui.cat) && (!ui.low || (p.min_stock > 0 && p.stock <= p.min_stock)));
     listEl.innerHTML = rows.length ? rows.map((p) => {
       const isLow = p.min_stock > 0 && p.stock <= p.min_stock;
-      return `<li style="${p.active ? '' : 'opacity:.55'}"><span class="avatar" style="background:${isLow ? 'var(--warn-soft)' : 'var(--lav-100)'};color:${isLow ? 'var(--warn)' : 'var(--brand)'}">${ic('box', 20)}</span>
+      return `<li class="click" data-prod="${p.id}" style="${p.active ? '' : 'opacity:.55'}"><span class="avatar" style="background:${isLow ? 'var(--warn-soft)' : 'var(--lav-100)'};color:${isLow ? 'var(--warn)' : 'var(--brand)'}">${ic('box', 20)}</span>
         <div class="grow"><div class="title">${esc(p.name)}</div>
-          <div class="meta">${esc(p.category || 'Sem categoria')}${p.kind === 'retail' ? ` · venda ${money(p.price_cents)}` : ''}${can.admin() && p.cost_cents ? ` · custo ${money(p.cost_cents)}` : ''} · mín. ${fmtQty(p.min_stock)}</div></div>
+          <div class="meta">${isLow ? '<span class="err-t">repor · </span>' : ''}${p.kind === 'retail' ? `venda ${money(p.price_cents)}` : esc(p.category || 'uso interno')}</div></div>
         <div class="right"><b class="${isLow ? 'err-t' : ''}" style="font-size:1.1rem">${fmtQty(p.stock)}</b><div class="tiny muted">${esc(p.unit)}</div></div>
-        <div class="row-actions"><button class="btn xs soft" data-move="${p.id}" data-type="in">${ic('plus', 14)} Entrada</button>
-          <button class="btn xs soft" data-move="${p.id}" data-type="${p.kind === 'internal' ? 'use' : 'out'}">${ic('trendDown', 14)} ${p.kind === 'internal' ? 'Uso' : 'Saída'}</button>
-          <button class="icon-btn" data-move="${p.id}" data-type="adjust" aria-label="Ajustar contagem de ${esc(p.name)}">${ic('refresh', 18)}</button>
-          ${can.admin() ? `<button class="icon-btn" data-edit="${p.id}" aria-label="Editar ${esc(p.name)}">${ic('edit', 18)}</button>` : ''}</div></li>`;
+        <button class="btn xs soft" data-move="${p.id}" data-type="in">${ic('plus', 14)} Entrada</button></li>`;
     }).join('') : `<li style="display:block">${empty(ui.tab === 'retail' ? 'Nenhum produto para venda (shampoos, máscaras, finalizadores…).' : 'Nenhum material de uso interno (tinturas, luvas, algodão…).', '', 'box')}</li>`;
-    listEl.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => edit(products.find((p) => p.id === Number(b.dataset.edit)))));
-    listEl.querySelectorAll('[data-move]').forEach((b) => (b.onclick = () => move(products.find((p) => p.id === Number(b.dataset.move)), b.dataset.type)));
+    listEl.querySelectorAll('[data-move]').forEach((b) => (b.onclick = (e) => (e.stopPropagation(), move(products.find((p) => p.id === Number(b.dataset.move)), b.dataset.type))));
+    listEl.querySelectorAll('[data-prod]').forEach((li) => (li.onclick = () => productSheet(products.find((p) => p.id === Number(li.dataset.prod)), moves)));
   };
   draw();
   root.querySelector('[data-q]')?.addEventListener('input', (e) => ((ui.q = e.target.value), draw()));
   root.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => ((ui.cat = b.dataset.cat), (ui.low = false), refresh())));
   root.querySelector('[data-low]')?.addEventListener('click', () => ((ui.low = !ui.low), (ui.cat = ''), refresh()));
+  root.querySelector('[data-lowlink]')?.addEventListener('click', (e) => (e.preventDefault(), (ui.low = true), (ui.cat = ''), ui.tab === 'moves' && (ui.tab = 'retail'), refresh()));
   root.querySelector('[data-new]')?.addEventListener('click', () => edit({ kind: ui.tab === 'internal' ? 'internal' : 'retail' }));
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), (ui.cat = ''), (ui.low = false), refresh())));
 }
@@ -128,6 +120,29 @@ function move(p, type) {
           refresh();
         }).catch(() => {});
       };
+    },
+  });
+}
+
+/** Ficha do produto: números, todas as ações e as últimas movimentações dele. */
+function productSheet(p, moves) {
+  const mine = moves.filter((m) => m.product_id === p.id).slice(0, 8);
+  modal({
+    title: p.name,
+    body: `<div class="sum-strip" style="margin-bottom:14px">
+        <div><span>Em estoque</span><b class="${p.min_stock > 0 && p.stock <= p.min_stock ? 'err-t' : ''}">${fmtQty(p.stock)} ${esc(p.unit)}</b><small>mínimo ${fmtQty(p.min_stock)}</small></div>
+        ${p.kind === 'retail' ? `<div><span>Preço de venda</span><b>${money(p.price_cents)}</b></div>` : ''}
+        ${can.admin() ? `<div><span>Custo</span><b>${money(p.cost_cents)}</b></div>` : ''}
+        <div><span>Tipo</span><b style="font-size:.95rem">${p.kind === 'retail' ? 'Venda' : 'Uso interno'}</b><small>${esc(p.category || '')}</small></div></div>
+      <div class="sheet-actions">
+        <button class="btn primary" data-t="in">${ic('plus', 18)} Entrada</button>
+        <button class="btn" data-t="${p.kind === 'internal' ? 'use' : 'out'}">${ic('trendDown', 18)} ${p.kind === 'internal' ? 'Uso interno' : 'Saída / perda'}</button>
+        <button class="btn" data-t="adjust">${ic('refresh', 18)} Corrigir contagem</button>
+        ${can.admin() ? `<button class="btn" data-edit>${ic('edit', 18)} Editar produto</button>` : ''}</div>
+      <h3 style="margin:16px 0 6px">Últimas movimentações</h3>${mine.length ? movesTable(mine) : '<p class="small muted">Nenhuma movimentação ainda.</p>'}`,
+    onMount(el, close) {
+      el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => (close(), move(p, b.dataset.t))));
+      el.querySelector('[data-edit]')?.addEventListener('click', () => (close(), edit(p)));
     },
   });
 }

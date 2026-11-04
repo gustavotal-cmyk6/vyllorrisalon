@@ -4,10 +4,10 @@ import { refresh } from '../app.js';
 
 const CATS = ['Aluguel', 'Energia', 'Água', 'Internet / telefone', 'Produtos', 'Materiais', 'Salários', 'Impostos', 'Marketing', 'Manutenção', 'Taxas de cartão', 'Outros'];
 const ui = { tab: 'summary', period: 'month', cashDate: null };
-const TABS = [['summary', 'Resumo'], ['bills', 'Contas a pagar'], ['receivable', 'A receber'], ['cash', 'Fluxo de caixa'], ['close', 'Fechar caixa'], ['rec', 'Despesas fixas']];
+const TABS = [['summary', 'Resumo'], ['bills', 'Contas a pagar'], ['receivable', 'A receber'], ['cash', 'Entradas e saídas'], ['close', 'Fechar caixa']];
 
 export default async function finance(root, { query }) {
-  root.innerHTML = `${pageHead('Financeiro', 'Faturamento, dinheiro recebido, despesas e lucro — cada um no seu lugar', `<button class="btn primary" data-new>${ic('plus', 18)} Lançar despesa</button>`)}
+  root.innerHTML = `${pageHead('Financeiro', 'Quanto entrou, quanto saiu e quanto sobrou', `<button class="btn primary" data-new>${ic('plus', 18)} Lançar despesa</button>`)}
     <div class="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${['summary', 'bills', 'cash'].includes(ui.tab) ? periodPicker('per', ui.period) : ''}<div data-body><div class="loading">Carregando…</div></div>`;
   root.querySelector('[data-new]').onclick = () => editExpense();
@@ -17,46 +17,41 @@ export default async function finance(root, { query }) {
   const body = root.querySelector('[data-body]');
   if (ui.tab === 'receivable') return receivable(body);
   if (ui.tab === 'close') return closeCash(body);
-  if (ui.tab === 'rec') return recurring(body);
+  if (ui.tab === 'rec') ui.tab = 'bills';
   mountPeriod(root, 'per', (range) => (ui.tab === 'summary' ? summary(body, range) : ui.tab === 'bills' ? bills(body, range) : cash(body, range)), ui.period === 'custom' ? 'month' : ui.period);
 }
 
 async function summary(body, range) {
   const [s, c] = await Promise.all([GET(`/api/finance/summary?from=${range.from}&to=${range.to}`), GET(`/api/finance/cashflow?from=${range.from}&to=${range.to}`)]);
-  const margin = s.revenue ? Math.round((s.profit / s.revenue) * 1000) / 10 : 0;
+  const balance = c.total_in - c.total_out;
   body.innerHTML = `
   <div class="kpis">
-    <div class="kpi"><span class="k-ic">${ic('receipt', 20)}</span><span>Faturamento</span><b>${money(s.revenue)}</b><span class="explain">Tudo que foi vendido no período, mesmo o que a cliente ainda vai pagar.</span></div>
-    <div class="kpi"><span class="k-ic">${ic('coin', 20)}</span><span>Recebido</span><b class="ok-t">${money(s.received)}</b><span class="explain">Dinheiro que de fato entrou (Pix, cartão, dinheiro…).</span></div>
-    <div class="kpi"><span class="k-ic">${ic('wallet', 20)}</span><span>Saldo do período</span><b class="${c.total_in - c.total_out < 0 ? 'err-t' : ''}">${money(c.total_in - c.total_out)}</b><span class="explain">Entradas menos saídas pagas (despesas e comissões).</span></div>
-    <div class="kpi hl"><span class="k-ic">${ic('sparkle', 20)}</span><span>Lucro estimado</span><b>${money(s.profit)}</b><span class="explain">${margin}% do faturamento, depois de custos, comissões e despesas.</span></div>
+    <div class="kpi"><span>Recebido</span><b class="ok-t">${money(c.total_in)}</b><span class="explain">Dinheiro que entrou de clientes.</span></div>
+    <div class="kpi"><span>Despesas pagas</span><b class="err-t">${money(c.total_out)}</b><span class="explain">Contas e comissões que você pagou.</span></div>
+    <div class="kpi"><span>Saldo</span><b>${money(balance)}</b><span class="explain">Recebido menos despesas pagas.</span></div>
+    <div class="kpi hl"><span>Lucro estimado</span><b>${money(s.profit)}</b><span class="explain">O que sobra das vendas depois de todos os custos.</span></div>
   </div>
-  <div class="grid g2">
-    <div class="card"><h2>Como o lucro é calculado</h2><table class="t"><tbody>
-      <tr><td>Faturamento <span class="muted small">(serviços ${money(s.revenue_services)} + produtos ${money(s.revenue_products)})</span></td><td class="num"><b>${money(s.revenue)}</b></td></tr>
+  ${s.receivable_total || s.payable_overdue ? `<div class="card"><h2>Pendências</h2>
+    ${s.receivable_total ? `<a class="alert warn" href="#" data-goto="receivable"><span class="a-ic">${ic('coin', 18)}</span><span>Clientes ainda vão pagar</span><b>${money(s.receivable_total)}</b></a>` : ''}
+    ${s.payable_overdue ? `<a class="alert err" href="#" data-goto="bills"><span class="a-ic">${ic('wallet', 18)}</span><span>${s.payable_overdue_count} conta(s) vencida(s)</span><b>${money(s.payable_overdue)}</b></a>` : ''}</div>` : ''}
+  <div class="card"><details class="more" style="margin:0"><summary>${ic('chevDown', 16)} Como o lucro estimado é calculado</summary>
+    <table class="t" style="margin-top:10px"><tbody>
+      <tr><td>Vendido no período <span class="muted small">(serviços ${money(s.revenue_services)} + produtos ${money(s.revenue_products)})</span></td><td class="num"><b>${money(s.revenue)}</b></td></tr>
       <tr><td>− Custo dos produtos vendidos</td><td class="num err-t">${money(s.product_cost)}</td></tr>
       <tr><td>− Comissões das profissionais</td><td class="num err-t">${money(s.commissions)}</td></tr>
       <tr><td>− Despesas do período</td><td class="num err-t">${money(s.expenses)}</td></tr>
       <tr><td><b>= Lucro estimado</b></td><td class="num"><b class="${s.profit < 0 ? 'err-t' : 'ok-t'}">${money(s.profit)}</b></td></tr></tbody></table>
-      <p class="legend">${ic('info', 14)} Faturamento não é lucro, e recebimento não é faturamento: vendas pendentes contam no faturamento, mas só entram no caixa quando pagas.</p></div>
-    <div class="stack">
-      <div class="sum-strip">
-        <div><span>A receber de clientes</span><b class="warn-t">${money(s.receivable_total)}</b><small>todas as vendas pendentes</small></div>
-        <div><span>Contas em aberto</span><b>${money(s.expenses_open)}</b><small>despesas do período não pagas</small></div>
-        <div><span>Contas vencidas</span><b class="${s.payable_overdue ? 'err-t' : ''}">${money(s.payable_overdue)}</b><small>${s.payable_overdue_count} conta(s)</small></div>
-        <div><span>Comissões pagas</span><b>${money(s.commissions_paid)}</b><small>no período</small></div>
-      </div>
-      <div class="card" style="margin:0"><h2>Entradas por forma de pagamento</h2>${bars(c.by_method, { label: (x) => x.method })}</div>
-    </div>
-  </div>
-  ${s.expenses_by_category.length ? `<div class="card" style="margin-top:16px"><div class="card-head"><h2>Despesas por categoria</h2><span class="tiny muted">${rangeLabel(range)}</span></div>${bars(s.expenses_by_category, { label: (x) => x.category })}</div>` : ''}`;
+    <p class="legend">O que foi vendido conta no lucro mesmo que a cliente ainda não tenha pago; no saldo, só entra o que foi recebido.</p></details></div>
+  <p class="legend">Gráficos e despesas por categoria em <a href="#/relatorios">Relatórios</a>.</p>`;
+  body.querySelectorAll('[data-goto]').forEach((a) => (a.onclick = (e) => (e.preventDefault(), (ui.tab = a.dataset.goto), refresh())));
 }
 
 async function bills(body, range) {
   const rows = await GET(`/api/expenses?from=${range.from}&to=${range.to}`);
   const t = todayStr();
   const open = rows.filter((e) => !e.paid_at).reduce((a, e) => a + e.amount_cents, 0);
-  body.innerHTML = `<div class="sum-strip" style="margin-bottom:14px"><div><span>Em aberto</span><b class="warn-t">${money(open)}</b></div><div><span>Pagas</span><b class="ok-t">${money(rows.filter((e) => e.paid_at).reduce((a, e) => a + e.amount_cents, 0))}</b></div>
+  body.innerHTML = `<div class="actions" style="justify-content:flex-start;margin:0 0 12px"><button class="btn sm soft" data-fixed>${ic('refresh', 16)} Despesas fixas (todo mês)</button></div>
+    <div class="sum-strip" style="margin-bottom:14px"><div><span>Em aberto</span><b class="warn-t">${money(open)}</b></div><div><span>Pagas</span><b class="ok-t">${money(rows.filter((e) => e.paid_at).reduce((a, e) => a + e.amount_cents, 0))}</b></div>
     <div><span>Vencidas</span><b class="err-t">${rows.filter((e) => !e.paid_at && e.due_date < t).length}</b></div></div>
     <div class="card" style="padding:6px 14px">${rows.length ? `<ul class="list">${rows.map((e) => {
     const late = !e.paid_at && e.due_date < t;
@@ -67,6 +62,7 @@ async function bills(body, range) {
       <button class="icon-btn" data-edit="${e.id}" aria-label="Editar ${esc(e.description)}">${ic('edit', 18)}</button></div></li>`;
   }).join('')}</ul>` : empty('Nenhuma conta no período.', `<button class="btn primary sm" data-new2>${ic('plus', 16)} Lançar despesa</button>`, 'wallet')}</div>`;
   body.querySelector('[data-new2]')?.addEventListener('click', () => editExpense());
+  body.querySelector('[data-fixed]').onclick = () => modal({ title: 'Despesas fixas', wide: true, body: '<div data-rec></div>', onMount: (el) => recurring(el.querySelector('[data-rec]')) });
   body.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editExpense(rows.find((r) => r.id === Number(b.dataset.edit)))));
   body.querySelectorAll('[data-pay]').forEach((b) => (b.onclick = () => payExpense(rows.find((r) => r.id === Number(b.dataset.pay)))));
   body.querySelectorAll('[data-undo]').forEach((b) => (b.onclick = async () => {
