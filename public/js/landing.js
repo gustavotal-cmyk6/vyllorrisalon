@@ -20,7 +20,7 @@ const FAQ = [
 ];
 
 export async function landing() {
-  let plans = { solo: { name: 'Sozinha', price_cents: 3990 }, team: { name: 'Com equipe', price_cents: 6990 } }, days = 7;
+  let plans = { solo: { name: 'Sozinha', price_cents: 3990 }, team: { name: 'Com equipe', price_cents: 4990 } }, days = 7;
   try {
     const r = await GET('/api/plans');
     (plans = r.plans), (days = r.trial_days);

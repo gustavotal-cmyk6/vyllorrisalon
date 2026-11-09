@@ -10,7 +10,7 @@ export const TRIAL_DAYS = 7;
 /** Preço por modo de trabalho (centavos). */
 export const PLANS = {
   solo: { name: 'Sozinha', price_cents: 3990, included_pros: 1, extra_pro_cents: 0 },
-  team: { name: 'Com equipe', price_cents: 6990, included_pros: 5, extra_pro_cents: 990 },
+  team: { name: 'Com equipe', price_cents: 4990, included_pros: 5, extra_pro_cents: 990 },
 };
 const PROS_SQL = '(SELECT COUNT(*) FROM professionals p WHERE p.salon_id=s.id AND p.active=1)';
 export { PROS_SQL };

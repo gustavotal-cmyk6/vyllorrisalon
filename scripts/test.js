@@ -528,7 +528,7 @@ try {
       ok(await t('POST', '/api/professionals', { name: `Pro ${i}`, work_days: '1,2,3,4,5', start_time: '09:00', end_time: '18:00', commission_type: 'pct', commission_value: 40 }));
     const plan = ok(await t('GET', '/api/billing')).plan;
     assert.equal(plan.extra_pros, 2);
-    assert.equal(plan.price_cents, 6990 + 2 * 990);
+    assert.equal(plan.price_cents, 4990 + 2 * 990);
     // acesso de recepção funciona no plano com equipe e fica pausado se o salão mudar para Sozinha
     ok(await t('POST', '/api/users', { name: 'Recepção', email: 'rec@plano.com', password: 'senha1234', role: 'reception' }));
     const rec = client();
