@@ -1,6 +1,6 @@
 import { state, GET, POST, PUT, esc, modal, toast, fail, submitting, can, empty, loadRefs, ic, avatar, pageHead, photoField, pickImage, fmtPhone, ROLE_LABEL, soloPro, money, toCents } from '../core.js';
 import { refresh } from '../app.js';
-import { pushState, enablePush, disablePush } from '../push.js';
+import { pushState, disablePush, askPush, pushGuide, pushGuideHtml } from '../push.js';
 import { editPro } from './team.js';
 
 /** Cores prontas para a página pública das clientes. */
@@ -380,16 +380,15 @@ async function pushCard(box) {
   const draw = (s) => {
     box.innerHTML = `<div class="card-head"><h2>Notificações no aparelho</h2>${s.on ? '<span class="tag ok">ativas</span>' : ''}</div>
       <p class="small muted" style="margin-bottom:12px">Receba avisos de novos agendamentos online, comprovantes de sinal e cancelamentos, mesmo com o app fechado.</p>
-      ${!s.supported ? `<p class="small warn-t">${esc(s.reason)}</p>`
-        : s.denied ? '<p class="small warn-t">As notificações estão bloqueadas neste navegador. Libere nas configurações do navegador e volte aqui.</p>'
+      ${!s.supported || s.denied ? `<p class="small warn-t" style="margin-bottom:12px">${s.denied ? 'As notificações estão bloqueadas neste aparelho. Siga os passos para liberar:' : 'Ainda não dá para ativar neste aparelho. Veja como resolver:'}</p>${pushGuideHtml(s)}`
         : s.on ? `<div class="chips"><button class="btn sm soft" data-test>${ic('bell', 16)} Enviar teste</button><button class="btn sm ghost" data-off>Desativar neste aparelho</button></div>`
-        : `<button class="btn sm primary" data-on>${ic('bell', 16)} Ativar notificações</button>`}`;
+        : `<div class="chips"><button class="btn sm primary" data-on>${ic('bell', 16)} Ativar notificações</button><button class="btn sm ghost" data-how>Como funciona?</button></div>`}`;
     box.querySelector('[data-on]')?.addEventListener('click', async (e) => {
       await submitting(e.currentTarget, async () => {
-        draw(await enablePush());
-        toast('Notificações ativadas neste aparelho');
+        draw(await askPush());
       }).catch(() => {});
     });
+    box.querySelector('[data-how]')?.addEventListener('click', () => pushGuide(s));
     box.querySelector('[data-off]')?.addEventListener('click', async () => draw(await disablePush()));
     box.querySelector('[data-test]')?.addEventListener('click', async (e) => {
       await submitting(e.currentTarget, () => POST('/api/push/test')).then(() => toast('Teste enviado')).catch(() => {});

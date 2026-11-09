@@ -3,6 +3,7 @@ import { newVisit, openVisit } from './visits.js';
 import { openCheckout } from './checkout.js';
 import { quickClient } from './clients.js';
 import { refresh, notifications } from '../app.js';
+import { pushBanner } from '../push.js';
 
 export const ALERT_IC = { online: 'globe', late: 'clock', checkout: 'receipt', receivable: 'coin', confirm: 'message', stock: 'box', bills: 'wallet', birthday: 'heart' };
 // próxima ação de cada status, direto na lista (sem abrir o agendamento)
@@ -20,6 +21,7 @@ export default async function dashboard(root) {
 
   root.innerHTML = `
   ${pageHead(hello, fmtDayLong(d.date), `<button class="btn primary" data-act="visit">${ic('plus', 18)} Novo agendamento</button>`)}
+  <div data-pushbanner></div>
   ${setup ? setupCard() : ''}
   ${d.role === 'pro' ? proKpis(d) : ownerKpis(d)}
   <div class="grid g-main">
@@ -50,6 +52,7 @@ export default async function dashboard(root) {
     </div>
   </div>`;
 
+  pushBanner(root.querySelector('[data-pushbanner]'));
   root.addEventListener('click', async (e) => {
     const t = e.target.closest('[data-act],[data-step],[data-visit]');
     if (!t) return;
