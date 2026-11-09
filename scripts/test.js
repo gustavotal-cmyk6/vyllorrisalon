@@ -518,6 +518,24 @@ try {
     assert.equal(ok(await b('GET', '/api/billing')).last_paid.amount_cents, 3990);
   });
 
+  await step('planos: Sozinha sem acessos extras; Com equipe cobra R$ 9,90 por profissional acima de 5', async () => {
+    const s = client();
+    ok(await s('POST', '/api/auth/signup', { salon_name: 'Solo Plano', name: 'Lu', email: 'lu@plano.com', password: 'senha1234', team_mode: 'solo' }));
+    assert.equal((await s('POST', '/api/users', { name: 'Rê', email: 're@plano.com', password: 'senha1234', role: 'reception' })).status, 403);
+    const t = client();
+    ok(await t('POST', '/api/auth/signup', { salon_name: 'Equipe Plano', name: 'Mi', email: 'mi@plano.com', password: 'senha1234', team_mode: 'team' }));
+    for (let i = 1; i <= 7; i++)
+      ok(await t('POST', '/api/professionals', { name: `Pro ${i}`, work_days: '1,2,3,4,5', start_time: '09:00', end_time: '18:00', commission_type: 'pct', commission_value: 40 }));
+    const plan = ok(await t('GET', '/api/billing')).plan;
+    assert.equal(plan.extra_pros, 2);
+    assert.equal(plan.price_cents, 6990 + 2 * 990);
+    // acesso de recepção funciona no plano com equipe e fica pausado se o salão mudar para Sozinha
+    ok(await t('POST', '/api/users', { name: 'Recepção', email: 'rec@plano.com', password: 'senha1234', role: 'reception' }));
+    const rec = client();
+    ok(await rec('POST', '/api/auth/login', { email: 'rec@plano.com', password: 'senha1234' }));
+    ok(await rec('GET', '/api/clients'));
+  });
+
   console.log(`\n${passed} cenários passaram.`);
 } catch (e) {
   console.error('\n✗ FALHOU:', e.message);

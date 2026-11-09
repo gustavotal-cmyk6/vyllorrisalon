@@ -16,7 +16,7 @@ const ui = { tab: 'salon' };
 
 export default async function settings(root) {
   const owner = can.owner();
-  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Pagamentos no salão'], ['users', 'Acessos da equipe'], ['me', 'Minha conta']] : [['me', 'Minha conta']];
+  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Pagamentos no salão'], ...(can.solo() ? [] : [['users', 'Acessos da equipe']]), ['me', 'Minha conta']] : [['me', 'Minha conta']];
   if (!TABS.some(([k]) => k === ui.tab)) ui.tab = TABS[0][0];
   root.innerHTML = `${pageHead('Configurações', `${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]}`)}
     ${TABS.length > 1 ? `<div class="tabs wrap">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
@@ -38,8 +38,8 @@ async function salonTab(body) {
   const solo = s.team_mode === 'solo';
   body.innerHTML = `<div class="card"><div class="card-head"><h2>Como você trabalha?</h2></div>
     <div class="mode-pick" style="max-width:520px">
-      <label><input type="radio" name="mode" value="solo" class="sr" ${solo ? 'checked' : ''}><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Sem telas de equipe e comissões</small></span></label>
-      <label><input type="radio" name="mode" value="team" class="sr" ${solo ? '' : 'checked'}><span>${ic('users', 22)}<b>Tenho equipe</b><small>Várias profissionais na agenda</small></span></label>
+      <label><input type="radio" name="mode" value="solo" class="sr" ${solo ? 'checked' : ''}><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Plano Sozinha · R$ 39,90/mês</small></span></label>
+      <label><input type="radio" name="mode" value="team" class="sr" ${solo ? '' : 'checked'}><span>${ic('users', 22)}<b>Tenho equipe</b><small>Com equipe · R$ 69,90/mês (até 5)</small></span></label>
     </div>
     <p class="small muted" style="margin-top:10px">${solo ? 'Você é a única profissional da agenda. Se contratar alguém, troque para “Tenho equipe”: nada é apagado.' : 'Para trabalhar sozinha, deixe só uma profissional ativa na Equipe.'}</p>
     ${solo ? `<button class="btn soft sm" data-hours style="margin-top:10px">${ic('clock', 16)} Editar meus dias e horários</button>` : ''}</div>

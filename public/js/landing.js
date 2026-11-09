@@ -1,5 +1,6 @@
 // Página de apresentação do Vyllorri para donas de salão (antes do login).
 import { GET, esc, money, ic } from './core.js';
+import { planTable } from './plans.js';
 
 const FEATS = [
   ['calendar', 'Agenda online 24h', 'Suas clientes escolhem serviço, profissional e horário pelo link do salão — até de madrugada.'],
@@ -67,9 +68,11 @@ export async function landing() {
     <section class="ld-sec" id="planos"><p class="ld-kicker">Planos</p><h2>Preço justo, sem surpresa</h2>
       <p class="ld-lead">Teste tudo por ${days} dias grátis. Depois, pague por Pix todo mês — sem fidelidade.</p>
       <div class="ld-plans">
-        ${plan('solo', 'Para quem atende sozinha', ['Agenda e link de agendamento', 'Clientes e histórico', 'Sinal por Pix e domicílio', 'Financeiro e relatórios', 'Notificações no celular'], false)}
-        ${plan('team', 'Para salões com profissionais', ['Tudo do plano Sozinha', 'Agenda de cada profissional', 'Comissões automáticas', 'Acessos para recepção e gerente', 'Relatórios por profissional'], true)}
-      </div></section>
+        ${plan('solo', 'Para quem atende sozinha', ['Página do salão com sua logo e cores', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular'], false)}
+        ${plan('team', 'Para salões com profissionais', ['Tudo do plano Sozinha', 'Até 5 profissionais inclusas', 'Agenda de cada profissional', 'Comissões calculadas sozinhas', 'Acessos para recepção, gerente e equipe', 'Relatórios por profissional'], true)}
+      </div>
+      <p class="ld-lead" style="margin-top:18px">Mais de 5 profissionais? Cada uma a mais custa R$ 9,90/mês.</p>
+      <details class="ld-compare"><summary>Comparar os planos em detalhe ${ic('chevDown', 18)}</summary>${planTable(plans)}</details></section>
 
     <section class="ld-sec" id="duvidas"><p class="ld-kicker">Dúvidas</p><h2>Perguntas frequentes</h2>
       <div class="ld-faq">${FAQ.map(([q, a]) => `<details><summary>${q}${ic('chevDown', 18)}</summary><p>${a}</p></details>`).join('')}</div></section>

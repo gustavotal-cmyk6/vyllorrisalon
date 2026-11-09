@@ -57,6 +57,9 @@ export async function dispatch(req, url, loadUser) {
     if (r.roles) {
       if (!user) throw new HttpError(401, 'Sessão expirada. Entre novamente.');
       if (r.roles !== 'any' && !r.roles.includes(user.role)) throw new HttpError(403, 'Você não tem permissão para isso.');
+      // plano Sozinha: acessos da equipe ficam pausados (nada é apagado; voltam ao mudar para "Tenho equipe")
+      if (user.team_mode === 'solo' && user.role !== 'owner' && !/^\/api\/(me|auth)/.test(url.pathname))
+        throw new HttpError(403, 'O salão está no plano Sozinha: só a proprietária acessa o painel. Peça para ela mudar para "Tenho equipe".');
       // teste grátis acabou ou mensalidade atrasada: só assinatura, conta e troca de plano continuam abertas
       if (user.billing?.blocked && !/^\/api\/(billing|me|auth|salon\/mode|salon$)/.test(url.pathname))
         throw new HttpError(402, 'O acesso do salão está pausado. Assine um plano para continuar usando.', { code: 'billing' });

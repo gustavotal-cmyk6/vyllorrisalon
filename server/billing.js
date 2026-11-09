@@ -9,9 +9,19 @@ import { HttpError } from './http.js';
 export const TRIAL_DAYS = 7;
 /** Preço por modo de trabalho (centavos). */
 export const PLANS = {
-  solo: { name: 'Sozinha', price_cents: 3990 },
-  team: { name: 'Com equipe', price_cents: 6990 },
+  solo: { name: 'Sozinha', price_cents: 3990, included_pros: 1, extra_pro_cents: 0 },
+  team: { name: 'Com equipe', price_cents: 6990, included_pros: 5, extra_pro_cents: 990 },
 };
+const PROS_SQL = '(SELECT COUNT(*) FROM professionals p WHERE p.salon_id=s.id AND p.active=1)';
+export { PROS_SQL };
+
+/** Plano do salão com o valor do mês: no plano com equipe, cada profissional ativa acima de 5 soma R$ 9,90. */
+export function planFor(mode, pros = 0) {
+  const key = mode === 'solo' ? 'solo' : 'team';
+  const p = PLANS[key];
+  const extra = key === 'team' ? Math.max(0, (pros || 0) - p.included_pros) : 0;
+  return { key, name: p.name, base_cents: p.price_cents, included_pros: p.included_pros, extra_pro_cents: p.extra_pro_cents, pros: pros || 0, extra_pros: extra, price_cents: p.price_cents + extra * p.extra_pro_cents };
+}
 const GRACE_DAYS = 3; // tolerância depois do vencimento
 const REMIND_DAYS = 5; // a partir de quando aparece "sua mensalidade vence em X dias"
 const PIX_HOURS = 24; // validade do QR Code gerado
@@ -30,8 +40,7 @@ const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.pa
  * status: comp (cortesia/demonstração) · active (pago) · trial (teste) · blocked (teste acabou ou mensalidade atrasada)
  */
 export function billingInfo(s) {
-  const mode = s.team_mode === 'solo' ? 'solo' : 'team';
-  const plan = { key: mode, ...PLANS[mode] };
+  const plan = planFor(s.team_mode, s.pros);
   const base = { plan, paid_until: s.paid_until || null, trial_ends_at: s.trial_ends_at || null };
   if (s.is_demo || s.sub_status === 'comp') return { ...base, status: 'comp', blocked: false };
   const d = today();
@@ -45,7 +54,7 @@ export function billingInfo(s) {
 
 export const trialEnd = () => addDays(today(), TRIAL_DAYS - 1);
 
-const salonRow = (sid) => get('SELECT id, name, is_demo, team_mode, sub_status, trial_ends_at, paid_until FROM salons WHERE id=?', sid);
+const salonRow = (sid) => get(`SELECT s.id, s.name, s.is_demo, s.team_mode, s.sub_status, s.trial_ends_at, s.paid_until, ${PROS_SQL} AS pros FROM salons s WHERE s.id=?`, sid);
 
 // ---------- Mercado Pago ----------
 const mpBase = () => process.env.MP_BASE_URL || 'https://api.mercadopago.com';

@@ -135,7 +135,9 @@ async function userFields(body, sid) {
   }
   return { role, professional_id, name: V.str(body.name, 'Nome', { req: true, max: 80 }) };
 }
-route('POST', '/api/users', OWNER, async ({ body, sid }) => {
+route('POST', '/api/users', OWNER, async ({ body, sid, user }) => {
+  if (user.team_mode === 'solo')
+    throw new HttpError(403, 'No plano Sozinha só você acessa o painel. Para dar acesso à recepção ou a outras profissionais, mude para "Tenho equipe" em Configurações → Salão.');
   const f = await userFields(body, sid);
   const email = V.email(body.email, 'E-mail');
   if (await get('SELECT 1 x FROM users WHERE email=?', email)) throw new HttpError(409, 'Este e-mail já está em uso.');

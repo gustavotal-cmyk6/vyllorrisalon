@@ -39,7 +39,7 @@ export async function loadUser(req) {
   const token = sessionToken(req);
   if (!token) return null;
   const u = await get(
-    `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, s.logo, s.team_mode, s.sells_products, s.sub_status, s.trial_ends_at, s.paid_until, se.expires_at
+    `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, s.logo, s.team_mode, s.sells_products, s.sub_status, s.trial_ends_at, s.paid_until, (SELECT COUNT(*) FROM professionals p WHERE p.salon_id=s.id AND p.active=1) AS pros, se.expires_at
        FROM sessions se JOIN users u ON u.id=se.user_id JOIN salons s ON s.id=u.salon_id
       WHERE se.token_hash=? AND u.active=1`,
     sha(token)

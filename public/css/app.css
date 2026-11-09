@@ -917,3 +917,36 @@ body.booking { min-height: 100vh; }
 }
 .alert > span:not(.a-ic) { min-width: 0; flex: 1; }
 .alert > span:not(.a-ic) b { white-space: normal; }
+
+/* ---------- Comparação de planos ---------- */
+.pc-wrap { overflow-x: auto; }
+.pc { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 440px; }
+.pc th, .pc td { padding: 11px 10px; text-align: center; border-bottom: 1px solid var(--line); }
+.pc th:first-child, .pc td:first-child { text-align: left; }
+.pc thead th { font-size: .95rem; color: var(--plum-900); }
+.pc thead th small { display: block; font-weight: 600; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+.pc .cur { background: rgba(157, 92, 232, .07); }
+.pc thead th.cur { color: var(--brand); }
+.pc-yes { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); }
+.pc-no { color: #b9aec8; }
+.plan-note { display: flex; gap: 8px; align-items: flex-start; padding: 10px 14px; margin: 0 0 14px; border-radius: 14px; background: var(--lav-50); border: 1px solid var(--line); font-size: .86rem; color: var(--plum-900); }
+.plan-note .ic { color: var(--brand); margin-top: 2px; flex: none; }
+/* na landing (fundo escuro) */
+.ld-compare { max-width: 820px; margin: 18px auto 0; border-radius: 18px; border: 1px solid var(--ld-line); background: var(--ld-card); }
+.ld-compare summary { list-style: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 16px; font-weight: 700; color: #fff; }
+.ld-compare summary::-webkit-details-marker { display: none; }
+.ld-compare summary .ic { color: var(--ld-rose); transition: transform .2s; }
+.ld-compare[open] summary .ic { transform: rotate(180deg); }
+.ld-compare .pc-wrap { padding: 0 14px 14px; }
+.ld .pc th, .ld .pc td { border-color: var(--ld-line); color: #e3d3de; }
+.ld .pc thead th { color: #fff; }
+.ld .pc thead th small { color: #c4adbd; }
+.ld .pc-yes { background: rgba(111, 211, 165, .15); color: #6fd3a5; }
+.ld .pc-no { color: #7d6878; }
+@media (max-width: 640px) {
+  .pc { min-width: 0; table-layout: fixed; font-size: .8rem; }
+  .pc th, .pc td { padding: 9px 5px; word-break: normal; overflow-wrap: anywhere; }
+  .pc th:first-child, .pc td:first-child { width: 40%; }
+  .pc thead th { font-size: .84rem; }
+  .pc thead th small { font-size: .7rem; }
+}

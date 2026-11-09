@@ -15,7 +15,9 @@ export default async function team(root, { query }) {
   const loginOf = (id) => users?.find((u) => u.professional_id === id && u.role === 'pro');
   const active = pros.filter((p) => p.active);
 
+  const extra = Math.max(0, active.length - 5);
   root.innerHTML = `${pageHead('Equipe', `${active.length} profissional(is) ativa(s)`, `<button class="btn primary" data-new>${ic('plus', 18)} Cadastrar profissional</button>`)}
+    ${can.owner() && state.user.billing?.status !== 'comp' ? `<p class="plan-note">${ic('info', 16)}<span>Seu plano inclui <b>5 profissionais ativas</b>${extra ? `. Você tem ${active.length}: ${extra} a mais, por ${money(extra * 990)}/mês. <a href="#/assinatura">Ver assinatura</a>` : '. Acima disso, cada uma custa R$ 9,90/mês.'}</span></p>` : ''}
     ${pros.length ? `<div class="grid g3">${pros.map((p) => {
       const svc = state.services.filter((s) => s.pros.some((l) => l.professional_id === p.id)).length;
       const worksToday = p.work_days.split(',').includes(String(new Date().getDay()));

@@ -1,5 +1,6 @@
 // Assinatura do Vyllorri: situação, plano e pagamento da mensalidade por Pix (QR Code).
 import { state, GET, POST, esc, money, fmtDate, ic, pageHead, toast, fail, submitting, can } from '../core.js';
+import { planTable } from '../plans.js';
 
 let poll = null;
 
@@ -22,11 +23,14 @@ export default async function billing(root) {
         <span class="tag">Seu plano</span>
         <h2 style="margin-top:10px">${esc(b.plan.name)}</h2>
         <p class="plan-price"><b>${money(b.plan.price_cents)}</b><span>/mês</span></p>
-        <ul class="plan-list">${['Agenda e agendamento online 24h', 'Clientes, vendas e comissões', 'Financeiro e relatórios', 'Sinal por Pix e atendimento a domicílio', 'Notificações no celular'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
+        ${b.plan.extra_pros ? `<p class="small" style="color:#dcc8d6;margin-top:4px">${money(b.plan.base_cents)} com 5 profissionais + ${b.plan.extra_pros} extra(s) × ${money(b.plan.extra_pro_cents)}</p>` : b.plan.key === 'team' ? `<p class="small" style="color:#dcc8d6;margin-top:4px">${b.plan.pros} de 5 profissionais inclusas</p>` : ''}
+        <ul class="plan-list">${(b.plan.key === 'team' ? ['Agenda de cada profissional', 'Comissões calculadas sozinhas', 'Acessos para recepção, gerente e equipe', 'Página do salão personalizada', 'Sinal por Pix, financeiro e relatórios'] : ['Página do salão personalizada', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular']).map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
         <p class="tiny muted" style="margin-top:12px">O plano segue o modo de trabalho (Configurações → Salão). ${b.plan.key === 'solo' ? `Com equipe: ${money(other.price_cents)}/mês.` : `Trabalhando sozinha: ${money(other.price_cents)}/mês.`}</p>
       </div>
       <div class="card" data-pay></div>
     </div>
+    <div class="card"><div class="card-head"><h2>Comparar os planos</h2></div>${planTable(b.plans, b.plan.key)}
+      <p class="small muted" style="margin-top:10px">Para trocar de plano, mude o modo de trabalho em Configurações → Salão. O valor da próxima mensalidade acompanha a troca.</p></div>
     ${b.last_paid ? `<p class="legend">Último pagamento: ${money(b.last_paid.amount_cents)} em ${fmtDate(b.last_paid.paid_at)}.</p>` : ''}`}`;
   const box = root.querySelector('[data-pay]');
   if (box) drawPay(box, b, owner);
