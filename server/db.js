@@ -1,20 +1,105 @@
 import { createClient } from '@libsql/client';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { HttpError } from './http.js';
 
 // Produção (Vercel): banco Turso/libSQL em nuvem via TURSO_DATABASE_URL + TURSO_AUTH_TOKEN.
 // Desenvolvimento: arquivo SQLite local em DATA_DIR.
 let url = process.env.TURSO_DATABASE_URL;
+const SERVERLESS = !!process.env.VERCEL;
 // na Vercel o disco é temporário: sem banco em nuvem os dados se perderiam
-if (!url && process.env.VERCEL) throw new Error('Configure TURSO_DATABASE_URL e TURSO_AUTH_TOKEN nas variáveis de ambiente da Vercel.');
+if (!url && SERVERLESS) throw new Error('Configure TURSO_DATABASE_URL e TURSO_AUTH_TOKEN nas variáveis de ambiente da Vercel.');
 if (!url) {
   const dir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
   fs.mkdirSync(dir, { recursive: true });
   url = 'file:' + path.join(dir, 'vyllorri.db').replace(/\\/g, '/');
 }
-const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
 const local = url.startsWith('file:');
+// Em serverless, "libsql://" abriria um WebSocket persistente que fica velho quando a instância congela.
+// Usamos HTTP (cada consulta é uma requisição sem estado; o fetch do Node reaproveita e fecha sozinho os sockets ociosos).
+if (SERVERLESS && url.startsWith('libsql://') && process.env.DB_TRANSPORT !== 'ws') url = 'https://' + url.slice('libsql://'.length);
+
+// ---------- Conexão reutilizada + limite de concorrência + encerramento por ociosidade ----------
+// O libSQL/Turso não tem pool TCP como Postgres/MySQL: o equivalente seguro é UM cliente por instância,
+// reaproveitado entre requisições, com um semáforo limitando quantas consultas/transações rodam ao mesmo tempo.
+const envInt = (name, def) => {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : def;
+};
+export const DB_LIMITS = {
+  max: envInt('DB_MAX_CONCURRENCY', SERVERLESS ? 8 : local ? 4 : 10), // consultas/transações simultâneas por instância
+  queue: envInt('DB_MAX_QUEUE', 200), // pedidos esperando vaga; acima disso responde "ocupado" na hora
+  waitMs: envInt('DB_QUEUE_TIMEOUT_MS', 8000), // tempo máximo esperando vaga
+  txMs: envInt('DB_TX_TIMEOUT_MS', 15000), // transação mais longa que isso é desfeita (não segura o banco)
+  idleMs: envInt('DB_IDLE_MS', SERVERLESS ? 10000 : 60000), // sem uso por esse tempo: a conexão é fechada
+};
+
+let _client = null;
+let idleTimer = null;
+let active = 0;
+const waiting = [];
+
+function conn() {
+  if (!_client) _client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+  return _client;
+}
+/** Fecha a conexão (ociosidade, fim do processo ou testes). A próxima consulta abre outra. */
+export function closeDb() {
+  clearTimeout(idleTimer);
+  idleTimer = null;
+  if (_client) {
+    _client.close();
+    _client = null;
+  }
+}
+function scheduleIdleClose() {
+  clearTimeout(idleTimer);
+  if (active || waiting.length || !_client) return;
+  idleTimer = setTimeout(() => {
+    if (!active && !waiting.length) closeDb();
+  }, DB_LIMITS.idleMs);
+  idleTimer.unref?.(); // não impede o processo de terminar
+}
+const busy = () => new HttpError(503, 'O sistema está com muitos acessos agora. Tente de novo em alguns segundos.');
+async function acquire() {
+  clearTimeout(idleTimer);
+  if (active < DB_LIMITS.max) {
+    active++;
+    return;
+  }
+  if (waiting.length >= DB_LIMITS.queue) throw busy();
+  await new Promise((resolve, reject) => {
+    const w = { resolve, timer: setTimeout(() => {
+      const i = waiting.indexOf(w);
+      if (i >= 0) waiting.splice(i, 1);
+      reject(busy());
+    }, DB_LIMITS.waitMs) };
+    waiting.push(w);
+  });
+}
+function release() {
+  const next = waiting.shift();
+  if (next) {
+    clearTimeout(next.timer);
+    next.resolve(); // a vaga passa direto para quem esperava
+  } else {
+    active--;
+    scheduleIdleClose();
+  }
+}
+/** Executa fn com uma vaga reservada e a conexão compartilhada. */
+async function withSlot(fn) {
+  await acquire();
+  try {
+    return await fn(conn());
+  } finally {
+    release();
+  }
+}
+/** Situação atual (útil para monitorar). */
+export const dbStats = () => ({ active, waiting: waiting.length, open: !!_client, ...DB_LIMITS });
 
 // Todos os valores monetários em centavos (INTEGER). Toda tabela de negócio tem salon_id (isolamento por salão).
 const SCHEMA = `
@@ -141,8 +226,15 @@ CREATE TABLE IF NOT EXISTS cash_closings(
   notes TEXT, created_by INTEGER, created_at TEXT NOT NULL, UNIQUE(salon_id, date));
 `;
 
-export const ready = (async () => {
+// Versão do esquema = hash deste arquivo. Se nada mudou desde a última inicialização, o cold start
+// faz 1 consulta em vez de ~70 (schema + migrações), evitando rajadas no banco quando várias instâncias sobem.
+const SCHEMA_VERSION = crypto.createHash('sha1').update(fs.readFileSync(new URL(import.meta.url))).digest('hex');
+
+export const ready = withSlot(async (client) => {
   if (local) await client.executeMultiple('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
+  await client.execute('CREATE TABLE IF NOT EXISTS _meta(key TEXT PRIMARY KEY, value TEXT)');
+  const current = (await client.execute("SELECT value FROM _meta WHERE key='schema'")).rows[0]?.[0];
+  if (current === SCHEMA_VERSION) return;
   await client.executeMultiple(SCHEMA);
   // migrações aditivas (ignoradas se a coluna já existe)
   for (const sql of [
@@ -248,13 +340,16 @@ export const ready = (async () => {
       COMMIT;
       PRAGMA foreign_keys=ON;`);
   }
-})();
+  await client.execute({ sql: "INSERT INTO _meta(key,value) VALUES('schema',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", args: [SCHEMA_VERSION] });
+});
 
 const clean = (a) => a.map((x) => (x === undefined ? null : typeof x === 'boolean' ? (x ? 1 : 0) : x));
 const txStore = new AsyncLocalStorage();
+/** Dentro de uma transação usa a vaga dela; fora, reserva uma vaga só durante a consulta. */
 async function exec(sql, p) {
-  const rs = await (txStore.getStore() || client).execute({ sql, args: clean(p) });
-  return rs;
+  const t = txStore.getStore();
+  if (t) return t.execute({ sql, args: clean(p) });
+  return withSlot((c) => c.execute({ sql, args: clean(p) }));
 }
 const toObjects = (rs) => rs.rows.map((r) => Object.fromEntries(rs.columns.map((c, i) => [c, r[i]])));
 
@@ -264,18 +359,29 @@ export const run = async (sql, ...p) => {
   const r = await exec(sql, p);
   return { changes: Number(r.rowsAffected), id: Number(r.lastInsertRowid ?? 0) };
 };
-/** Transação: todas as chamadas a all/get/run dentro de fn usam a mesma transação. */
+/**
+ * Transação: todas as chamadas a all/get/run dentro de fn usam a mesma transação.
+ * Ocupa UMA vaga do limite do começo ao fim, e é desfeita se passar de DB_TX_TIMEOUT_MS
+ * (assim uma operação travada nunca segura o banco para os outros salões).
+ */
 export async function tx(fn) {
   if (txStore.getStore()) return fn();
-  const t = await client.transaction('write');
-  try {
-    const r = await txStore.run(t, fn);
-    await t.commit();
-    return r;
-  } catch (e) {
-    await t.rollback().catch(() => {});
-    throw e;
-  } finally {
-    t.close();
-  }
+  return withSlot(async (client) => {
+    const t = await client.transaction('write');
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new HttpError(503, 'A operação demorou demais e foi cancelada. Tente de novo.')), DB_LIMITS.txMs);
+    });
+    try {
+      const r = await Promise.race([txStore.run(t, fn), timeout]);
+      await t.commit();
+      return r;
+    } catch (e) {
+      await t.rollback().catch(() => {});
+      throw e;
+    } finally {
+      clearTimeout(timer);
+      t.close();
+    }
+  });
 }

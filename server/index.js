@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dispatch, HttpError } from './http.js';
 import { loadUser } from './auth.js';
-import { ready } from './db.js';
+import { ready, closeDb } from './db.js';
 import './routes/account.js';
 import './routes/catalog.js';
 import './routes/clients.js';
@@ -75,5 +75,14 @@ export async function handler(req, res) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const port = Number(process.env.PORT) || 3000;
-  http.createServer(handler).listen(port, () => console.log(`Vyllorri Beauty rodando em http://localhost:${port}`));
+  const server = http.createServer(handler).listen(port, () => console.log(`Vyllorri Beauty rodando em http://localhost:${port}`));
+  // encerramento limpo: para de aceitar requisições e fecha a conexão com o banco
+  for (const sig of ['SIGINT', 'SIGTERM'])
+    process.once(sig, () => {
+      server.close(() => {
+        closeDb();
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(0), 3000).unref();
+    });
 }

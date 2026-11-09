@@ -26,7 +26,7 @@ const mpSrv = (await import('node:http')).createServer((req, res) => {
   });
 }).listen(MP_PORT);
 const srv = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50', MP_ACCESS_TOKEN: 'mp-teste', MP_BASE_URL: `http://localhost:${MP_PORT}` }, stdio: ['ignore', 'pipe', 'inherit'],
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50', DB_MAX_CONCURRENCY: '3', DB_IDLE_MS: '400', MP_ACCESS_TOKEN: 'mp-teste', MP_BASE_URL: `http://localhost:${MP_PORT}` }, stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((r) => srv.stdout.once('data', r));
 
@@ -534,6 +534,18 @@ try {
     const rec = client();
     ok(await rec('POST', '/api/auth/login', { email: 'rec@plano.com', password: 'senha1234' }));
     ok(await rec('GET', '/api/clients'));
+  });
+
+  await step('banco: 60 acessos simultâneos com limite de 3 conexões, sem erro; conexão ociosa fecha e reabre', async () => {
+    // servidor de teste roda com DB_MAX_CONCURRENCY=3: o resto espera na fila em vez de sobrecarregar o banco
+    const results = await Promise.all(Array.from({ length: 60 }, (_, i) => owner('GET', i % 2 ? '/api/clients' : '/api/services')));
+    assert.ok(results.every((r) => r.status === 200), 'todas as requisições responderam 200');
+    // transações concorrentes (cadastro de clientes) também passam pela fila sem travar
+    const created = await Promise.all(Array.from({ length: 12 }, (_, i) => owner('POST', '/api/clients', { name: `Fila ${i}`, phone: `11 97777-${String(1000 + i)}` })));
+    assert.ok(created.every((r) => r.status === 200), 'cadastros concorrentes ok');
+    // DB_IDLE_MS=400: depois de ficar parado a conexão é fechada e a próxima consulta abre outra
+    await new Promise((r) => setTimeout(r, 900));
+    ok(await owner('GET', '/api/clients'));
   });
 
   console.log(`\n${passed} cenários passaram.`);
