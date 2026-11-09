@@ -10,6 +10,7 @@ import { imageUrl } from './images.js';
 import { salonPayCfg, travelFee, depositFor, createCharge, sweepCharges, retainCharge } from './deposits.js';
 import { qrSvg } from '../pix.js';
 import { notifyStaff } from '../push.js';
+import { billingInfo } from '../billing.js';
 
 
 const MAX_DAYS = 60;
@@ -24,8 +25,9 @@ function throttle(req, limit, bucket = '') {
 }
 
 async function salonBySlug(slug) {
-  const s = await get('SELECT id, name, booking_enabled, cancel_hours, address, phone FROM salons WHERE slug=?', String(slug).toLowerCase());
+  const s = await get('SELECT id, name, booking_enabled, cancel_hours, address, phone, is_demo, team_mode, sub_status, trial_ends_at, paid_until FROM salons WHERE slug=?', String(slug).toLowerCase());
   if (!s || !s.booking_enabled) throw new HttpError(404, 'Agendamento online indisponível para este salão.');
+  if (billingInfo(s).blocked) throw new HttpError(404, 'O agendamento online deste salão está pausado no momento. Fale direto com o salão.');
   return s;
 }
 

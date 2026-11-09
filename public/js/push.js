@@ -113,7 +113,7 @@ export async function pushBanner(box) {
     await submitting(e.currentTarget, async () => {
       const n = await askPush();
       if (n?.on) box.innerHTML = '';
-    }).catch(fail);
+    }).catch(() => {});
   };
   box.querySelector('[data-how]').onclick = () => {
     if (s.supported && !s.denied) return pushGuide(s);

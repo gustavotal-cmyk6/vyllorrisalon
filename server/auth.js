@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { all, get, run, tx } from './db.js';
 import { HttpError } from './http.js';
 import { nowStr } from './util.js';
+import { billingInfo, trialEnd } from './billing.js';
 
 const SESSION_DAYS = 14;
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -38,12 +39,13 @@ export async function loadUser(req) {
   const token = sessionToken(req);
   if (!token) return null;
   const u = await get(
-    `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, s.logo, s.team_mode, s.sells_products, se.expires_at
+    `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, s.logo, s.team_mode, s.sells_products, s.sub_status, s.trial_ends_at, s.paid_until, se.expires_at
        FROM sessions se JOIN users u ON u.id=se.user_id JOIN salons s ON s.id=u.salon_id
       WHERE se.token_hash=? AND u.active=1`,
     sha(token)
   );
   if (!u || u.expires_at < Date.now()) return null;
+  u.billing = billingInfo(u);
   return u;
 }
 
@@ -80,7 +82,7 @@ export async function uniqueSlug(name, exceptId = 0) {
 export async function createSalon({ salonName, name, email, password, demo = false, teamMode = 'team' }) {
   if (await get('SELECT 1 x FROM users WHERE email=?', email)) throw new HttpError(409, 'Este e-mail já está cadastrado.');
   return await tx(async () => {
-    const salonId = (await run('INSERT INTO salons(name,is_demo,created_at,slug,team_mode) VALUES(?,?,?,?,?)', salonName, demo ? 1 : 0, nowStr(), await uniqueSlug(salonName), teamMode)).id;
+    const salonId = (await run('INSERT INTO salons(name,is_demo,created_at,slug,team_mode,trial_ends_at) VALUES(?,?,?,?,?,?)', salonName, demo ? 1 : 0, nowStr(), await uniqueSlug(salonName), teamMode, trialEnd())).id;
     const userId = (await run('INSERT INTO users(salon_id,name,email,pass_hash,role,created_at) VALUES(?,?,?,?,?,?)', salonId, name, email, hashPassword(password), 'owner', nowStr())).id;
     for (const m of DEFAULT_METHODS) await run('INSERT INTO payment_methods(salon_id,name) VALUES(?,?)', salonId, m);
     for (const c of DEFAULT_CATEGORIES) await run('INSERT INTO categories(salon_id,name) VALUES(?,?)', salonId, c);
@@ -109,6 +111,6 @@ export async function ensureSoloPro(salonId, userId, name) {
 
 export const publicUser = (u) => ({
   id: u.id, name: u.name, email: u.email, role: u.role, professional_id: u.professional_id,
-  salon_id: u.salon_id, salon_name: u.salon_name, is_demo: !!u.is_demo, team_mode: u.team_mode || 'team', sells_products: u.sells_products !== 0, logo_url: u.logo ? `/api/images/${u.logo}` : null,
+  salon_id: u.salon_id, salon_name: u.salon_name, is_demo: !!u.is_demo, team_mode: u.team_mode || 'team', sells_products: u.sells_products !== 0, billing: u.billing, logo_url: u.logo ? `/api/images/${u.logo}` : null,
 });
 export { all };

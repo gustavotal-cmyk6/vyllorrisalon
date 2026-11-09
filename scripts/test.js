@@ -7,8 +7,26 @@ import assert from 'node:assert/strict';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vyllorri-test-'));
 const PORT = 3999;
+// Mercado Pago de mentira: gera o Pix e responde o status que o teste mandar
+const MP_PORT = 3998;
+const fakeMp = { status: 'pending', created: 0 };
+const mpSrv = (await import('node:http')).createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => (body += c));
+  req.on('end', () => {
+    res.setHeader('content-type', 'application/json');
+    if (req.headers.authorization !== 'Bearer mp-teste') return res.writeHead(401).end('{}');
+    if (req.method === 'POST' && req.url === '/v1/payments') {
+      fakeMp.created++;
+      fakeMp.body = JSON.parse(body);
+      return res.end(JSON.stringify({ id: 9000 + fakeMp.created, status: 'pending', point_of_interaction: { transaction_data: { qr_code: '00020126PIXTESTE', qr_code_base64: 'iVBORw0KGgo=' } } }));
+    }
+    if (req.method === 'GET' && req.url.startsWith('/v1/payments/')) return res.end(JSON.stringify({ id: req.url.split('/').pop(), status: fakeMp.status, date_approved: fakeMp.status === 'approved' ? '2026-01-01T10:00:00.000-03:00' : null }));
+    res.writeHead(404).end('{}');
+  });
+}).listen(MP_PORT);
 const srv = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50' }, stdio: ['ignore', 'pipe', 'inherit'],
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50', MP_ACCESS_TOKEN: 'mp-teste', MP_BASE_URL: `http://localhost:${MP_PORT}` }, stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((r) => srv.stdout.once('data', r));
 
@@ -462,11 +480,50 @@ try {
     assert.equal((await mgr('PUT', '/api/salon/booking', { slug: 'x-y-z', enabled: true })).status, 403);
   });
 
+  await step('assinatura: 7 dias grátis, bloqueio ao fim do teste e liberação pelo pagamento', async () => {
+    const b = client();
+    ok(await b('POST', '/api/auth/signup', { salon_name: 'Salão Trial', name: 'Bia', email: 'bia@trial.com', password: 'senha1234', team_mode: 'solo' }));
+    let me = ok(await b('GET', '/api/me')).user;
+    assert.equal(me.billing.status, 'trial');
+    assert.equal(me.billing.days_left, 7);
+    assert.equal(me.billing.plan.price_cents, 3990);
+    ok(await b('GET', '/api/clients'));
+    ok(await b('PUT', '/api/salon/booking', { slug: 'salao-trial', enabled: true }));
+    const { createClient: libsql } = await import('@libsql/client');
+    const dbc = libsql({ url: 'file:' + path.join(dir, 'vyllorri.db').replace(/\\/g, '/') });
+    await dbc.execute("UPDATE salons SET trial_ends_at='2000-01-01' WHERE slug='salao-trial'");
+    me = ok(await b('GET', '/api/me')).user;
+    assert.equal(me.billing.blocked, true);
+    assert.equal((await b('GET', '/api/clients')).status, 402);
+    ok(await b('GET', '/api/billing'));
+    assert.equal((await client()('GET', '/api/public/salao-trial')).status, 404, 'página das clientes pausada');
+    dbc.close();
+    // gera o Pix da mensalidade (plano sozinha = R$ 39,90); pedir de novo reaproveita o mesmo QR
+    const pix = ok(await b('POST', '/api/billing/pix'));
+    assert.equal(pix.qr_code, '00020126PIXTESTE');
+    assert.equal(fakeMp.body.transaction_amount, 39.9);
+    assert.equal(fakeMp.body.payment_method_id, 'pix');
+    assert.equal(ok(await b('POST', '/api/billing/pix')).id, pix.id);
+    assert.equal(fakeMp.created, 1);
+    // aviso falso não libera nada: o status é sempre conferido no Mercado Pago
+    ok(await client()('POST', '/api/billing/webhook', { type: 'payment', data: { id: '9001' } }));
+    assert.equal(ok(await b('GET', '/api/me')).user.billing.blocked, true);
+    // pagou: o aviso confirma e libera um mês
+    fakeMp.status = 'approved';
+    ok(await client()('POST', '/api/billing/webhook', { type: 'payment', data: { id: '9001' } }));
+    me = ok(await b('GET', '/api/me')).user;
+    assert.equal(me.billing.status, 'active');
+    assert.ok(me.billing.days_left >= 27);
+    ok(await b('GET', '/api/clients'));
+    assert.equal(ok(await b('GET', '/api/billing')).last_paid.amount_cents, 3990);
+  });
+
   console.log(`\n${passed} cenários passaram.`);
 } catch (e) {
   console.error('\n✗ FALHOU:', e.message);
   process.exitCode = 1;
 } finally {
   srv.kill();
-  setTimeout(() => fs.rmSync(dir, { recursive: true, force: true }), 300);
+  mpSrv.close();
+  setTimeout(() => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} }, 500);
 }

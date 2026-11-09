@@ -23,6 +23,11 @@ export async function api(method, url, body) {
     state.user = null;
     location.hash = '#/entrar';
   }
+  // acesso pausado (teste acabou ou mensalidade atrasada): vai para a tela de assinatura
+  if (res.status === 402 && data.code === 'billing' && state.user) {
+    state.user.billing = { ...(state.user.billing || {}), blocked: true };
+    if (location.hash !== '#/assinatura') location.hash = '#/assinatura';
+  }
   if (!res.ok) throw new ApiError(res.status, data);
   return data;
 }

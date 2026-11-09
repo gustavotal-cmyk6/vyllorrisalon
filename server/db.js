@@ -127,6 +127,10 @@ CREATE TABLE IF NOT EXISTS charges(
 CREATE INDEX IF NOT EXISTS ix_charges_visit ON charges(visit_id);
 CREATE INDEX IF NOT EXISTS ix_charges_status ON charges(salon_id, status);
 -- notificações do app (Web Push) por aparelho
+-- mensalidades do Vyllorri pagas por Pix (Mercado Pago)
+CREATE TABLE IF NOT EXISTS billing_payments(
+  id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), mp_id TEXT NOT NULL UNIQUE, amount_cents INTEGER NOT NULL,
+  status TEXT NOT NULL, qr_code TEXT, qr_base64 TEXT, expires_at TEXT, paid_at TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS push_subscriptions(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), user_id INTEGER NOT NULL REFERENCES users(id),
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -167,6 +171,10 @@ export const ready = (async () => {
     'ALTER TABLE salons ADD COLUMN page_color TEXT',
     // 0 = só faz serviços (painel sem produtos e estoque)
     'ALTER TABLE salons ADD COLUMN sells_products INTEGER NOT NULL DEFAULT 1',
+    // assinatura do Vyllorri: teste grátis e cobrança automática (Asaas)
+    'ALTER TABLE salons ADD COLUMN trial_ends_at TEXT',
+    "ALTER TABLE salons ADD COLUMN sub_status TEXT NOT NULL DEFAULT 'none'",
+    'ALTER TABLE salons ADD COLUMN paid_until TEXT',
     // pagamento antecipado (sinal)
     'ALTER TABLE salons ADD COLUMN deposit_enabled INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE salons ADD COLUMN deposit_pct REAL NOT NULL DEFAULT 50',
@@ -201,6 +209,8 @@ export const ready = (async () => {
     'ALTER TABLE visits ADD COLUMN travel_buffer_min INTEGER NOT NULL DEFAULT 0',
   ])
     await client.execute(sql).catch(() => {});
+  // salões criados antes da assinatura existir ficam com acesso de cortesia (os novos sempre têm data de fim do teste)
+  await client.execute("UPDATE salons SET sub_status='comp' WHERE trial_ends_at IS NULL AND sub_status='none'");
   await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_salons_slug ON salons(slug)');
   await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_visits_token ON visits(public_token)');
   const si = (await client.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='sale_items'")).rows[0];

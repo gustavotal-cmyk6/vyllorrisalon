@@ -17,6 +17,7 @@ import './routes/reports.js';
 import './routes/public.js';
 import './routes/images.js';
 import './routes/deposits.js';
+import './routes/billing.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = {

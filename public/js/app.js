@@ -15,6 +15,7 @@ const PAGES = {
   financeiro: () => import('./pages/finance.js'),
   relatorios: () => import('./pages/reports.js'),
   config: () => import('./pages/settings.js'),
+  assinatura: () => import('./pages/billing.js'),
 };
 const ADMIN = ['owner', 'manager'], STAFF = ['owner', 'manager', 'reception'];
 
@@ -32,6 +33,7 @@ function navItems() {
     { k: 'comissoes', ico: 'percent', label: r === 'pro' ? 'Minhas comissões' : 'Comissões', roles: [...ADMIN, 'pro'], group: 'Gestão' },
     { k: 'relatorios', ico: 'chart', label: 'Relatórios', roles: ADMIN, group: 'Gestão' },
     { k: 'config', ico: 'settings', label: 'Configurações', group: 'Conta' },
+    { k: 'assinatura', ico: 'star', label: 'Assinatura', roles: ['owner'], group: 'Conta' },
   ].filter((i) => (!i.roles || i.roles.includes(r)) && !(can.solo() && ['equipe', 'comissoes'].includes(i.k)) && !(!can.products() && i.k === 'estoque'));
 }
 /** Barra inferior do celular: as 4 áreas mais usadas de cada perfil + "Mais". */
@@ -71,6 +73,7 @@ function shell() {
         <button class="tb-btn m-only" data-msearch aria-label="Buscar">${ic('search', 20)}</button>
         <button class="tb-btn" data-bell aria-label="Notificações">${ic('bell', 20)}<span class="dot hidden" data-bell-count></span></button>
       </header>
+      <div id="billbar"></div>
       <main class="main" id="page"></main>
     </div>
   </div>
@@ -156,7 +159,7 @@ function markSeen() {
   } catch {}
 }
 async function refreshBell() {
-  if (can.pro()) return;
+  if (can.pro() || state.user?.billing?.blocked) return;
   try {
     attention = (await GET('/api/dashboard')).attention || [];
   } catch {
@@ -239,6 +242,21 @@ function setupSearch(input, box, onPick = () => {}, inline = false) {
   });
 }
 
+/** Faixa discreta: dias de teste restantes ou mensalidade perto de vencer (só para a proprietária). */
+function billBar(key) {
+  const el = document.getElementById('billbar');
+  const b = state.user.billing;
+  if (!el) return;
+  let msg = '';
+  if (can.owner() && b && key !== 'assinatura') {
+    if (b.status === 'trial') msg = `${ic('star', 16)}<span><b>Teste grátis:</b> ${b.days_left === 1 ? 'hoje é o último dia' : `faltam ${b.days_left} dias`}</span><a href="#/assinatura">Assinar</a>`;
+    else if (b.status === 'active' && b.overdue) msg = `${ic('alert', 16)}<span><b>Mensalidade vencida.</b> Pague para não pausar o acesso.</span><a href="#/assinatura">Pagar com Pix</a>`;
+    else if (b.status === 'active' && b.due_soon) msg = `${ic('clock', 16)}<span>Sua mensalidade vence ${b.days_left === 0 ? 'hoje' : `em ${b.days_left} dia(s)`}.</span><a href="#/assinatura">Pagar com Pix</a>`;
+  }
+  el.className = msg ? `billbar ${b.overdue || (b.status === 'trial' && b.days_left <= 2) ? 'warn' : ''}` : '';
+  el.innerHTML = msg;
+}
+
 // ---- Roteamento ----
 let current = null;
 export function refresh() {
@@ -248,17 +266,20 @@ async function route(soft = false) {
   const hash = location.hash.slice(2) || '';
   const [path, qs] = hash.split('?');
   const [key, ...rest] = path.split('/');
-  if (!state.user) return authScreen(key === 'criar' ? 'signup' : 'login');
+  if (!state.user) return key === '' ? import('./landing.js').then((m) => m.landing()) : authScreen(key === 'criar' ? 'signup' : 'login');
   if (key === 'entrar' || key === 'criar') return (location.hash = '#/');
   if (!document.getElementById('page')) shell();
-  const allowed = navItems().some((i) => i.k === key);
+  // acesso pausado: só a tela de assinatura fica disponível
+  if (state.user.billing?.blocked && key !== 'assinatura') return (location.hash = '#/assinatura');
+  billBar(key);
+  const allowed = navItems().some((i) => i.k === key) || key === 'assinatura';
   const loader = PAGES[allowed ? key : ''];
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === (allowed ? key : '')));
   const page = document.getElementById('page');
   const token = (current = Symbol());
   if (!soft) page.innerHTML = '<div class="loading"><span class="spin"></span> Carregando…</div>';
   try {
-    await loadRefs();
+    if (!state.user.billing?.blocked) await loadRefs();
     const mod = await loader();
     if (token !== current) return;
     const root = document.createElement('div');
@@ -277,10 +298,11 @@ window.addEventListener('hashchange', () => route());
 
 function authScreen(mode) {
   const signup = mode === 'signup';
+  window.scrollTo(0, 0);
   const feat = (icon, t, s) => `<li><span>${ic(icon, 18)}</span><div><b>${t}</b><small>${s}</small></div></li>`;
   document.getElementById('app').innerHTML = `<div class="auth2">
     <aside class="au-brand">
-      <div class="au-logo"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><div><b>Vyllorri</b><small>Beauty</small></div></div>
+      <a class="au-logo" href="#/" aria-label="Página inicial do Vyllorri"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><div><b>Vyllorri</b><small>Beauty</small></div></a>
       <div class="au-pitch">
         <h1>A gestão do seu salão, <em>na palma da mão.</em></h1>
         <p>Agenda, clientes, vendas e financeiro em um só lugar — simples de usar no dia a dia.</p>
