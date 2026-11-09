@@ -86,7 +86,7 @@ function top(step) {
 function summaryChip() {
   if (!st.service) return '';
   const p = st.pro ? proOf(st.pro.id) : null;
-  return `<div class="bk-summary">${thumb(st.service.photo_url).replace('class="thumb"', 'class="thumb" style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex:none;display:grid;place-items:center;background:var(--lav-100);color:var(--brand)"')}
+  return `<div class="bk-summary">${thumb(st.service.photo_url, svcIcon(st.service))}
     <div style="flex:1;min-width:0"><b>${esc(st.service.name)}</b><div class="muted tiny">${dur(st.service.duration_min)} · ${money(priceNow())}${st.pro !== undefined ? ` · ${p ? esc(p.name) : 'qualquer profissional'}` : ''}${st.time && ['details', 'review'].includes(st.step) ? ` · ${fmtDayLong(st.date)} às ${st.time}` : ''}</div></div></div>`;
 }
 function bindBack() {
@@ -206,7 +206,7 @@ function choosePlace() {
 // ---------- 1. Serviço ----------
 function chooseService() {
   root.innerHTML = `<div class="bk">${top('service')}<div class="bk-body">
-    ${st.salon.services.map((sv) => `<button class="bk-opt" data-s="${sv.id}">${thumb(sv.photo_url)}<span class="grow"><b>${esc(sv.name)}</b>${sv.description ? `<small>${esc(sv.description)}</small>` : ''}<small>${ic('clock', 13)} ${dur(sv.duration_min)}</small></span>
+    ${st.salon.services.map((sv) => `<button class="bk-opt" data-s="${sv.id}">${thumb(sv.photo_url, svcIcon(sv))}<span class="grow"><b>${esc(sv.name)}</b>${sv.description ? `<small>${esc(sv.description)}</small>` : ''}<small>${ic('clock', 13)} ${dur(sv.duration_min)}</small></span>
       <span class="price">${priceRange(sv)}</span></button>`).join('')}</div></div>`;
   bindBack();
   root.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => pickService(Number(b.dataset.s))));
