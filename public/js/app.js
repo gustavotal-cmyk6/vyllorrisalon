@@ -277,25 +277,51 @@ window.addEventListener('hashchange', () => route());
 
 function authScreen(mode) {
   const signup = mode === 'signup';
-  document.getElementById('app').innerHTML = `<div class="auth"><form class="box" novalidate>
-    <div class="logo"><span class="mark"><img src="/brand/vyllorri-v-192.png" alt=""></span><div class="name">Vyllorri <span style="font-weight:500">Beauty</span></div><p>${signup ? 'Crie a conta do seu salão em 1 minuto' : 'Gestão simples e elegante para o seu salão'}</p></div>
-    ${signup ? `<label class="field"><span>Nome do salão</span><input name="salon_name" required maxlength="80" autofocus></label>
-      <label class="field"><span>Seu nome</span><input name="name" required maxlength="80" autocomplete="name"></label>
-      <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend style="font-size:.8rem;font-weight:700;color:var(--plum-800);margin-bottom:6px">Como você trabalha?</legend>
-        <div class="mode-pick">
-          <label><input type="radio" name="team_mode" value="solo" class="sr"><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Só eu atendo</small></span></label>
-          <label><input type="radio" name="team_mode" value="team" class="sr" checked><span>${ic('users', 22)}<b>Tenho equipe</b><small>Mais profissionais</small></span></label>
-        </div><small>Dá para mudar depois em Configurações.</small></fieldset>` : ''}
-    <label class="field"><span>E-mail</span><input name="email" type="email" required autocomplete="email" ${signup ? '' : 'autofocus'}></label>
-    <label class="field"><span>Senha</span><input name="password" type="password" required minlength="8" autocomplete="${signup ? 'new-password' : 'current-password'}">
-      ${signup ? '<small>Mínimo de 8 caracteres</small>' : ''}</label>
-    <button class="btn primary block" type="submit" style="height:50px;margin-top:6px">${signup ? 'Criar meu salão' : 'Entrar'}</button>
-    <p class="switch-line">${signup ? 'Já tem conta? <a href="#/entrar">Entrar</a>' : 'Novo por aqui? <a href="#/criar">Criar conta do salão</a>'}</p>
-  </form></div>`;
-  const form = document.querySelector('.auth form');
+  const feat = (icon, t, s) => `<li><span>${ic(icon, 18)}</span><div><b>${t}</b><small>${s}</small></div></li>`;
+  document.getElementById('app').innerHTML = `<div class="auth2">
+    <aside class="au-brand">
+      <div class="au-logo"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><div><b>Vyllorri</b><small>Beauty</small></div></div>
+      <div class="au-pitch">
+        <h1>A gestão do seu salão, <em>na palma da mão.</em></h1>
+        <p>Agenda, clientes, vendas e financeiro em um só lugar — simples de usar no dia a dia.</p>
+        <ul class="au-feats">
+          ${feat('calendar', 'Agenda online 24h', 'Suas clientes marcam sozinhas pelo link do salão')}
+          ${feat('wallet', 'Sinal por Pix', 'Menos faltas, com o comprovante direto no app')}
+          ${feat('chart', 'Financeiro claro', 'Quanto vendeu, gastou e lucrou, sem planilha')}
+        </ul>
+      </div>
+      <p class="au-copy">© ${new Date().getFullYear()} Vyllorri Beauty</p>
+    </aside>
+    <main class="au-main"><form class="au-form" novalidate>
+      <div class="au-head"><h2>${signup ? 'Crie a conta do seu salão' : 'Bem-vinda de volta'}</h2>
+        <p>${signup ? 'Leva 1 minuto. Você já começa usando.' : 'Entre para ver a agenda de hoje.'}</p></div>
+      ${signup ? `<label class="field"><span>Nome do salão</span><div class="au-in">${ic('home', 18)}<input name="salon_name" required maxlength="80" autofocus placeholder="Ex.: Studio Bella"></div></label>
+        <label class="field"><span>Seu nome</span><div class="au-in">${ic('user', 18)}<input name="name" required maxlength="80" autocomplete="name" placeholder="Como quer ser chamada"></div></label>
+        <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend class="au-legend">Como você trabalha?</legend>
+          <div class="mode-pick">
+            <label><input type="radio" name="team_mode" value="solo" class="sr"><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Só eu atendo</small></span></label>
+            <label><input type="radio" name="team_mode" value="team" class="sr" checked><span>${ic('users', 22)}<b>Tenho equipe</b><small>Mais profissionais</small></span></label>
+          </div><small>Dá para mudar depois em Configurações.</small></fieldset>` : ''}
+      <label class="field"><span>E-mail</span><div class="au-in">${ic('mail', 18)}<input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="voce@email.com" ${signup ? '' : 'autofocus'}></div></label>
+      <label class="field"><span>Senha</span><div class="au-in">${ic('lock', 18)}<input name="password" type="password" required minlength="8" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'Mínimo de 8 caracteres' : 'Sua senha'}">
+        <button type="button" class="au-eye" data-eye aria-label="Mostrar senha">${ic('eye', 18)}</button></div></label>
+      <button class="btn primary block au-submit" type="submit">${signup ? 'Criar meu salão' : 'Entrar'} ${ic('arrowRight', 18)}</button>
+      <p class="au-safe">${ic('lock', 14)} Conexão segura · seus dados ficam protegidos</p>
+      <div class="au-sep"><span>${signup ? 'Já tem conta?' : 'Ainda não usa o Vyllorri?'}</span></div>
+      <a class="btn block au-alt" href="${signup ? '#/entrar' : '#/criar'}">${signup ? 'Entrar na minha conta' : 'Criar conta do salão'}</a>
+    </form></main>
+  </div>`;
+  const form = document.querySelector('.au-form');
+  const eye = form.querySelector('[data-eye]');
+  eye.onclick = () => {
+    const p = form.password;
+    p.type = p.type === 'password' ? 'text' : 'password';
+    eye.setAttribute('aria-label', p.type === 'password' ? 'Mostrar senha' : 'Esconder senha');
+    eye.classList.toggle('on', p.type === 'text');
+  };
   form.onsubmit = async (e) => {
     e.preventDefault();
-    await submitting(form.querySelector('button'), async () => {
+    await submitting(form.querySelector('.au-submit'), async () => {
       const data = formData(form);
       await POST(signup ? '/api/auth/signup' : '/api/auth/login', data);
       await boot();

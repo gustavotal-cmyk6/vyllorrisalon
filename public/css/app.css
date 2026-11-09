@@ -728,3 +728,52 @@ body.booking { min-height: 100vh; }
 .guide .ic { vertical-align: -3px; }
 .push-banner .grow { flex: 1; min-width: 0; }
 @media (max-width: 640px) { .push-banner .pb-act { flex-basis: 100%; } }
+
+/* ---------- Tela de entrada: marca escura + formulário limpo ---------- */
+.auth2 { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: #fff; }
+.au-brand { position: relative; overflow: hidden; color: #f6eef3; padding: calc(22px + env(safe-area-inset-top)) 22px 34px;
+  background: radial-gradient(90% 70% at 85% 0%, rgba(214, 61, 146, .35), transparent 60%), radial-gradient(80% 60% at 0% 100%, rgba(122, 47, 208, .35), transparent 60%), linear-gradient(160deg, #1d0a26, #12060f 70%); }
+.au-brand::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -1px; height: 34px; background: #fff; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+.au-logo { display: flex; align-items: center; gap: 12px; position: relative; }
+.au-logo img { width: 56px; height: 56px; filter: drop-shadow(0 8px 18px rgba(214, 61, 146, .35)); }
+.au-logo b { display: block; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; letter-spacing: .01em; color: #fff; line-height: 1; }
+.au-logo small { display: block; font-size: .66rem; letter-spacing: .42em; text-transform: uppercase; color: #e7b9cf; margin-top: 4px; }
+.au-pitch { position: relative; margin-top: 24px; padding-bottom: 22px; }
+.au-pitch h1 { font-family: var(--serif); font-size: clamp(1.7rem, 7vw, 2.6rem); font-weight: 600; line-height: 1.12; color: #fff; letter-spacing: -.01em; }
+.au-pitch h1 em { font-style: italic; color: #f2a7c9; }
+.au-pitch p { margin-top: 10px; color: #dcc8d6; font-size: .95rem; line-height: 1.5; max-width: 40ch; }
+.au-feats { display: none; list-style: none; padding: 0; margin: 30px 0 0; gap: 18px; }
+.au-feats li { display: flex; gap: 14px; align-items: flex-start; }
+.au-feats li > span { width: 40px; height: 40px; border-radius: 12px; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12); color: #f2a7c9; }
+.au-feats b { display: block; color: #fff; font-size: .98rem; }
+.au-feats small { display: block; color: #cdb6c6; font-size: .85rem; margin-top: 2px; }
+.au-copy { display: none; }
+.au-main { flex: 1; display: flex; justify-content: center; padding: 14px 22px calc(28px + env(safe-area-inset-bottom)); }
+.au-form { width: 100%; max-width: 400px; }
+.au-head { margin-bottom: 20px; }
+.au-head h2 { font-size: 1.5rem; font-weight: 700; color: var(--plum-900); letter-spacing: -.01em; }
+.au-head p { color: var(--muted); margin-top: 4px; }
+.au-legend { font-size: .8rem; font-weight: 700; color: var(--plum-800); margin-bottom: 6px; }
+.au-in { position: relative; display: flex; align-items: center; }
+.au-in > .ic { position: absolute; left: 15px; color: #9b8aae; pointer-events: none; z-index: 1; }
+.au-in input { padding-left: 46px; height: 54px; border-radius: 14px; background: #faf8fd; font-size: 1rem; width: 100%; }
+.au-in input:focus { background: #fff; }
+.au-eye { position: absolute; right: 6px; width: 42px; height: 42px; border: 0; border-radius: 10px; background: transparent; color: #9b8aae; display: grid; place-items: center; cursor: pointer; }
+.au-eye.on { color: var(--brand); }
+.au-in:has(.au-eye) input { padding-right: 52px; }
+.au-submit { height: 54px; margin-top: 8px; border-radius: 14px; font-size: 1.02rem; gap: 10px; }
+.au-safe { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font-size: .78rem; color: var(--muted); text-align: center; }
+.au-safe .ic { color: #1f9d6b; flex: none; }
+.au-sep { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; color: var(--muted); font-size: .85rem; }
+.au-sep::before, .au-sep::after { content: ""; flex: 1; height: 1px; background: #ece6f3; }
+.au-alt { height: 50px; border-radius: 14px; font-weight: 700; color: var(--plum-900); background: #fff; border: 1.5px solid #e4dcef; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+@media (min-width: 900px) {
+  .auth2 { flex-direction: row; }
+  .au-brand { width: 46%; max-width: 640px; padding: 48px 56px; display: flex; flex-direction: column; }
+  .au-brand::after { display: none; }
+  .au-pitch { margin: auto 0; padding: 0; }
+  .au-pitch h1 { font-size: 2.9rem; }
+  .au-feats { display: grid; }
+  .au-copy { display: block; position: relative; font-size: .8rem; color: #a8919f; }
+  .au-main { align-items: center; padding: 40px; }
+}
