@@ -93,40 +93,85 @@ function bindBack() {
   root.querySelector('[data-back]')?.addEventListener('click', () => history.back());
 }
 
-// ---------- 0. Página inicial do salão ----------
+// ---------- 0. Página inicial do salão (vitrine) ----------
+// ícone de cada serviço pelo nome ou categoria
+const SERVICE_IC = [
+  [/escova|progressiva|chapinha|secagem|babyliss/i, 'dryer'], [/colora|tinta|luzes|mecha|balayage|tonaliza|descolor/i, 'drop'],
+  [/corte|franja|aparar/i, 'scissors'], [/unha|manicure|pedicure|nail|alongamento|esmalta/i, 'hand'],
+  [/maquia|make/i, 'brush'], [/sobrancelha|cílio|cilio|lash|henna/i, 'eye'], [/limpeza|pele|estética|estetica|massagem|depila/i, 'leaf'],
+  [/hidrata|cauteriza|reconstru|tratamento|botox|nutri/i, 'sparkle'],
+];
+const svcIcon = (sv) => (SERVICE_IC.find(([re]) => re.test(`${sv.name} ${sv.category || ''}`)) || [0, 'sparkle'])[1];
+/** "Cuide da sua *beleza*" → a palavra entre asteriscos fica em destaque. */
+const headlineHtml = (t) => esc(t).replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
 function home() {
   const s = st.salon;
   const mineCount = store.get(KEY, []).length;
-  const groups = {};
-  for (const sv of s.services) (groups[sv.category || 'Serviços'] ||= []).push(sv);
   const mapLink = s.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}` : null;
   const wa = waLink(s.phone, `Olá! Vim pela página de agendamento do ${s.name}.`);
-  root.innerHTML = `<div class="bk">
-    <header class="bk-hero">${s.cover_url ? `<img src="${esc(s.cover_url)}" alt="">` : ''}
-      <div class="in"><span class="logo-b">${s.logo_url ? `<img src="${esc(s.logo_url)}" alt="">` : `<b>${esc(s.name[0] || 'V')}</b>`}</span>
-        <div style="min-width:0"><h1>${esc(s.name)}</h1><p>Agende seu horário online em poucos passos</p></div></div></header>
-    <div class="bk-body">
-      ${s.description ? `<p style="line-height:1.55">${esc(s.description)}</p>` : ''}
-      ${s.address || s.opening_hours || s.phone || s.instagram ? `<div class="card" style="margin:0"><div class="bk-info">
-        ${s.address ? `<a href="${mapLink}" target="_blank" rel="noopener">${ic('pin', 20)}<span>${esc(s.address)}</span></a>` : ''}
-        ${s.opening_hours ? `<div>${ic('clock', 20)}<span>${esc(s.opening_hours)}</span></div>` : ''}
-        ${wa ? `<a href="${wa}" target="_blank" rel="noopener">${ic('whatsapp', 20)}<span>${fmtPhone(s.phone)}</span></a>` : ''}
-        ${s.instagram ? `<a href="https://instagram.com/${encodeURIComponent(s.instagram)}" target="_blank" rel="noopener">${ic('instagram', 20)}<span>@${esc(s.instagram)}</span></a>` : ''}</div></div>` : ''}
-      ${s.gallery_urls.length ? `<section><h2 style="margin-bottom:10px">Nosso espaço e trabalhos</h2><div class="bk-gallery">${s.gallery_urls.map((u, i) => `<img src="${esc(u)}" alt="Foto ${i + 1} do salão" loading="lazy">`).join('')}</div></section>` : ''}
-      ${s.professionals.length ? `<section><h2 style="margin-bottom:10px">Nossa equipe</h2><div class="bk-team">${s.professionals.map((p) => `<div>${avatar(p.name, p.photo_url)}${esc(p.name.split(' ')[0])}<div class="muted" style="font-weight:500;font-size:.7rem">${esc(p.specialty || '')}</div></div>`).join('')}</div></section>` : ''}
-      <section id="servicos"><h2 style="margin-bottom:10px">Serviços</h2>
-        ${s.services.length ? Object.entries(groups).map(([g, list]) => `<h3 class="muted" style="margin:14px 0 8px;font-size:.82rem;text-transform:uppercase;letter-spacing:.06em">${esc(g)}</h3>
-          <div style="display:grid;gap:10px">${list.map((sv) => `<button class="bk-opt" data-s="${sv.id}">${thumb(sv.photo_url)}<span class="grow"><b>${esc(sv.name)}</b>${sv.description ? `<small>${esc(sv.description)}</small>` : ''}
-            <small>${ic('clock', 13)} ${dur(sv.duration_min)}</small></span><span class="c" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="price">${priceRange(sv)}</span><span class="plus">${ic('plus', 18)}</span></span></button>`).join('')}</div>`).join('')
-          : '<div class="card"><p class="muted">Nenhum serviço disponível para agendamento online no momento. Fale com o salão pelo WhatsApp.</p></div>'}</section>
-      ${mineCount ? `<button class="btn soft block" data-mine>${ic('calendar', 18)} Meus agendamentos (${mineCount})</button>` : `<button class="btn ghost block" data-mine>${ic('search', 18)} Consultar meu agendamento</button>`}
-      <p class="bk-foot"><img src="/brand/vyllorri-v-transparente-256.png" alt="" style="width:28px;display:inline-block;vertical-align:middle;margin-right:6px">Agendamento online por Vyllorri Beauty</p>
-    </div>
-    ${s.services.length ? `<div class="bk-bar"><div class="in"><a class="btn primary block" href="#servicos" data-start>${ic('calendar', 20)} Agendar horário</a></div></div>` : ''}
+  const featured = s.services.slice(0, 6);
+  root.innerHTML = `<div class="lp">
+    <header class="lp-hero">${s.cover_url ? `<img class="lp-cover" src="${esc(s.cover_url)}" alt="">` : ''}
+      <div class="lp-top">
+        <div class="lp-brand">${s.logo_url ? `<img src="${esc(s.logo_url)}" alt="">` : ''}<div><b>${esc(s.name)}</b><small>Salão de beleza</small></div></div>
+        <button class="lp-menu" data-menu aria-label="Menu">${ic('menu', 24)}</button>
+      </div>
+      <div class="lp-hero-in">
+        <h1>${headlineHtml(s.headline || 'Cuide da sua *beleza* com quem entende!')}</h1>
+        ${s.description ? `<p>${esc(s.description)}</p>` : ''}
+        ${s.services.length ? `<button class="lp-cta" data-start>${ic('calendar', 22)} Agendar agora ${ic('arrowRight', 20)}</button>` : ''}
+      </div>
+    </header>
+
+    ${featured.length ? `<section class="lp-sec" id="servicos"><h2 class="lp-title"><span>Nossos serviços</span></h2>
+      <div class="lp-svcs">${featured.map((sv) => `<button class="lp-svc" data-s="${sv.id}"><span class="lp-svc-ic">${ic(svcIcon(sv), 34)}</span><b>${esc(sv.name)}</b><small>${priceRange(sv)}</small></button>`).join('')}</div>
+      ${s.services.length > featured.length ? `<button class="lp-link" data-all>Ver todos os serviços (${s.services.length}) ${ic('arrowRight', 16)}</button>` : ''}</section>`
+      : `<section class="lp-sec"><p class="lp-muted">Nenhum serviço disponível para agendamento online no momento.${wa ? ' Fale com o salão pelo WhatsApp.' : ''}</p></section>`}
+
+    ${s.gallery_urls.length ? `<section class="lp-sec"><h2 class="lp-title"><span>Resultados que inspiram</span></h2>
+      <div class="lp-gallery">${s.gallery_urls.map((u, i) => `<img src="${esc(u)}" alt="Trabalho ${i + 1} do salão" loading="lazy">`).join('')}</div></section>` : ''}
+
+    ${s.professionals.length > 1 ? `<section class="lp-sec"><h2 class="lp-title"><span>Nossa equipe</span></h2>
+      <div class="lp-team">${s.professionals.map((p) => `<div>${avatar(p.name, p.photo_url)}<b>${esc(p.name.split(' ')[0])}</b><small>${esc(p.specialty || '')}</small></div>`).join('')}</div></section>` : ''}
+
+    ${s.address || s.opening_hours || wa || s.instagram || s.home ? `<section class="lp-sec" id="contato"><h2 class="lp-title"><span>Onde estamos</span></h2><div class="lp-info">
+      ${s.address ? `<a href="${mapLink}" target="_blank" rel="noopener">${ic('pin', 20)}<span>${esc(s.address)}</span></a>` : ''}
+      ${s.opening_hours ? `<div>${ic('clock', 20)}<span class="pre"><b>No salão:</b> ${esc(s.opening_hours)}</span></div>` : ''}
+      ${s.home ? `<div>${ic('home', 20)}<span><b>A domicílio:</b> das ${esc(s.home.start)} às ${esc(s.home.end)}${s.home.areas.length ? ` · ${esc(s.home.areas.map((a) => a.name).join(', '))}` : ''}</span></div>` : ''}
+      ${wa ? `<a href="${wa}" target="_blank" rel="noopener">${ic('whatsapp', 20)}<span>${fmtPhone(s.phone)}</span></a>` : ''}
+      ${s.instagram ? `<a href="https://instagram.com/${encodeURIComponent(s.instagram)}" target="_blank" rel="noopener">${ic('instagram', 20)}<span>@${esc(s.instagram)}</span></a>` : ''}</div></section>` : ''}
+
+    <section class="lp-sec"><button class="lp-link" data-mine>${ic('calendar', 18)} ${mineCount ? `Meus agendamentos (${mineCount})` : 'Consultar meu agendamento'}</button></section>
+    <p class="lp-foot"><img src="/brand/vyllorri-v-transparente-256.png" alt="">Agendamento online por Vyllorri Beauty</p>
+    ${s.services.length ? `<div class="lp-bar"><button class="lp-cta block" data-start>${ic('calendar', 22)} Agendar agora</button></div>` : ''}
   </div>`;
   root.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => pickService(Number(b.dataset.s))));
-  root.querySelector('[data-start]')?.addEventListener('click', (e) => (e.preventDefault(), go('service')));
+  root.querySelectorAll('[data-start],[data-all]').forEach((b) => (b.onclick = () => go('service')));
   root.querySelector('[data-mine]').onclick = () => go('mine');
+  // botão fixo só aparece quando o da capa sai da tela (nunca dois iguais ao mesmo tempo)
+  const heroCta = root.querySelector('.lp-hero [data-start]'), bar = root.querySelector('.lp-bar');
+  if (heroCta && bar && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => bar.classList.toggle('show', !e.isIntersecting)).observe(heroCta);
+  else bar?.classList.add('show');
+  root.querySelector('[data-menu]').onclick = () => {
+    const links = [
+      s.services.length && ['service', 'calendar', 'Agendar horário'], ['mine', 'search', 'Meus agendamentos'],
+      wa && ['wa', 'whatsapp', 'Falar no WhatsApp'], s.instagram && ['ig', 'instagram', 'Instagram'], mapLink && ['map', 'pin', 'Como chegar'],
+    ].filter(Boolean);
+    const sheet = document.createElement('div');
+    sheet.className = 'lp-sheet';
+    sheet.innerHTML = `<div class="lp-sheet-in" role="dialog" aria-label="Menu"><button class="lp-menu lp-close" aria-label="Fechar">${ic('x', 22)}</button>
+      ${links.map(([k, icon, label]) => `<button data-k="${k}">${ic(icon, 20)} ${label}</button>`).join('')}</div>`;
+    document.body.appendChild(sheet);
+    const close = () => sheet.remove();
+    sheet.onclick = (e) => {
+      const b = e.target.closest('[data-k]');
+      if (e.target === sheet || e.target.closest('.lp-close')) return close();
+      if (!b) return;
+      close();
+      ({ service: () => go('service'), mine: () => go('mine'), wa: () => window.open(wa, '_blank', 'noopener'), ig: () => window.open(`https://instagram.com/${encodeURIComponent(s.instagram)}`, '_blank', 'noopener'), map: () => window.open(mapLink, '_blank', 'noopener') })[b.dataset.k]();
+    };
+  };
 }
 
 function pickService(id) {
@@ -189,7 +234,8 @@ async function chooseTime() {
   const days = [...Array(30)].map((_, i) => addDays(todayStr(), i));
   if (st.date < todayStr()) st.date = todayStr();
   root.innerHTML = `<div class="bk">${top('time')}<div class="bk-body">${summaryChip()}
-    <div class="card" style="margin:0"><h2 style="margin-bottom:10px;text-transform:capitalize">${MONTHS[Number(st.date.slice(5, 7)) - 1]} ${st.date.slice(0, 4)}</h2>
+    <div class="card" style="margin:0"><div class="bk-days-nav"><h2 style="text-transform:capitalize">${MONTHS[Number(st.date.slice(5, 7)) - 1]} ${st.date.slice(0, 4)}</h2>
+      <span style="display:flex;gap:6px"><button type="button" data-scroll="-1" aria-label="Dias anteriores">${ic('chevLeft', 18)}</button><button type="button" data-scroll="1" aria-label="Próximos dias">${ic('chevRight', 18)}</button></span></div>
       <div class="bk-days">${days.map((d) => `<button class="bk-day ${d === st.date ? 'on' : ''}" data-d="${d}" aria-label="${fmtDayLong(d)}"><small>${weekday(d)}</small><b>${d.slice(8)}</b></button>`).join('')}</div></div>
     <div class="card" style="margin:0"><h2 style="margin-bottom:10px" data-dayname>${fmtDayLong(st.date)}</h2><div data-slots></div></div></div>
     <div class="bk-bar"><div class="in"><button class="btn primary block" data-next disabled>Escolha um horário</button></div></div></div>`;
@@ -231,7 +277,11 @@ async function chooseTime() {
     root.querySelectorAll('[data-d]').forEach((x) => x.classList.toggle('on', x === b));
     loadSlots();
   }));
-  root.querySelector('.bk-day.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  const strip = root.querySelector('.bk-days');
+  root.querySelectorAll('[data-scroll]').forEach((b) => (b.onclick = () => strip.scrollBy({ left: Number(b.dataset.scroll) * strip.clientWidth * 0.8, behavior: 'smooth' })));
+  // rola só a faixa (scrollIntoView rolaria a página inteira)
+  const on = root.querySelector('.bk-day.on');
+  if (on) strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + on.clientWidth / 2;
   loadSlots();
 }
 

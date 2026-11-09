@@ -41,8 +41,7 @@ export default async function dashboard(root) {
       </section>
       <section class="card">
         <h2>Atalhos</h2>
-        <div class="quick" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-          <button data-act="visit"><span class="q-ic">${ic('calendar', 20)}</span>Agendar</button>
+        <div class="quick" style="grid-template-columns:repeat(3,minmax(0,1fr))">
           <button data-act="fit"><span class="q-ic">${ic('zap', 20)}</span>Encaixe</button>
           ${can.pro() ? '' : `<button data-act="sale"><span class="q-ic">${ic('cart', 20)}</span>Venda</button>`}
           <button data-act="client"><span class="q-ic">${ic('userPlus', 20)}</span>Cliente</button>

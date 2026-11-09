@@ -88,7 +88,7 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
 
   // Pontos de atenção
   const attention = [];
-  if (agenda.late.length) attention.push({ type: 'late', level: 'warn', text: `${agenda.late.length} cliente(s) atrasada(s) ou ainda sem chegada registrada`, link: '#/agenda' });
+  if (agenda.late.length) attention.push({ type: 'late', level: 'warn', text: `${agenda.late.length} atendimento(s) já passaram do horário sem registrar a chegada da cliente`, link: '#/agenda' });
   if (agenda.in_progress) attention.push({ type: 'checkout', level: 'info', text: `${agenda.in_progress} atendimento(s) em andamento para fechar a conta`, link: '#/agenda' });
   if (receivable.n) attention.push({ type: 'receivable', level: 'warn', text: `${receivable.n} venda(s) com valor pendente a receber`, amount: receivable.v, link: '#/vendas?pendentes=1' });
   const tomorrow = addDays(d, 1);

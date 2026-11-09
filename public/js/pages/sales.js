@@ -48,7 +48,8 @@ async function list(body, range) {
     ${rows.length ? `<ul class="list">${rows.map((s) => `<li class="click" data-sale="${s.id}">${avatar(s.client_name || '?', null, 'sm')}
     <div class="grow"><div class="title">${esc(s.client_name || 'Venda sem cliente')} ${s.status === 'void' ? '<span class="tag err">estornada</span>' : s.pending_cents ? `<span class="tag warn">pendente ${money(s.pending_cents)}</span>` : ''}</div>
     <div class="meta">${fmtDate(s.created_at)} ${s.created_at.slice(11, 16)} · ${esc(s.items_text || '')}${s.methods ? ' · ' + esc(s.methods) : ''}</div></div>
-    <b style="${s.status === 'void' ? 'text-decoration:line-through;color:var(--muted)' : ''}">${money(s.total_cents)}</b></li>`).join('')}</ul>` : empty('Nenhuma venda no período.', '', 'cart')}</div>`;
+    <b style="${s.status === 'void' ? 'text-decoration:line-through;color:var(--muted)' : ''}">${money(s.total_cents)}</b></li>`).join('')}</ul>` : empty('Nenhuma venda neste período. As vendas aparecem aqui quando você fecha a conta de um atendimento ou registra uma venda de produto.', `<button class="btn primary sm" data-new-empty>${ic('plus', 16)} Registrar venda</button>`, 'cart')}</div>`;
+  body.querySelector('[data-new-empty]')?.addEventListener('click', () => openCheckout({ onDone: refresh }));
   body.querySelectorAll('[data-sale]').forEach((li) => (li.onclick = () => openSale(Number(li.dataset.sale), refresh)));
 }
 

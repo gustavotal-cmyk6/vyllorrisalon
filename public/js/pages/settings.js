@@ -13,10 +13,10 @@ const ui = { tab: 'salon' };
 
 export default async function settings(root) {
   const owner = can.owner();
-  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal e Pix'], ['home', 'Domicílio'], ['payments', 'Formas de pagamento'], ['users', 'Acessos da equipe'], ['me', 'Minha conta']] : [['me', 'Minha conta']];
+  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Pagamentos no salão'], ['users', 'Acessos da equipe'], ['me', 'Minha conta']] : [['me', 'Minha conta']];
   if (!TABS.some(([k]) => k === ui.tab)) ui.tab = TABS[0][0];
   root.innerHTML = `${pageHead('Configurações', `${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]}`)}
-    ${TABS.length > 1 ? `<div class="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+    ${TABS.length > 1 ? `<div class="tabs wrap">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     <div data-body><div class="loading">Carregando…</div></div>`;
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), refresh())));
   const body = root.querySelector('[data-body]');
@@ -45,11 +45,12 @@ async function salonTab(body) {
     <p class="small muted" style="margin-bottom:14px">Estas informações aparecem na página de agendamento das clientes.</p>
     <div class="grid g2" style="margin-bottom:6px"><div data-logo></div><div data-cover></div></div>
     <label class="field"><span>Nome do salão *</span><input name="name" value="${esc(s.name)}" maxlength="80"></label>
+    <label class="field"><span>Frase de destaque da página</span><input name="headline" maxlength="90" value="${esc(s.headline || '')}" placeholder="Cuide da sua *beleza* com quem entende!"><small>Aparece grande na capa. A palavra entre *asteriscos* fica em rosa.</small></label>
     <label class="field"><span>Apresentação</span><textarea name="description" maxlength="600" placeholder="Ex.: Salão especializado em coloração e cuidados com os cabelos, no coração da Vila Mariana.">${esc(s.description || '')}</textarea></label>
     <label class="field"><span>Endereço</span><input name="address" maxlength="200" value="${esc(s.address || '')}" placeholder="Rua, número, bairro, cidade"></label>
     <div class="row"><label class="field"><span>WhatsApp do salão</span><input name="phone" inputmode="tel" maxlength="20" value="${esc(fmtPhone(s.phone))}"></label>
       <label class="field"><span>Instagram</span><input name="instagram" maxlength="60" value="${esc(s.instagram ? '@' + s.instagram : '')}" placeholder="@seusalao"></label></div>
-    <label class="field"><span>Horário de funcionamento</span><input name="opening_hours" maxlength="200" value="${esc(s.opening_hours || '')}" placeholder="Ter a sáb, 9h às 19h"></label>
+    <label class="field"><span>Horário de funcionamento do salão</span><textarea name="opening_hours" maxlength="200" rows="2" placeholder="Ter a sex: 9h às 19h&#10;Sáb: 8h às 14h">${esc(s.opening_hours || '')}</textarea><small>Uma linha por faixa de dias. Os horários do atendimento a domicílio aparecem separados, conforme a aba Domicílio.</small></label>
     <div class="field"><span>Fotos do espaço e dos trabalhos <small>(até 8)</small></span><div class="gallery-pick" data-gallery></div></div>
     <div class="actions"><button class="btn primary">${ic('check', 18)} Salvar perfil</button></div></form>`;
   body.querySelectorAll('[name=mode]').forEach((r) => (r.onchange = async () => {
@@ -92,7 +93,7 @@ async function salonTab(body) {
     const f = e.target;
     await submitting(f.querySelector('.actions .btn'), async () => {
       const r = await PUT('/api/salon/profile', {
-        name: f.name.value, description: f.description.value, address: f.address.value, phone: f.phone.value, instagram: f.instagram.value,
+        name: f.name.value, headline: f.headline.value, description: f.description.value, address: f.address.value, phone: f.phone.value, instagram: f.instagram.value,
         opening_hours: f.opening_hours.value, logo: logo.get(), cover_photo: cover.get(), gallery: gallery.map((g) => g.id), cancel_hours: s.cancel_hours,
       });
       state.user.salon_name = r.name;
@@ -145,7 +146,8 @@ async function bookingTab(body) {
 
 async function paymentsTab(body) {
   const methods = await GET('/api/payment-methods');
-  body.innerHTML = `<div class="card"><h2>Formas de pagamento</h2>
+  body.innerHTML = `<div class="card"><h2>Pagamentos no salão</h2>
+    <p class="small muted" style="margin:6px 0 10px">Formas que aparecem ao fechar a conta no salão (dinheiro, Pix na maquininha ou na sua chave, cartão…). O sinal cobrado no agendamento online é configurado em “Sinal online (Pix)”.</p>
     <ul class="list">${methods.map((m) => `<li><span class="avatar sm" style="background:var(--lav-100);color:var(--brand)">${ic(/dinheiro/i.test(m.name) ? 'coin' : /pix/i.test(m.name) ? 'zap' : 'card', 16)}</span><div class="grow"><b>${esc(m.name)}</b></div>
       <label class="switch" aria-label="Ativar ${esc(m.name)}"><input type="checkbox" data-pm="${m.id}" ${m.active ? 'checked' : ''}><i></i></label></li>`).join('')}</ul>
     <form class="row" data-addpm style="margin-top:12px"><input name="name" placeholder="Ex.: Vale-presente, Link de pagamento" maxlength="30" aria-label="Nova forma de pagamento"><button class="btn primary">${ic('plus', 16)} Adicionar</button></form></div>`;
@@ -243,7 +245,7 @@ async function depositTab(body) {
       <button type="button" class="btn sm soft" data-preview>${ic('zap', 16)} Testar minha chave</button><div data-preview-box></div></div>
     <div class="card"><h2 style="margin-bottom:10px">Cobrança do sinal</h2>
       <label class="check"><span class="switch"><input type="checkbox" name="enabled" ${c.deposit_enabled ? 'checked' : ''}><i></i></span> Exigir sinal no agendamento online</label>
-      <div class="row"><label class="field"><span>Porcentagem do sinal (%)</span><input name="pct" inputmode="decimal" value="${String(c.deposit_pct).replace('.', ',')}"></label>
+      <div class="row"><label class="field"><span>Porcentagem do sinal (%)</span><input name="pct" inputmode="decimal" value="${String(c.deposit_pct).replace('.', ',')}"><small data-pct-example></small></label>
         <label class="field"><span>Prazo para pagar (minutos)</span><input name="expire_min" inputmode="numeric" value="${c.deposit_expire_min}"><small>Sem comprovante nesse prazo, o horário é liberado.</small></label></div>
       <label class="check"><input type="checkbox" name="include_travel" ${c.deposit_include_travel ? 'checked' : ''}> Calcular o sinal também sobre a taxa de deslocamento (domicílio)</label>
       <div class="field"><span>Quais serviços exigem sinal?</span><div class="seg"><button type="button" data-scope="all" class="${c.deposit_scope === 'all' ? 'on' : ''}">Todos</button><button type="button" data-scope="selected" class="${c.deposit_scope === 'selected' ? 'on' : ''}">Só os que eu escolher</button></div></div>
@@ -259,6 +261,14 @@ async function depositTab(body) {
     f.querySelectorAll('[data-scope]').forEach((x) => x.classList.toggle('on', x === b));
     f.querySelector('[data-svcs]').classList.toggle('hidden', scope !== 'selected');
   }));
+  const example = () => {
+    const p = Number(f.pct.value.replace(',', '.')) || 0;
+    const svc = c.services[0];
+    const base = svc ? svc.price_cents : 10000;
+    f.querySelector('[data-pct-example]').innerHTML = `${svc ? esc(svc.name) : 'Serviço'} de ${money(base)} → sinal de <b>${money(Math.round((base * p) / 100))}</b>${p > 0 && p < 10 ? ' · <span class="warn-t">sinal muito baixo para garantir o horário?</span>' : ''}`;
+  };
+  f.pct.addEventListener('input', example);
+  example();
   const pix = () => ({ pix_key_type: f.pix_key_type.value, pix_key: f.pix_key.value, pix_name: f.pix_name.value, pix_city: f.pix_city.value });
   f.querySelector('[data-preview]').onclick = async (e) => {
     await submitting(e.currentTarget, async () => {
@@ -285,15 +295,15 @@ async function homeTab(body) {
   body.innerHTML = `<form novalidate data-home>
     <div class="card"><label class="check"><span class="switch"><input type="checkbox" name="enabled" ${h.enabled ? 'checked' : ''}><i></i></span> <b>Oferecer atendimento a domicílio</b></label>
       <p class="small muted">Na página de agendamento, a cliente escolhe entre o salão e a casa dela.</p></div>
-    <div class="card"><h2 style="margin-bottom:10px">Quem atende e o quê</h2>
+    <div class="card"><h2 style="margin-bottom:10px">1. Quem atende e quais serviços</h2>
       <div class="grid g2"><div><h3 class="small muted" style="margin-bottom:6px">Profissionais que vão até a cliente</h3>${h.pros.map((p) => `<label class="check" style="margin:0 0 4px"><input type="checkbox" data-pro="${p.id}" ${p.home_service ? 'checked' : ''}> ${esc(p.name)}</label>`).join('') || '<p class="small muted">Nenhuma profissional ativa.</p>'}</div>
         <div><h3 class="small muted" style="margin-bottom:6px">Serviços que podem ser feitos em casa</h3>${h.services.map((s) => `<label class="check" style="margin:0 0 4px"><input type="checkbox" data-svc="${s.id}" ${s.home_allowed ? 'checked' : ''}> ${esc(s.name)}</label>`).join('') || '<p class="small muted">Nenhum serviço cadastrado.</p>'}</div></div></div>
-    <div class="card"><h2 style="margin-bottom:10px">Taxa de deslocamento e regiões</h2>
+    <div class="card"><h2 style="margin-bottom:10px">2. Bairros e taxas</h2>
       <div class="seg" style="margin-bottom:12px"><button type="button" data-mode="fixed" class="${h.fee_mode === 'fixed' ? 'on' : ''}">Mesma taxa para todos</button><button type="button" data-mode="by_area" class="${h.fee_mode === 'by_area' ? 'on' : ''}">Taxa por bairro</button></div>
       <label class="field" data-fixed style="max-width:240px"><span>Taxa (R$)</span><input name="fee" inputmode="decimal" value="${moneyBR(h.fee_cents)}"></label>
       <div class="field"><span>Bairros ou regiões atendidas <small>(vazio = atende qualquer bairro)</small></span><div data-areas></div>
         <button type="button" class="btn sm soft" data-add-area style="margin-top:6px;width:fit-content">${ic('plus', 16)} Adicionar bairro</button></div></div>
-    <div class="card"><h2 style="margin-bottom:10px">Horários do atendimento externo</h2>
+    <div class="card"><h2 style="margin-bottom:10px">3. Horários e tempo de deslocamento</h2>
       <div class="row3"><label class="field"><span>A partir de</span><input type="time" name="start" value="${h.start}"></label><label class="field"><span>Até</span><input type="time" name="end" value="${h.end}"></label>
         <label class="field"><span>Deslocamento (min)</span><input name="buffer" inputmode="numeric" value="${h.buffer_min}"></label></div>
       <p class="small muted">A agenda da profissional fica bloqueada esse tempo antes e depois de cada atendimento em casa, para não haver conflito com o salão.</p></div>

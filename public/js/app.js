@@ -67,6 +67,7 @@ function shell() {
         <div class="logo">${brandMark()}<div class="name">Vyllorri<small>${esc(state.user.salon_name)}</small></div></div>
         <div class="search">${ic('search', 18)}<input id="gsearch" type="search" placeholder="Buscar cliente, telefone, serviço…" autocomplete="off" aria-label="Busca"><div class="search-results hidden" id="gresults"></div></div>
         <span class="spacer"></span>
+        <button class="tb-btn tb-plus m-only" data-quick aria-label="Novo: agendamento, venda, cliente…">${ic('plus', 22)}</button>
         <button class="tb-btn m-only" data-msearch aria-label="Buscar">${ic('search', 20)}</button>
         <button class="tb-btn" data-bell aria-label="Notificações">${ic('bell', 20)}<span class="dot hidden" data-bell-count></span></button>
       </header>
@@ -76,8 +77,7 @@ function shell() {
   <nav class="bottom-nav" aria-label="Navegação">
     ${bottomItems().map((i) => `<a href="#/${i.k}" data-nav="${i.k}">${ic(i.ico, 22)}${i.k === 'comissoes' ? 'Comissões' : i.label}</a>`).join('')}
     <button data-more>${ic('grid', 22)}Mais</button>
-  </nav>
-  <button class="fab" data-quick aria-label="Ação rápida">${ic('plus', 26)}</button>`;
+  </nav>`;
   document.querySelectorAll('[data-quick]').forEach((b) => (b.onclick = quickActions));
   document.querySelector('[data-more]').onclick = moreMenu;
   document.querySelector('[data-logout]').onclick = logout;

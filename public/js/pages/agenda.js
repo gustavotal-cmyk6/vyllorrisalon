@@ -42,14 +42,14 @@ export default async function agenda(root, { query }) {
   <div class="agenda-bar">
     <div class="date-nav"><button class="icon-btn" data-act="prev" aria-label="Anterior">${ic('chevLeft', 20)}</button><b>${view.mode === 'month' ? `${MONTHS[Number(view.date.slice(5, 7)) - 1]}` : view.mode === 'week' ? `${fmtShort(r.from)} – ${fmtShort(r.to)}` : `${weekday(view.date)}, ${fmtShort(view.date)}`}</b><button class="icon-btn" data-act="next" aria-label="Próximo">${ic('chevRight', 20)}</button></div>
     <button class="btn sm" data-act="today">Hoje</button>
-    <button class="btn sm m-filter" data-act="filters" aria-expanded="${view.filtersOpen ? 'true' : 'false'}">${ic('filter', 16)} Filtros${activeFilters ? ` (${activeFilters})` : ''}</button>
+    <button class="btn sm m-filter" data-act="filters" aria-expanded="${view.filtersOpen ? 'true' : 'false'}">${ic('filter', 16)} Filtros${activeFilters ? ` (${activeFilters})` : ''}${view.status !== 'active' ? ` · ${STATUS_FILTERS.find(([k]) => k === view.status)[1]}` : ''}</button>
     <div class="agenda-filters ${view.filtersOpen ? 'open' : ''}">
     <input type="date" value="${view.date}" data-pick style="width:auto;min-height:40px" aria-label="Ir para data">
     ${can.pro() || can.solo() ? '' : `<select data-pro aria-label="Profissional"><option value="">Todas as profissionais</option>${state.pros.filter((p) => p.active).map((p) => `<option value="${p.id}" ${String(p.id) === view.pro ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`}
     <select data-svc aria-label="Serviço"><option value="">Todos os serviços</option>${state.services.map((s) => `<option value="${s.id}" ${String(s.id) === view.service ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
     </div>
   </div>
-  <div class="chips scroll" style="margin-bottom:14px">${STATUS_FILTERS.map(([k, l]) => `<button class="chip ${view.status === k ? 'on' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
+  <div class="chips scroll status-chips ${view.filtersOpen ? 'open' : ''}" style="margin-bottom:14px">${STATUS_FILTERS.map(([k, l]) => `<button class="chip ${view.status === k ? 'on' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
   ${view.mode === 'day' ? dayStrip(view.date) : ''}
   <div data-body></div>
 `;
@@ -93,6 +93,7 @@ export default async function agenda(root, { query }) {
       if (b.dataset.act === 'filters') {
         view.filtersOpen = !view.filtersOpen;
         root.querySelector('.agenda-filters').classList.toggle('open', view.filtersOpen);
+        root.querySelector('.status-chips').classList.toggle('open', view.filtersOpen);
         b.setAttribute('aria-expanded', String(view.filtersOpen));
       }
       if (b.dataset.act === 'new') newVisit({ date: view.date, proId: Number(view.pro) || null, onSaved: refresh });

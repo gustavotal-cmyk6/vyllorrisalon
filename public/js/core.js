@@ -292,7 +292,7 @@ export const pageHead = (title, sub = '', actions = '', extra = '') =>
   `<div class="page-head"><div style="position:relative;z-index:1;min-width:0">${extra}<h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`;
 export const empty = (text, action = '', icon = 'sparkle') => `<div class="empty"><div class="e-ic">${ic(icon, 26)}</div><p>${esc(text)}</p>${action}</div>`;
 /** Selo de variação percentual (verde subiu, vermelho caiu). */
-export const trend = (v, suffix = '') => (v == null ? '' : `<span class="trend ${v > 0 ? 'up' : v < 0 ? 'down' : 'flat'}">${ic(v >= 0 ? 'trendUp' : 'trendDown', 13)} ${pct(v)}${suffix}</span>`);
+export const trend = (v, suffix = '') => (v == null ? '<small class="muted">sem dados anteriores para comparar</small>' : `<span class="trend ${v > 0 ? 'up' : v < 0 ? 'down' : 'flat'}">${ic(v >= 0 ? 'trendUp' : 'trendDown', 13)} ${pct(v)}${suffix}</span>`);
 
 export function periodPicker(id, current = 'month') {
   return `<div class="period" id="${id}">

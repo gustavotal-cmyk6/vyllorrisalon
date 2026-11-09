@@ -37,7 +37,7 @@ async function summary(body, range) {
   const maxEv = Math.max(1, ...r.evolution.map((e) => Math.max(e.revenue, e.expenses)));
   body.innerHTML = `<div class="qa">
       ${Q('Quanto vendi?', money(s.revenue), trend(r.change.revenue, ' vs. período anterior'))}
-      ${Q('Quanto lucrei (estimado)?', `<span class="${f.profit < 0 ? 'err-t' : 'ok-t'}">${money(f.profit)}</span>`, trend(r.change.profit))}
+      ${Q('Quanto lucrei (estimado)?', `<span class="${f.profit < 0 ? 'err-t' : 'ok-t'}">${money(f.profit)}</span>`, `${trend(r.change.profit)}<br><small>vendas − custo dos produtos − comissões − despesas</small>`)}
       ${Q('Quanto gastei?', money(f.expenses), `<small>contas pagas ou a pagar no período</small>`)}
       ${Q('Quanto cada cliente gastou, em média?', money(s.ticket_avg), trend(r.change.ticket))}
     </div>

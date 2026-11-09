@@ -32,7 +32,8 @@ export default async function stock(root) {
           <div class="meta">${isLow ? '<span class="err-t">repor · </span>' : ''}${p.kind === 'retail' ? `venda ${money(p.price_cents)}` : esc(p.category || 'uso interno')}</div></div>
         <div class="right"><b class="${isLow ? 'err-t' : ''}" style="font-size:1.1rem">${fmtQty(p.stock)}</b><div class="tiny muted">${esc(p.unit)}</div></div>
         <button class="btn xs soft" data-move="${p.id}" data-type="in">${ic('plus', 14)} Entrada</button></li>`;
-    }).join('') : `<li style="display:block">${empty(ui.tab === 'retail' ? 'Nenhum produto para venda (shampoos, máscaras, finalizadores…).' : 'Nenhum material de uso interno (tinturas, luvas, algodão…).', '', 'box')}</li>`;
+    }).join('') : `<li style="display:block">${empty(ui.tab === 'retail' ? 'Cadastre os produtos que você vende às clientes, como shampoo, máscara ou finalizador. O estoque baixa sozinho a cada venda.' : 'Cadastre o que você usa nos atendimentos, como tintura, luvas e algodão, para saber quando repor.', can.admin() ? `<button class="btn primary sm" data-new-empty>${ic('plus', 16)} Cadastrar produto</button>` : '', 'box')}</li>`;
+    listEl.querySelector('[data-new-empty]')?.addEventListener('click', () => edit({ kind: ui.tab === 'internal' ? 'internal' : 'retail' }));
     listEl.querySelectorAll('[data-move]').forEach((b) => (b.onclick = (e) => (e.stopPropagation(), move(products.find((p) => p.id === Number(b.dataset.move)), b.dataset.type))));
     listEl.querySelectorAll('[data-prod]').forEach((li) => (li.onclick = () => productSheet(products.find((p) => p.id === Number(li.dataset.prod)), moves)));
   };
