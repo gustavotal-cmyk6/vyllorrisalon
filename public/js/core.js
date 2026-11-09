@@ -101,6 +101,8 @@ export const can = {
   pro: () => state.user?.role === 'pro',
   // trabalha sozinha: sem telas de equipe, ela é a única profissional
   solo: () => state.user?.team_mode === 'solo',
+  // vende produtos (se não, some estoque e venda de produtos do painel)
+  products: () => state.user?.sells_products !== false,
 };
 /** A profissional da dona, no modo "trabalho sozinha". */
 export const soloPro = () => state.pros.find((p) => p.id === state.user?.professional_id) || state.pros.find((p) => p.active);

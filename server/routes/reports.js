@@ -100,7 +100,8 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
   if (refunds.n) attention.push({ type: 'deposit', level: 'warn', text: `${refunds.n} sinal(is) para devolver a clientes que cancelaram`, amount: refunds.v, link: '#/agenda?sinais=1' });
   const online = (await get(`SELECT COUNT(*) n FROM visits WHERE salon_id=? AND date>=? AND status='scheduled' AND source='online'`, sid, d)).n;
   if (online) attention.unshift({ type: 'online', level: 'info', text: `${online} agendamento(s) online aguardando sua confirmação`, link: '#/agenda' });
-  const low = await all(`SELECT name, stock, min_stock, unit FROM products WHERE salon_id=? AND active=1 AND stock<=min_stock AND min_stock>0 ORDER BY name LIMIT 5`, sid);
+  const sells = (await get('SELECT sells_products FROM salons WHERE id=?', sid))?.sells_products !== 0;
+  const low = !sells ? [] : await all(`SELECT name, stock, min_stock, unit FROM products WHERE salon_id=? AND active=1 AND stock<=min_stock AND min_stock>0 ORDER BY name LIMIT 5`, sid);
   if (low.length) attention.push({ type: 'stock', level: 'warn', text: `Estoque baixo: ${low.map((l) => l.name).join(', ')}`, link: '#/estoque' });
   if (['owner', 'manager'].includes(user.role)) {
     const bills = await get(`SELECT COUNT(*) n, COALESCE(SUM(amount_cents),0) v FROM expenses WHERE salon_id=? AND paid_at IS NULL AND due_date<=?`, sid, addDays(d, 3));
@@ -212,7 +213,7 @@ route('GET', '/api/search', ALL, async ({ query, sid, user }) => {
   const digits = q.replace(/\D/g, '');
   const clients = await all(`SELECT id, name, phone FROM clients WHERE salon_id=? AND active=1 AND (name LIKE ? OR (? <> '' AND phone LIKE ?)) ORDER BY name LIMIT 6`, sid, like, digits, `%${digits}%`);
   const services = await all(`SELECT id, name, price_cents, duration_min FROM services WHERE salon_id=? AND active=1 AND name LIKE ? ORDER BY name LIMIT 5`, sid, like);
-  const products = user.role === 'pro' ? [] : await all(`SELECT id, name, stock, unit, kind FROM products WHERE salon_id=? AND active=1 AND name LIKE ? ORDER BY name LIMIT 5`, sid, like);
+  const products = user.role === 'pro' || (await get('SELECT sells_products FROM salons WHERE id=?', sid))?.sells_products === 0 ? [] : await all(`SELECT id, name, stock, unit, kind FROM products WHERE salon_id=? AND active=1 AND name LIKE ? ORDER BY name LIMIT 5`, sid, like);
   let visits = (await loadVisits(sid, `v.date>=? AND v.status IN ('scheduled','confirmed','waiting','in_progress') AND c.name LIKE ?`, addDays(today(), -1), like)).slice(0, 6);
   if (user.role === 'pro') visits = visits.filter((v) => v.items.some((i) => i.professional_id === user.professional_id));
   return { clients, services, products, visits: visits.map(slim) };

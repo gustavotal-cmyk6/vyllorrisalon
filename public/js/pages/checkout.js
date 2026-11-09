@@ -5,7 +5,7 @@ import { clientPicker } from './visits.js';
 export async function openCheckout({ visit = null, client = null, onDone = () => {} } = {}) {
   let products = [];
   try {
-    products = can.pro() ? [] : await GET('/api/products?kind=retail');
+    products = can.pro() || !can.products() ? [] : await GET('/api/products?kind=retail');
   } catch (e) {
     return fail(e);
   }

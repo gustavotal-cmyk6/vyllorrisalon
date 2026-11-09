@@ -53,13 +53,13 @@ async function summary(body, range) {
 
 async function sales(body, range) {
   const r = await GET(`/api/reports/sales?from=${range.from}&to=${range.to}`);
-  body.innerHTML = `<div class="kpis three">
+  body.innerHTML = `<div class="kpis ${can.products() ? 'three' : ''}">
       <div class="kpi hl"><span>Vendido</span><b>${money(r.summary.revenue)}</b>${trend(r.compare.revenue)}</div>
       <div class="kpi"><span>Em serviços</span><b>${money(r.summary.revenue_services)}</b></div>
-      <div class="kpi"><span>Em produtos</span><b>${money(r.summary.revenue_products)}</b></div></div>
+      ${can.products() ? `<div class="kpi"><span>Em produtos</span><b>${money(r.summary.revenue_products)}</b></div>` : ''}</div>
     <div class="grid g2">
       <div class="card"><h2>Serviços que mais venderam</h2>${bars(r.services.slice(0, 8), { sub: (x) => `${x.qty} atendimento(s)` })}</div>
-      <div class="card"><h2>Produtos que mais venderam</h2>${bars(r.products.slice(0, 8), { sub: (x) => `${String(x.qty).replace('.', ',')} unidade(s)` })}</div>
+      ${can.products() ? `<div class="card"><h2>Produtos que mais venderam</h2>${bars(r.products.slice(0, 8), { sub: (x) => `${String(x.qty).replace('.', ',')} unidade(s)` })}</div>` : ''}
       <div class="card"><h2>Como as clientes pagaram</h2>${bars(r.methods, { label: (x) => x.method, sub: (x) => `${x.n} pagamento(s)` })}</div>
       <div class="card"><h2>Vendas por tipo de serviço</h2>${bars(r.categories, { sub: (x) => `${x.qty} atendimento(s)` })}</div>
     </div>
@@ -108,6 +108,6 @@ async function costs(body, range) {
   body.innerHTML = `<div class="kpis three">
       <div class="kpi"><span>Despesas</span><b>${money(f.expenses)}</b><small>pagas ${money(f.expenses_paid)} · a pagar ${money(f.expenses_open)}</small></div>
       <div class="kpi"><span>Comissões geradas</span><b>${money(f.commissions)}</b><small>pagas ${money(f.commissions_paid)}</small></div>
-      <div class="kpi"><span>Custo dos produtos vendidos</span><b>${money(f.product_cost)}</b></div></div>
+      ${can.products() ? `<div class="kpi"><span>Custo dos produtos vendidos</span><b>${money(f.product_cost)}</b></div>` : ''}</div>
     <div class="card"><h2>Para onde foi o dinheiro</h2>${bars(f.expenses_by_category, { label: (x) => x.category })}</div>`;
 }

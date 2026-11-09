@@ -43,6 +43,12 @@ async function salonTab(body) {
     </div>
     <p class="small muted" style="margin-top:10px">${solo ? 'Você é a única profissional da agenda. Se contratar alguém, troque para “Tenho equipe”: nada é apagado.' : 'Para trabalhar sozinha, deixe só uma profissional ativa na Equipe.'}</p>
     ${solo ? `<button class="btn soft sm" data-hours style="margin-top:10px">${ic('clock', 16)} Editar meus dias e horários</button>` : ''}</div>
+  <div class="card"><div class="card-head"><h2>Você vende produtos?</h2></div>
+    <div class="mode-pick" style="max-width:520px">
+      <label><input type="radio" name="sells" value="0" class="sr" ${s.sells_products ? '' : 'checked'}><span>${ic('scissors', 22)}<b>Só faço serviços</b><small>Sem produtos e estoque no painel</small></span></label>
+      <label><input type="radio" name="sells" value="1" class="sr" ${s.sells_products ? 'checked' : ''}><span>${ic('box', 22)}<b>Vendo produtos</b><small>Estoque, venda de produtos e relatórios</small></span></label>
+    </div>
+    <p class="small muted" style="margin-top:10px">${s.sells_products ? 'Se você não vende produtos, escolha “Só faço serviços” para deixar o painel mais limpo.' : 'Estoque e venda de produtos estão escondidos. Nada foi apagado: é só voltar para “Vendo produtos”.'}</p></div>
   <form class="card" novalidate data-form>
     <h2 style="margin-bottom:6px">Perfil do salão</h2>
     <p class="small muted" style="margin-bottom:14px">Estas informações aparecem na página de agendamento das clientes.</p>
@@ -60,6 +66,18 @@ async function salonTab(body) {
     <label class="field"><span>Horário de funcionamento do salão</span><textarea name="opening_hours" maxlength="200" rows="2" placeholder="Ter a sex: 9h às 19h&#10;Sáb: 8h às 14h">${esc(s.opening_hours || '')}</textarea><small>Uma linha por faixa de dias. Os horários do atendimento a domicílio aparecem separados, conforme a aba Domicílio.</small></label>
     <div class="field"><span>Fotos do espaço e dos trabalhos <small>(até 8)</small></span><div class="gallery-pick" data-gallery></div></div>
     <div class="actions"><button class="btn primary">${ic('check', 18)} Salvar perfil</button></div></form>`;
+  body.querySelectorAll('[name=sells]').forEach((r) => (r.onchange = async () => {
+    try {
+      const res = await PUT('/api/salon/products', { on: r.value === '1' });
+      state.user.sells_products = res.sells_products;
+      toast(res.sells_products ? 'Pronto: estoque e venda de produtos ativados' : 'Pronto: painel só com serviços');
+      document.getElementById('app').innerHTML = '';
+      refresh();
+    } catch (e) {
+      fail(e);
+      body.querySelector(`[name=sells][value="${s.sells_products ? 1 : 0}"]`).checked = true;
+    }
+  }));
   body.querySelectorAll('[name=mode]').forEach((r) => (r.onchange = async () => {
     try {
       const res = await PUT('/api/salon/mode', { mode: r.value });

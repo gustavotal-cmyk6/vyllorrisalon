@@ -38,7 +38,7 @@ export async function loadUser(req) {
   const token = sessionToken(req);
   if (!token) return null;
   const u = await get(
-    `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, s.logo, s.team_mode, se.expires_at
+    `SELECT u.id, u.salon_id, u.name, u.email, u.role, u.professional_id, s.name AS salon_name, s.is_demo, s.logo, s.team_mode, s.sells_products, se.expires_at
        FROM sessions se JOIN users u ON u.id=se.user_id JOIN salons s ON s.id=u.salon_id
       WHERE se.token_hash=? AND u.active=1`,
     sha(token)
@@ -109,6 +109,6 @@ export async function ensureSoloPro(salonId, userId, name) {
 
 export const publicUser = (u) => ({
   id: u.id, name: u.name, email: u.email, role: u.role, professional_id: u.professional_id,
-  salon_id: u.salon_id, salon_name: u.salon_name, is_demo: !!u.is_demo, team_mode: u.team_mode || 'team', logo_url: u.logo ? `/api/images/${u.logo}` : null,
+  salon_id: u.salon_id, salon_name: u.salon_name, is_demo: !!u.is_demo, team_mode: u.team_mode || 'team', sells_products: u.sells_products !== 0, logo_url: u.logo ? `/api/images/${u.logo}` : null,
 });
 export { all };

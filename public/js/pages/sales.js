@@ -6,7 +6,7 @@ const ui = { tab: 'list', period: 'month' };
 
 export default async function sales(root, { query }) {
   if (query.pendentes && !ui.fromLink) (ui.tab = 'pending'), (ui.fromLink = true);
-  root.innerHTML = `${pageHead('Vendas', 'Serviços e produtos vendidos, recebimentos e valores a receber', `<button class="btn primary" data-new>${ic('plus', 18)} Registrar venda</button>`)}
+  root.innerHTML = `${pageHead('Vendas', can.products() ? 'Serviços e produtos vendidos, recebimentos e valores a receber' : 'Serviços vendidos, recebimentos e valores a receber', `<button class="btn primary" data-new>${ic('plus', 18)} Registrar venda</button>`)}
     <div class="tabs"><button data-tab="list" class="${ui.tab === 'list' ? 'on' : ''}">Vendas</button><button data-tab="panel" class="${ui.tab === 'panel' ? 'on' : ''}">Resumo</button><button data-tab="pending" class="${ui.tab === 'pending' ? 'on' : ''}">A receber</button></div>
     ${ui.tab !== 'pending' ? `${periodPicker('per', ui.period)}` : ''}
     <div data-body><div class="loading">Carregando…</div></div>`;
@@ -25,7 +25,7 @@ async function panel(body, range) {
   const maxDay = Math.max(...r.daily.map((d) => d.total), 1);
   body.innerHTML = `
   <div class="kpis three">
-    <div class="kpi hl"><span>Vendido no período</span><b>${money(s.revenue)}</b>${trend(c.revenue)}<small>serviços ${money(s.revenue_services)} · produtos ${money(s.revenue_products)}</small></div>
+    <div class="kpi hl"><span>Vendido no período</span><b>${money(s.revenue)}</b>${trend(c.revenue)}${can.products() ? `<small>serviços ${money(s.revenue_services)} · produtos ${money(s.revenue_products)}</small>` : ''}</div>
     <div class="kpi"><span>Atendimentos</span><b>${s.services_count}</b><small>${s.clients_served} cliente(s)</small></div>
     <div class="kpi"><span>Ticket médio</span><b>${money(s.ticket_avg)}</b><small>quanto cada cliente gastou, em média</small></div>
   </div>
@@ -35,7 +35,7 @@ async function panel(body, range) {
       <small class="muted" style="font-size:.6rem;text-align:center;margin-top:3px">${fmtShort(d.date).slice(0, 2)}</small></div>`).join('')}</div>` : empty('Nenhuma venda no período.', '', 'chart')}</div>
   <div class="grid g2">
     <div class="card"><h2>Serviços mais vendidos</h2>${bars(r.services.slice(0, 6), { sub: (x) => `${x.qty} atendimento(s)` })}</div>
-    <div class="card"><h2>Produtos mais vendidos</h2>${bars(r.products.slice(0, 6), { sub: (x) => `${String(x.qty).replace('.', ',')} unidade(s)` })}</div>
+    ${can.products() ? `<div class="card"><h2>Produtos mais vendidos</h2>${bars(r.products.slice(0, 6), { sub: (x) => `${String(x.qty).replace('.', ',')} unidade(s)` })}</div>` : ''}
   </div>
   <p class="legend">Mais análises (por profissional, forma de pagamento e categoria) em <a href="#/relatorios">Relatórios</a>.</p>`;
 }

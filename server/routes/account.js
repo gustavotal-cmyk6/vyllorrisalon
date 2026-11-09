@@ -59,7 +59,7 @@ route('POST', '/api/me/password', ALL, async ({ body, user }) => {
 /** Cor da página pública: só #rrggbb; qualquer outra coisa volta ao rosa padrão. */
 const pageColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '').trim()) ? String(c).trim().toLowerCase() : null);
 export async function salonProfile(sid) {
-  const s = await get(`SELECT id,name,slug,booking_enabled,team_mode,headline,page_color,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
+  const s = await get(`SELECT id,name,slug,booking_enabled,team_mode,sells_products,headline,page_color,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
                          FROM salons WHERE id=?`, sid);
   let gallery = [];
   try {
@@ -83,6 +83,12 @@ route('PUT', '/api/salon/profile', OWNER, async ({ body, sid }) => {
     await imageRef(body.logo, sid), await imageRef(body.cover_photo, sid), JSON.stringify(gallery.filter(Boolean)),
     V.int(body.cancel_hours ?? 12, 'Antecedência para cancelar', { min: 0, max: 168 }), sid);
   return salonProfile(sid);
+});
+/** Vende produtos? Se não, o painel esconde estoque e venda de produtos (nada é apagado). */
+route('PUT', '/api/salon/products', OWNER, async ({ body, sid }) => {
+  const on = body.on === true || body.on === 1 || body.on === '1';
+  await run('UPDATE salons SET sells_products=? WHERE id=?', on ? 1 : 0, sid);
+  return { sells_products: on };
 });
 /** Modo de trabalho: sozinha (sem telas de equipe) ou com equipe. Nada é apagado ao trocar. */
 route('PUT', '/api/salon/mode', OWNER, async ({ body, sid, user }) => {
