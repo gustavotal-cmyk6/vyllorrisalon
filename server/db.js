@@ -163,6 +163,8 @@ export const ready = (async () => {
     "ALTER TABLE salons ADD COLUMN team_mode TEXT NOT NULL DEFAULT 'team'",
     // frase de destaque da página pública (palavra entre *asteriscos* fica em destaque)
     'ALTER TABLE salons ADD COLUMN headline TEXT',
+    // cor principal da página pública (#rrggbb); vazio = rosa padrão
+    'ALTER TABLE salons ADD COLUMN page_color TEXT',
     // pagamento antecipado (sinal)
     'ALTER TABLE salons ADD COLUMN deposit_enabled INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE salons ADD COLUMN deposit_pct REAL NOT NULL DEFAULT 50',

@@ -56,8 +56,10 @@ route('POST', '/api/me/password', ALL, async ({ body, user }) => {
 });
 
 // ---- Configurações do salão ----
+/** Cor da página pública: só #rrggbb; qualquer outra coisa volta ao rosa padrão. */
+const pageColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '').trim()) ? String(c).trim().toLowerCase() : null);
 export async function salonProfile(sid) {
-  const s = await get(`SELECT id,name,slug,booking_enabled,team_mode,headline,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
+  const s = await get(`SELECT id,name,slug,booking_enabled,team_mode,headline,page_color,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
                          FROM salons WHERE id=?`, sid);
   let gallery = [];
   try {
@@ -74,8 +76,8 @@ route('PUT', '/api/salon', OWNER, async ({ body, sid }) => {
 route('PUT', '/api/salon/profile', OWNER, async ({ body, sid }) => {
   const gallery = [];
   for (const g of (Array.isArray(body.gallery) ? body.gallery : []).slice(0, 8)) gallery.push(await imageRef(g, sid));
-  await run(`UPDATE salons SET name=?, headline=?, description=?, address=?, phone=?, instagram=?, opening_hours=?, logo=?, cover_photo=?, gallery=?, cancel_hours=? WHERE id=?`,
-    V.str(body.name, 'Nome do salão', { req: true, max: 80 }), V.str(body.headline, 'Frase de destaque', { max: 90 }), V.str(body.description, 'Apresentação', { max: 600 }),
+  await run(`UPDATE salons SET name=?, headline=?, page_color=?, description=?, address=?, phone=?, instagram=?, opening_hours=?, logo=?, cover_photo=?, gallery=?, cancel_hours=? WHERE id=?`,
+    V.str(body.name, 'Nome do salão', { req: true, max: 80 }), V.str(body.headline, 'Frase de destaque', { max: 90 }), pageColor(body.page_color), V.str(body.description, 'Apresentação', { max: 600 }),
     V.str(body.address, 'Endereço', { max: 200 }), V.phone(body.phone, 'WhatsApp do salão'),
     V.str(body.instagram, 'Instagram', { max: 60 })?.replace(/^@/, '') || null, V.str(body.opening_hours, 'Horário de funcionamento', { max: 200 }),
     await imageRef(body.logo, sid), await imageRef(body.cover_photo, sid), JSON.stringify(gallery.filter(Boolean)),

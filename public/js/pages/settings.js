@@ -3,6 +3,9 @@ import { refresh } from '../app.js';
 import { pushState, enablePush, disablePush } from '../push.js';
 import { editPro } from './team.js';
 
+/** Cores prontas para a página pública das clientes. */
+const PAGE_COLORS = [['#ec3f87', 'Rosa'], ['#8b5cf6', 'Roxo'], ['#c0264d', 'Vinho'], ['#d4a24c', 'Dourado'], ['#c9967a', 'Nude'], ['#3b82f6', 'Azul'], ['#10b981', 'Verde'], ['#f97316', 'Coral']];
+
 const ROLE_HELP = {
   owner: 'Acesso total, inclusive configurações do salão e acessos da equipe.',
   manager: 'Tudo da proprietária (agenda, vendas, financeiro, comissões, equipe, relatórios), exceto configurações e acessos.',
@@ -45,7 +48,11 @@ async function salonTab(body) {
     <p class="small muted" style="margin-bottom:14px">Estas informações aparecem na página de agendamento das clientes.</p>
     <div class="grid g2" style="margin-bottom:6px"><div data-logo></div><div data-cover></div></div>
     <label class="field"><span>Nome do salão *</span><input name="name" value="${esc(s.name)}" maxlength="80"></label>
-    <label class="field"><span>Frase de destaque da página</span><input name="headline" maxlength="90" value="${esc(s.headline || '')}" placeholder="Cuide da sua *beleza* com quem entende!"><small>Aparece grande na capa. A palavra entre *asteriscos* fica em rosa.</small></label>
+    <label class="field"><span>Frase de destaque da página</span><input name="headline" maxlength="90" value="${esc(s.headline || '')}" placeholder="Cuide da sua *beleza* com quem entende!"><small>Aparece grande na capa. A palavra entre *asteriscos* fica destacada na cor da página.</small></label>
+    <div class="field"><span>Cor da página de agendamento</span>
+      <div class="swatches" data-colors>${PAGE_COLORS.map(([hex, nome]) => `<button type="button" class="swatch ${(s.page_color || PAGE_COLORS[0][0]) === hex ? 'on' : ''}" data-color="${hex}" style="--c:${hex}" title="${nome}" aria-label="${nome}"></button>`).join('')}
+        <label class="swatch custom ${s.page_color && !PAGE_COLORS.some(([h]) => h === s.page_color) ? 'on' : ''}" title="Outra cor" style="--c:${esc(s.page_color || '#ec3f87')}"><input type="color" name="page_color" value="${esc(s.page_color || PAGE_COLORS[0][0])}" aria-label="Escolher outra cor"></label></div>
+      <small>Muda botões, destaques e o fundo da página que as clientes veem. Toque no último círculo para escolher qualquer cor.</small></div>
     <label class="field"><span>Apresentação</span><textarea name="description" maxlength="600" placeholder="Ex.: Salão especializado em coloração e cuidados com os cabelos, no coração da Vila Mariana.">${esc(s.description || '')}</textarea></label>
     <label class="field"><span>Endereço</span><input name="address" maxlength="200" value="${esc(s.address || '')}" placeholder="Rua, número, bairro, cidade"></label>
     <div class="row"><label class="field"><span>WhatsApp do salão</span><input name="phone" inputmode="tel" maxlength="20" value="${esc(fmtPhone(s.phone))}"></label>
@@ -85,6 +92,17 @@ async function salonTab(body) {
         fail(err);
       }
       drawGallery();
+  const colors = body.querySelector('[data-colors]');
+  const pick = (hex, el) => {
+    colors.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === el));
+    colors.querySelector('[name=page_color]').value = hex;
+  };
+  colors.querySelectorAll('[data-color]').forEach((b) => (b.onclick = () => pick(b.dataset.color, b)));
+  colors.querySelector('[name=page_color]').oninput = (e) => {
+    const lab = e.target.closest('.swatch');
+    lab.style.setProperty('--c', e.target.value);
+    pick(e.target.value, lab);
+  };
     });
   };
   drawGallery();
@@ -93,7 +111,7 @@ async function salonTab(body) {
     const f = e.target;
     await submitting(f.querySelector('.actions .btn'), async () => {
       const r = await PUT('/api/salon/profile', {
-        name: f.name.value, headline: f.headline.value, description: f.description.value, address: f.address.value, phone: f.phone.value, instagram: f.instagram.value,
+        name: f.name.value, headline: f.headline.value, page_color: f.page_color.value, description: f.description.value, address: f.address.value, phone: f.phone.value, instagram: f.instagram.value,
         opening_hours: f.opening_hours.value, logo: logo.get(), cover_photo: cover.get(), gallery: gallery.map((g) => g.id), cancel_hours: s.cancel_hours,
       });
       state.user.salon_name = r.name;

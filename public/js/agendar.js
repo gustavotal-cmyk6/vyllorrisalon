@@ -421,10 +421,28 @@ async function mine() {
   }));
 }
 
+/** Cor escolhida pelo salão: gera tom claro, tom escuro e fundo escuro levemente tingido. */
+function applyColor(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex || '')) return false;
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const mix = (to, t) => c.map((v, i) => Math.round(v + (to[i] - v) * t));
+  const h = (a) => '#' + a.map((v) => v.toString(16).padStart(2, '0')).join('');
+  const dark = [10, 9, 11];
+  const v = { acc: c, acc2: mix([255, 255, 255], 0.25), acc3: mix([0, 0, 0], 0.18), pbg: mix(dark, 0.92), pbg2: mix(dark, 0.8), pbg3: mix(dark, 0.87) };
+  const r = document.documentElement.style;
+  for (const [k, a] of Object.entries(v)) r.setProperty('--' + k, h(a));
+  r.setProperty('--acc-rgb', v.acc.join(', '));
+  r.setProperty('--acc2-rgb', v.acc2.join(', '));
+  r.setProperty('--pbg-rgb', v.pbg.join(', '));
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', h(v.pbg));
+  return true;
+}
+
 (async () => {
   try {
     st.salon = await call('GET', `/api/public/${encodeURIComponent(slug)}`);
     document.title = `Agendar · ${st.salon.name}`;
+    applyColor(st.salon.page_color) || document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#160a12');
     const token = new URLSearchParams(location.search).get('reserva');
     history.replaceState({ step: 'home' }, '', location.pathname + location.search);
     if (token) {

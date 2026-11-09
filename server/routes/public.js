@@ -64,7 +64,7 @@ route('GET', '/api/public/:slug', null, async ({ params }) => {
     delete s.requires_deposit;
   }
   return {
-    name: p.name, headline: p.headline, description: p.description, address: p.address, phone: p.phone, instagram: p.instagram, opening_hours: p.opening_hours,
+    name: p.name, headline: p.headline, page_color: p.page_color, description: p.description, address: p.address, phone: p.phone, instagram: p.instagram, opening_hours: p.opening_hours,
     logo_url: p.logo_url, cover_url: p.cover_url, gallery_urls: p.gallery_urls, cancel_hours: p.cancel_hours, max_days: MAX_DAYS,
     services: services.filter((s) => s.pros.length),
     professionals: pros.map((x) => ({ id: x.id, name: x.name, specialty: x.specialty, photo_url: imageUrl(x.photo) })),
