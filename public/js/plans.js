@@ -2,11 +2,11 @@
 import { ic, money } from './core.js';
 
 export const PLAN_ROWS = [
-  ['Profissionais na agenda', '1 (você)', 'Até 5 inclusas'],
+  ['Profissionais na agenda', '1 (você)', 'Até 5 incluídos'],
   ['Profissional extra', '—', '+ R$ 9,90/mês cada'],
   ['Acessos ao painel', 'Só você', 'Recepção, gerente e cada profissional'],
   ['Agenda separada por profissional', false, true],
-  ['Comissões calculadas sozinhas', false, true],
+  ['Comissões calculadas automaticamente', false, true],
   ['Relatórios por profissional', false, true],
   ['Página do salão com sua logo, fotos e cores', true, true],
   ['Agendamento online 24h', true, true],

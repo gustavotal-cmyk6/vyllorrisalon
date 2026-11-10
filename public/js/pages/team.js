@@ -28,7 +28,7 @@ export default async function team(root, { query }) {
           ${p.active && todayCount(p.id) ? ` · <b>${todayCount(p.id)}</b> agend.` : ''}</div>
       </div>`;
     }).join('')}</div>`
-      : `<div class="card">${empty('Nenhuma profissional cadastrada. Cadastre cabeleireiras, manicures, maquiadoras… para começar a agendar.', `<button class="btn primary" data-first>${ic('plus', 18)} Cadastrar a primeira</button>`, 'users')}</div>`}`;
+      : `<div class="card">${empty('Nenhum profissional cadastrado. Cadastre cabeleireiros, manicures, maquiadores… para começar a agendar.', `<button class="btn primary" data-first>${ic('plus', 18)} Cadastrar a primeira</button>`, 'users')}</div>`}`;
   root.querySelector('[data-new]').onclick = () => editPro();
   root.querySelector('[data-first]')?.addEventListener('click', () => editPro());
   root.querySelectorAll('[data-open]').forEach((c) => {

@@ -118,7 +118,7 @@ export async function createSalon({ salonName, name, email, password, demo = fal
  */
 export async function ensureSoloPro(salonId, userId, name) {
   const actives = await all('SELECT id FROM professionals WHERE salon_id=? AND active=1', salonId);
-  if (actives.length > 1) throw new HttpError(409, 'Há mais de uma profissional ativa. Desative as outras na Equipe antes de mudar para "Trabalho sozinha".');
+  if (actives.length > 1) throw new HttpError(409, 'Há mais de um profissional ativo. Desative as outras na Equipe antes de mudar para "Trabalho solo".');
   const user = await get('SELECT professional_id FROM users WHERE id=?', userId);
   if (user?.professional_id && actives.some((a) => a.id === user.professional_id)) return user.professional_id;
   const proId = actives[0]?.id ?? (await run(`INSERT INTO professionals(salon_id,name,specialty,work_days,start_time,end_time,commission_type,commission_value) VALUES(?,?,?,?,?,?,?,?)`,

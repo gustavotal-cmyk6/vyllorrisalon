@@ -11,10 +11,10 @@ const KIND = {
 };
 const STATUS = { new: ['Recebido', 'info'], answered: ['Respondido', 'ok'], done: ['Resolvido', 'ok'] };
 const FAQ = [
-  ['Como as clientes agendam sozinhas?', 'Em Configurações → Agendamento online, ative a página e copie o seu link. Coloque na bio do Instagram e no WhatsApp.'],
+  ['Como os clientes agendam pelo link?', 'Em Configurações → Agendamento online, ative a página e copie o seu link. Coloque na bio do Instagram e no WhatsApp.'],
   ['Como mudo as cores e a logo da minha página?', 'Em Configurações → Salão: envie a logo, a foto de capa e escolha a cor da página.'],
   ['Como cobro sinal por Pix?', 'Em Configurações → Sinal online (Pix), cadastre sua chave Pix e escolha a porcentagem do sinal.'],
-  ['Trabalho sozinha. Preciso cadastrar equipe?', 'Não. Em Configurações → Salão escolha "Trabalho sozinha": as telas de equipe e comissões somem.'],
+  ['Trabalho solo. Preciso cadastrar equipe?', 'Não. Em Configurações → Salão escolha "Trabalho solo": as telas de equipe e comissões somem.'],
   ['Como ativo as notificações no celular?', 'No Início aparece o aviso "Ative as notificações" com o passo a passo para o seu celular.'],
 ];
 
@@ -103,7 +103,7 @@ function send(body, root) {
     e.preventDefault();
     await submitting(f.querySelector('.actions .btn'), async () => {
       await POST('/api/feedback', { kind, message: f.message.value, rating: rating || undefined, image: image || undefined, page: document.referrer ? undefined : 'app' });
-      toast('Recebemos! Obrigada por ajudar a melhorar o Vyllorri 💜');
+      toast('Recebemos! Obrigado por ajudar a melhorar o Vyllorri 💜');
       ui.tab = 'mine';
       help(root);
     }).catch(() => {});
