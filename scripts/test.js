@@ -26,7 +26,7 @@ const mpSrv = (await import('node:http')).createServer((req, res) => {
   });
 }).listen(MP_PORT);
 const srv = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50', DB_MAX_CONCURRENCY: '3', DB_IDLE_MS: '400', MP_ACCESS_TOKEN: 'mp-teste', MP_BASE_URL: `http://localhost:${MP_PORT}` }, stdio: ['ignore', 'pipe', 'inherit'],
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RATE_LIMIT_MULT: '50', DB_MAX_CONCURRENCY: '3', DB_IDLE_MS: '400', ADMIN_EMAILS: 'ana@teste.com', MP_ACCESS_TOKEN: 'mp-teste', MP_BASE_URL: `http://localhost:${MP_PORT}` }, stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((r) => srv.stdout.once('data', r));
 
@@ -537,6 +537,26 @@ try {
     const rec = client();
     ok(await rec('POST', '/api/auth/login', { email: 'rec@plano.com', password: 'senha1234' }));
     ok(await rec('GET', '/api/clients'));
+  });
+
+  await step('ajuda e sugestões: envio com print, resposta da equipe e acesso restrito à caixa de entrada', async () => {
+    const t = client();
+    ok(await t('POST', '/api/auth/login', { email: 'mi@plano.com', password: 'senha1234' }));
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    assert.equal((await t('POST', '/api/feedback', { kind: 'problem', message: 'oi' })).status, 400, 'mensagem curta');
+    const sent = ok(await t('POST', '/api/feedback', { kind: 'problem', rating: 4, message: 'A agenda não atualizou depois de remarcar.', image: png }));
+    let mine = ok(await t('GET', '/api/feedback/mine'));
+    assert.equal(mine[0].id, sent.id);
+    assert.ok(mine[0].image_url);
+    // quem não é da equipe Vyllorri não vê a caixa de entrada
+    assert.equal((await t('GET', '/api/admin/feedback')).status, 403);
+    // equipe (ADMIN_EMAILS) vê de todos os salões e responde
+    const box = ok(await owner('GET', '/api/admin/feedback?status=new'));
+    assert.ok(box.items.some((f) => f.id === sent.id && f.salon_name === 'Equipe Plano'));
+    ok(await owner('PUT', `/api/admin/feedback/${sent.id}`, { reply: 'Corrigido, obrigado!' }));
+    mine = ok(await t('GET', '/api/feedback/mine'));
+    assert.equal(mine[0].reply, 'Corrigido, obrigado!');
+    assert.equal(mine[0].status, 'answered');
   });
 
   await step('banco: 60 acessos simultâneos com limite de 3 conexões, sem erro; conexão ociosa fecha e reabre', async () => {

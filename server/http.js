@@ -61,7 +61,7 @@ export async function dispatch(req, url, loadUser) {
       if (user.team_mode === 'solo' && user.role !== 'owner' && !/^\/api\/(me|auth)/.test(url.pathname))
         throw new HttpError(403, 'O salão está no plano Individual: só a proprietária acessa o painel. Peça para ela mudar para "Tenho equipe".');
       // teste grátis acabou ou mensalidade atrasada: só assinatura, conta e troca de plano continuam abertas
-      if (user.billing?.blocked && !/^\/api\/(billing|me|auth|salon\/mode|salon$)/.test(url.pathname))
+      if (user.billing?.blocked && !/^\/api\/(billing|me|auth|feedback|salon\/mode|salon$)/.test(url.pathname))
         throw new HttpError(402, 'O acesso do salão está pausado. Assine um plano para continuar usando.', { code: 'billing' });
     }
     const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req);

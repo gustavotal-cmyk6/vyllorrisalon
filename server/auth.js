@@ -3,6 +3,7 @@ import { all, get, run, tx } from './db.js';
 import { HttpError } from './http.js';
 import { nowStr } from './util.js';
 import { billingInfo, trialEnd } from './billing.js';
+import { isPlatformAdmin } from './routes/feedback.js';
 
 const SESSION_DAYS = 14;
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -123,6 +124,6 @@ export async function ensureSoloPro(salonId, userId, name) {
 
 export const publicUser = (u) => ({
   id: u.id, name: u.name, email: u.email, role: u.role, professional_id: u.professional_id,
-  salon_id: u.salon_id, salon_name: u.salon_name, is_demo: !!u.is_demo, team_mode: u.team_mode || 'team', sells_products: u.sells_products !== 0, billing: u.billing, logo_url: u.logo ? `/api/images/${u.logo}` : null,
+  salon_id: u.salon_id, salon_name: u.salon_name, is_demo: !!u.is_demo, team_mode: u.team_mode || 'team', sells_products: u.sells_products !== 0, billing: u.billing, is_admin: isPlatformAdmin(u.email), logo_url: u.logo ? `/api/images/${u.logo}` : null,
 });
 export { all };

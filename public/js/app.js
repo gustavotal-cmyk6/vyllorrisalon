@@ -16,6 +16,7 @@ const PAGES = {
   relatorios: () => import('./pages/reports.js'),
   config: () => import('./pages/settings.js'),
   assinatura: () => import('./pages/billing.js'),
+  ajuda: () => import('./pages/help.js'),
 };
 const ADMIN = ['owner', 'manager'], STAFF = ['owner', 'manager', 'reception'];
 
@@ -34,6 +35,7 @@ function navItems() {
     { k: 'relatorios', ico: 'chart', label: 'Relatórios', roles: ADMIN, group: 'Gestão' },
     { k: 'config', ico: 'settings', label: 'Configurações', group: 'Conta' },
     { k: 'assinatura', ico: 'star', label: 'Assinatura', roles: ['owner'], group: 'Conta' },
+    { k: 'ajuda', ico: 'message', label: 'Ajuda e sugestões', group: 'Conta' },
   ].filter((i) => (!i.roles || i.roles.includes(r)) && !(can.solo() && ['equipe', 'comissoes'].includes(i.k)) && !(!can.products() && i.k === 'estoque'));
 }
 /** Barra inferior do celular: as 4 áreas mais usadas de cada perfil + "Mais". */
@@ -69,6 +71,7 @@ function shell() {
         <div class="logo">${brandMark()}<div class="name">Vyllorri<small>${esc(state.user.salon_name)}</small></div></div>
         <div class="search">${ic('search', 18)}<input id="gsearch" type="search" placeholder="Buscar cliente, telefone, serviço…" autocomplete="off" aria-label="Busca"><div class="search-results hidden" id="gresults"></div></div>
         <span class="spacer"></span>
+        <a class="tb-beta" href="#/ajuda" title="Estamos em testes: mande sua opinião">${ic('message', 15)}<span>Beta · Opinar</span></a>
         <button class="tb-btn tb-plus m-only" data-quick aria-label="Novo: agendamento, venda, cliente…">${ic('plus', 22)}</button>
         <button class="tb-btn m-only" data-msearch aria-label="Buscar">${ic('search', 20)}</button>
         <button class="tb-btn" data-bell aria-label="Notificações">${ic('bell', 20)}<span class="dot hidden" data-bell-count></span></button>
@@ -270,9 +273,9 @@ async function route(soft = false) {
   if (key === 'entrar' || key === 'criar') return (location.hash = '#/');
   if (!document.getElementById('page')) shell();
   // acesso pausado: só a tela de assinatura fica disponível
-  if (state.user.billing?.blocked && key !== 'assinatura') return (location.hash = '#/assinatura');
+  if (state.user.billing?.blocked && !['assinatura', 'ajuda'].includes(key)) return (location.hash = '#/assinatura');
   billBar(key);
-  const allowed = navItems().some((i) => i.k === key) || key === 'assinatura';
+  const allowed = navItems().some((i) => i.k === key) || key === 'assinatura' || key === 'ajuda';
   const loader = PAGES[allowed ? key : ''];
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === (allowed ? key : '')));
   const page = document.getElementById('page');
