@@ -16,7 +16,7 @@ const ui = { tab: 'salon' };
 
 export default async function settings(root) {
   const owner = can.owner();
-  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Pagamentos no salão'], ...(can.solo() ? [] : [['users', 'Acessos da equipe']]), ['me', 'Minha conta']] : [['me', 'Minha conta']];
+  const TABS = owner ? [['salon', 'Salão'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Pagamentos no salão'], ...(can.solo() ? [] : [['users', 'Acessos da equipe']]), ['me', 'Minha conta'], ['security', 'Segurança']] : [['me', 'Minha conta'], ['security', 'Segurança']];
   if (!TABS.some(([k]) => k === ui.tab)) ui.tab = TABS[0][0];
   root.innerHTML = `${pageHead('Configurações', `${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]}`)}
     ${TABS.length > 1 ? `<div class="tabs wrap">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
@@ -29,6 +29,7 @@ export default async function settings(root) {
   if (ui.tab === 'users') return usersTab(body);
   if (ui.tab === 'deposit') return depositTab(body);
   if (ui.tab === 'home') return homeTab(body);
+  if (ui.tab === 'security') return (await import('./security.js')).default(body);
   meTab(body);
 }
 

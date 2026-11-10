@@ -2,11 +2,12 @@ import { route, HttpError, OWNER, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run } from '../db.js';
 import {
-  createSalon, createSession, destroySession, sessionToken, cookieHeader, verifyPassword, hashPassword,
+  createSalon, createSession, destroySession, sessionToken, sha, cookieHeader, verifyPassword, hashPassword,
   throttleAuth, clientIp, clearThrottle, publicUser, loadUser, slugify, ensureSoloPro,
 } from '../auth.js';
 import { nowStr } from '../util.js';
 import { imageRef, imageUrl } from './images.js';
+import { verifySecondFactor, audit } from '../security.js';
 
 const strongPw = (pw) => {
   if (typeof pw !== 'string' || pw.length < 8) throw new HttpError(400, 'A senha deve ter pelo menos 8 caracteres.');
@@ -26,7 +27,7 @@ route('POST', '/api/auth/signup', null, async ({ body, req }) => {
     demo: !!body.demo && !process.env.VERCEL && process.env.ALLOW_DEMO !== '0',
     teamMode: V.oneOf(body.team_mode, ['solo', 'team'], 'Modo de trabalho') || 'team',
   });
-  const token = await createSession(userId);
+  const token = await createSession(userId, req);
   return { __cookie: cookieHeader(token, req), data: { ok: true, salon_id: salonId } };
 });
 
@@ -36,10 +37,19 @@ route('POST', '/api/auth/login', null, async ({ body, req }) => {
   // 8 erros por IP+e-mail e 25 por e-mail (de qualquer IP) a cada 15 min: barra força bruta distribuída
   await throttleAuth([[key, 8], [`login:${email}`, 25]]);
   const u = await get('SELECT * FROM users WHERE email=? AND active=1', email);
-  if (!u || typeof body.password !== 'string' || !verifyPassword(body.password, u.pass_hash))
+  if (!u || typeof body.password !== 'string' || !verifyPassword(body.password, u.pass_hash)) {
+    if (u) await audit(req, u, 'login_failed', 'senha incorreta');
     throw new HttpError(401, 'E-mail ou senha incorretos.');
+  }
+  try {
+    await verifySecondFactor(u, body.code);
+  } catch (e) {
+    if (body.code) await audit(req, u, 'login_failed', 'código de 2 etapas incorreto');
+    throw e;
+  }
   await clearThrottle(key);
-  return { __cookie: cookieHeader(await createSession(u.id), req), data: { ok: true } };
+  await audit(req, u, 'login');
+  return { __cookie: cookieHeader(await createSession(u.id, req), req), data: { ok: true } };
 });
 
 route('POST', '/api/auth/logout', null, async ({ req }) => {
@@ -52,10 +62,13 @@ route('GET', '/api/me', null, async ({ req }) => {
   return { user: u ? publicUser(u) : null };
 });
 
-route('POST', '/api/me/password', ALL, async ({ body, user }) => {
+route('POST', '/api/me/password', ALL, async ({ body, user, req }) => {
   const u = await get('SELECT pass_hash FROM users WHERE id=?', user.id);
   if (!verifyPassword(String(body.current || ''), u.pass_hash)) throw new HttpError(400, 'Senha atual incorreta.');
   await run('UPDATE users SET pass_hash=? WHERE id=?', hashPassword(strongPw(body.password)), user.id);
+  // senha nova: todos os outros aparelhos são desconectados
+  await run('DELETE FROM sessions WHERE user_id=? AND token_hash<>?', user.id, sha(sessionToken(req) || ''));
+  await audit(req, user, 'password');
   return { ok: true };
 });
 
@@ -77,7 +90,8 @@ route('PUT', '/api/salon', OWNER, async ({ body, sid }) => {
   return { ok: true };
 });
 /** Perfil público: apresentação, contato, fotos e regra de cancelamento. */
-route('PUT', '/api/salon/profile', OWNER, async ({ body, sid }) => {
+route('PUT', '/api/salon/profile', OWNER, async ({ body, sid, user, req }) => {
+  await audit(req, user, 'salon_profile');
   const gallery = [];
   for (const g of (Array.isArray(body.gallery) ? body.gallery : []).slice(0, 8)) gallery.push(await imageRef(g, sid));
   await run(`UPDATE salons SET name=?, headline=?, page_color=?, description=?, address=?, phone=?, instagram=?, opening_hours=?, logo=?, cover_photo=?, gallery=?, cancel_hours=? WHERE id=?`,
@@ -103,7 +117,8 @@ route('PUT', '/api/salon/mode', OWNER, async ({ body, sid, user }) => {
 });
 
 /** Agendamento online: liga/desliga e define o endereço público. */
-route('PUT', '/api/salon/booking', OWNER, async ({ body, sid }) => {
+route('PUT', '/api/salon/booking', OWNER, async ({ body, sid, user, req }) => {
+  await audit(req, user, 'booking', body.enabled ? 'ativado' : 'desativado');
   const slug = slugify(V.str(body.slug, 'Endereço', { req: true, max: 40 }));
   if (slug.length < 3) throw new HttpError(400, 'Endereço muito curto (mínimo 3 letras).');
   if (await get('SELECT 1 x FROM salons WHERE slug=? AND id<>?', slug, sid)) throw new HttpError(409, 'Este endereço já está em uso por outro salão.');
@@ -139,7 +154,8 @@ async function userFields(body, sid) {
   }
   return { role, professional_id, name: V.str(body.name, 'Nome', { req: true, max: 80 }) };
 }
-route('POST', '/api/users', OWNER, async ({ body, sid, user }) => {
+route('POST', '/api/users', OWNER, async ({ body, sid, user, req }) => {
+  await audit(req, user, 'user_create', String(body.email || ''));
   if (user.team_mode === 'solo')
     throw new HttpError(403, 'No plano Individual só você acessa o painel. Para dar acesso à recepção ou a outras profissionais, mude para "Tenho equipe" em Configurações → Salão.');
   const f = await userFields(body, sid);
@@ -150,14 +166,18 @@ route('POST', '/api/users', OWNER, async ({ body, sid, user }) => {
       sid, f.name, email, hashPassword(strongPw(body.password)), f.role, f.professional_id, nowStr())).id,
   };
 });
-route('PUT', '/api/users/:id', OWNER, async ({ params, body, sid, user }) => {
+route('PUT', '/api/users/:id', OWNER, async ({ params, body, sid, user, req }) => {
+  await audit(req, user, 'user_update', `acesso #${params.id}`);
   const u = await get('SELECT * FROM users WHERE id=? AND salon_id=?', params.id, sid);
   if (!u) throw new HttpError(404, 'Usuária não encontrada.');
   const f = await userFields(body, sid);
   const active = V.bool(body.active ?? 1);
   if (u.id === user.id && (f.role !== 'owner' || !active)) throw new HttpError(400, 'Você não pode remover seu próprio acesso de proprietária.');
   await run('UPDATE users SET name=?, role=?, professional_id=?, active=? WHERE id=?', f.name, f.role, f.professional_id, active, u.id);
-  if (body.password) await run('UPDATE users SET pass_hash=? WHERE id=?', hashPassword(strongPw(body.password)), u.id);
+  if (body.password) {
+    await run('UPDATE users SET pass_hash=? WHERE id=?', hashPassword(strongPw(body.password)), u.id);
+    await run('DELETE FROM sessions WHERE user_id=?', u.id); // senha nova: desconecta os aparelhos dessa pessoa
+  }
   if (!active) await run('DELETE FROM sessions WHERE user_id=?', u.id);
   return { ok: true };
 });

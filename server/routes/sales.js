@@ -4,6 +4,7 @@ import { all, get, run, tx } from '../db.js';
 import { nowStr, today } from '../util.js';
 import { servicePriceFor, serviceCommissionRule } from './catalog.js';
 import { createClient } from './clients.js';
+import { audit } from '../security.js';
 
 function commissionFor(rule, net, qty = 1) {
   if (!rule || !rule.value) return { cents: 0, note: rule ? `sem comissão (${rule.note})` : 'sem profissional' };
@@ -200,7 +201,8 @@ route('POST', '/api/sales/:id/payments', STAFF, async ({ params, body, sid, user
 });
 
 /** Estorno: retira a venda de todos os indicadores, devolve estoque e reabre o atendimento. */
-route('POST', '/api/sales/:id/void', ADMIN, async ({ params, body, sid, user }) => {
+route('POST', '/api/sales/:id/void', ADMIN, async ({ params, body, sid, user, req }) => {
+  await audit(req, user, 'sale_void', `venda #${params.id}`);
   return await tx(async () => {
     const s = await saleDetail(sid, params.id);
     if (s.status !== 'active') throw new HttpError(409, 'Venda já estornada.');

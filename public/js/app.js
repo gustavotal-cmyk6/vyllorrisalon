@@ -330,6 +330,8 @@ function authScreen(mode) {
       <label class="field"><span>E-mail</span><div class="au-in">${ic('mail', 18)}<input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="voce@email.com" ${signup ? '' : 'autofocus'}></div></label>
       <label class="field"><span>Senha</span><div class="au-in">${ic('lock', 18)}<input name="password" type="password" required minlength="8" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'Mínimo de 8 caracteres' : 'Sua senha'}">
         <button type="button" class="au-eye" data-eye aria-label="Mostrar senha">${ic('eye', 18)}</button></div></label>
+      <label class="field" data-code hidden><span>Código de verificação</span><div class="au-in">${ic('lock', 18)}<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" placeholder="6 números do app autenticador"></div>
+        <small>Abra o seu aplicativo autenticador (Google Authenticator, Microsoft Authenticator…). Sem o celular? Use um código de recuperação.</small></label>
       <button class="btn primary block au-submit" type="submit">${signup ? 'Criar meu salão' : 'Entrar'} ${ic('arrowRight', 18)}</button>
       <p class="au-safe">${ic('lock', 14)} Conexão segura · seus dados ficam protegidos</p>
       <div class="au-sep"><span>${signup ? 'Já tem conta?' : 'Ainda não usa o Vyllorri?'}</span></div>
@@ -346,12 +348,26 @@ function authScreen(mode) {
   };
   form.onsubmit = async (e) => {
     e.preventDefault();
-    await submitting(form.querySelector('.au-submit'), async () => {
+    const btn = form.querySelector('.au-submit');
+    try {
       const data = formData(form);
+      if (!data.code) delete data.code;
+      btn.disabled = true;
       await POST(signup ? '/api/auth/signup' : '/api/auth/login', data);
       await boot();
       if (signup) toast(data.team_mode === 'solo' ? 'Pronto! Agora cadastre seus serviços e confira seus horários.' : 'Salão criado! Comece cadastrando sua equipe e seus serviços.');
-    }).catch(() => {});
+    } catch (err) {
+      // conta com verificação em 2 etapas: mostra o campo do código
+      if (err?.data?.code === '2fa') {
+        const box = form.querySelector('[data-code]');
+        const first = box.hidden;
+        box.hidden = false;
+        form.code.focus();
+        if (!first || form.code.value) toast(err.message, 'err');
+      } else toast(err?.message || 'Algo deu errado', 'err');
+    } finally {
+      btn.disabled = false;
+    }
   };
 }
 

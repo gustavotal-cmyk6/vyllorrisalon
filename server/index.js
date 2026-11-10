@@ -19,6 +19,7 @@ import './routes/images.js';
 import './routes/deposits.js';
 import './routes/billing.js';
 import './routes/feedback.js';
+import './routes/security.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = {
@@ -53,7 +54,7 @@ export async function handler(req, res) {
     if (url.pathname.startsWith('/api/')) {
       const result = await dispatch(req, url, loadUser);
       // respostas binárias (imagens)
-      if (result?.__raw) return send(res, 200, result.__raw.body, { 'Content-Type': result.__raw.type, 'Cache-Control': result.__raw.cache || 'no-store' });
+      if (result?.__raw) return send(res, 200, result.__raw.body, { 'Content-Type': result.__raw.type, 'Cache-Control': result.__raw.cache || 'no-store', ...(result.__raw.filename ? { 'Content-Disposition': `attachment; filename="${result.__raw.filename}"` } : {}) });
       // handlers podem devolver { __cookie, data } para definir cookie de sessão
       const cookie = result?.__cookie;
       const out = cookie !== undefined ? result.data : result;

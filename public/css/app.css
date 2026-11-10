@@ -994,3 +994,12 @@ body.booking { min-height: 100vh; }
 .fb-reply b { display: flex; align-items: center; gap: 6px; font-size: .84rem; color: var(--ok); }
 .fb-reply p { margin-top: 4px; white-space: pre-line; font-size: .9rem; line-height: 1.5; }
 .fb-answer { margin-top: 12px; display: grid; gap: 8px; }
+
+/* ---------- Segurança ---------- */
+.tfa-qr { display: grid; place-items: center; margin: 10px auto; padding: 10px; width: fit-content; border-radius: 16px; background: #fff; border: 1px solid var(--line); }
+.tfa-qr svg { width: 190px; height: 190px; display: block; }
+.tfa-key { font-size: .85rem; letter-spacing: .06em; background: var(--lav-100); padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+.tfa-input { font-size: 1.6rem !important; letter-spacing: .4em; text-align: center; font-weight: 700; }
+.tfa-codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tfa-codes code { padding: 10px; border-radius: 10px; background: var(--lav-100); text-align: center; font-weight: 700; letter-spacing: .06em; }
+.list.audit li { align-items: flex-start; }

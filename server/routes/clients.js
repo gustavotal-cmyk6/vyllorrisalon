@@ -2,6 +2,7 @@ import { route, HttpError, STAFF, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run } from '../db.js';
 import { nowStr, today, diffDays } from '../util.js';
+import { audit } from '../security.js';
 
 const seeMoney = (user) => user.role !== 'pro';
 
@@ -62,7 +63,8 @@ route('PUT', '/api/clients/:id', ALL, async ({ params, body, sid }) => {
   return { ok: true };
 });
 
-route('DELETE', '/api/clients/:id', STAFF, async ({ params, sid }) => {
+route('DELETE', '/api/clients/:id', STAFF, async ({ params, sid, user, req }) => {
+  await audit(req, user, 'client_archive', `cliente #${params.id}`);
   // Arquiva (preserva histórico financeiro), nunca apaga
   const r = await run('UPDATE clients SET active=0 WHERE id=? AND salon_id=?', params.id, sid);
   if (!r.changes) throw new HttpError(404, 'Cliente não encontrada.');

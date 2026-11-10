@@ -6,7 +6,7 @@ import { billingInfo, trialEnd } from './billing.js';
 import { isPlatformAdmin } from './routes/feedback.js';
 
 const SESSION_DAYS = 14;
-const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+export const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 export function hashPassword(pw) {
   const salt = crypto.randomBytes(16);
@@ -19,9 +19,17 @@ export function verifyPassword(pw, stored) {
   return crypto.timingSafeEqual(calc, Buffer.from(h, 'hex'));
 }
 
-export async function createSession(userId) {
+/** Resumo do aparelho a partir do navegador (só para a lista "aparelhos conectados"). */
+export function deviceName(ua = '') {
+  const os = /iphone|ipad/i.test(ua) ? 'iPhone' : /android/i.test(ua) ? 'Android' : /windows/i.test(ua) ? 'Windows' : /mac os/i.test(ua) ? 'Mac' : /linux/i.test(ua) ? 'Linux' : 'Aparelho';
+  const br = /edg\//i.test(ua) ? 'Edge' : /samsungbrowser/i.test(ua) ? 'Samsung Internet' : /chrome|crios/i.test(ua) ? 'Chrome' : /firefox|fxios/i.test(ua) ? 'Firefox' : /safari/i.test(ua) ? 'Safari' : '';
+  return br ? `${br} · ${os}` : os;
+}
+export async function createSession(userId, req = null) {
   const token = crypto.randomBytes(32).toString('hex');
-  await run('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)', sha(token), userId, Date.now() + SESSION_DAYS * 864e5);
+  await run('INSERT INTO sessions(token_hash,user_id,expires_at,created_at,ua) VALUES(?,?,?,?,?)', sha(token), userId, Date.now() + SESSION_DAYS * 864e5, Date.now(), deviceName(req?.headers?.['user-agent']));
+  // limpeza ocasional de sessões vencidas
+  if (Math.random() < 0.05) await run('DELETE FROM sessions WHERE expires_at<?', Date.now());
   return token;
 }
 export const destroySession = async (token) => token && run('DELETE FROM sessions WHERE token_hash=?', sha(token));

@@ -5,6 +5,7 @@ import { all, get, run, tx } from '../db.js';
 import { nowStr, addMin } from '../util.js';
 import { buildBrCode, normalizePixKey, qrSvg } from '../pix.js';
 import { pushPublicKey } from '../push.js';
+import { audit } from '../security.js';
 
 // ---------- Regras de valores (sempre calculadas no servidor) ----------
 
@@ -150,7 +151,8 @@ route('GET', '/api/salon/deposit', OWNER, async ({ sid }) => {
   const services = await all('SELECT id, name, price_cents, requires_deposit FROM services WHERE salon_id=? AND active=1 ORDER BY name', sid);
   return { ...cfg, services };
 });
-route('PUT', '/api/salon/deposit', OWNER, async ({ body, sid }) => {
+route('PUT', '/api/salon/deposit', OWNER, async ({ body, sid, user, req }) => {
+  await audit(req, user, 'deposit');
   const enabled = V.bool(body.enabled);
   let pix = { type: null, key: null, name: null, city: null };
   if (body.pix_key || enabled) {

@@ -559,6 +559,51 @@ try {
     assert.equal(mine[0].status, 'answered');
   });
 
+  await step('segurança: 2 etapas, código de recuperação de uso único, aparelhos, registro de atividades e backup protegido', async () => {
+    const { createHmac } = await import('node:crypto');
+    const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    const totp = (secret, step) => {
+      let bits = 0, value = 0;
+      const bytes = [];
+      for (const c of secret) {
+        value = (value << 5) | B32.indexOf(c);
+        bits += 5;
+        if (bits >= 8) (bytes.push((value >>> (bits - 8)) & 255), (bits -= 8));
+      }
+      const msg = Buffer.alloc(8);
+      msg.writeBigUInt64BE(BigInt(step));
+      const h = createHmac('sha1', Buffer.from(bytes)).update(msg).digest();
+      const o = h[h.length - 1] & 15;
+      return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
+    };
+    const t = client();
+    ok(await t('POST', '/api/auth/login', { email: 'mi@plano.com', password: 'senha1234' }));
+    const setup = ok(await t('POST', '/api/me/2fa/setup'));
+    assert.ok(setup.qr_svg.includes('<svg') && setup.secret.length >= 32);
+    assert.equal((await t('POST', '/api/me/2fa/enable', { code: '000000' })).status, 400);
+    const en = ok(await t('POST', '/api/me/2fa/enable', { code: totp(setup.secret, Math.floor(Date.now() / 30000)) }));
+    assert.equal(en.recovery_codes.length, 8);
+    // login sem o código é barrado e pede a segunda etapa
+    const t2 = client();
+    const noCode = await t2('POST', '/api/auth/login', { email: 'mi@plano.com', password: 'senha1234' });
+    assert.equal(noCode.status, 401);
+    assert.equal(noCode.data.code, '2fa');
+    assert.equal((await t2('POST', '/api/auth/login', { email: 'mi@plano.com', password: 'senha1234', code: '123456' })).status, 401);
+    // código de recuperação entra uma vez e não serve de novo
+    ok(await t2('POST', '/api/auth/login', { email: 'mi@plano.com', password: 'senha1234', code: en.recovery_codes[0] }));
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'mi@plano.com', password: 'senha1234', code: en.recovery_codes[0] })).status, 401);
+    // aparelhos conectados e "sair dos outros"
+    assert.ok(ok(await t2('GET', '/api/me/sessions')).length >= 2);
+    assert.ok(ok(await t2('POST', '/api/me/sessions/logout-others')).removed >= 1);
+    assert.equal((await t('GET', '/api/clients')).status, 401, 'aparelho antigo foi desconectado');
+    // registro de atividades da proprietária
+    const log = ok(await t2('GET', '/api/audit'));
+    assert.ok(log.some((a) => a.action === '2fa_on') && log.some((a) => a.action === 'login_failed') && log.some((a) => a.action === 'logout_all'));
+    // backup: só equipe Vyllorri e só com 2 etapas ativa
+    assert.equal((await t2('GET', '/api/admin/backup')).status, 403);
+    assert.equal((await owner('GET', '/api/admin/backup')).status, 403, 'equipe sem 2 etapas não baixa');
+  });
+
   await step('banco: 60 acessos simultâneos com limite de 3 conexões, sem erro; conexão ociosa fecha e reabre', async () => {
     // servidor de teste roda com DB_MAX_CONCURRENCY=3: o resto espera na fila em vez de sobrecarregar o banco
     const results = await Promise.all(Array.from({ length: 60 }, (_, i) => owner('GET', i % 2 ? '/api/clients' : '/api/services')));

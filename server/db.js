@@ -216,6 +216,10 @@ CREATE INDEX IF NOT EXISTS ix_charges_status ON charges(salon_id, status);
 CREATE TABLE IF NOT EXISTS billing_payments(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), mp_id TEXT NOT NULL UNIQUE, amount_cents INTEGER NOT NULL,
   status TEXT NOT NULL, qr_code TEXT, qr_base64 TEXT, expires_at TEXT, paid_at TEXT, created_at TEXT NOT NULL);
+-- registro de atividades sensíveis (quem fez o quê)
+CREATE TABLE IF NOT EXISTS audit_log(
+  id INTEGER PRIMARY KEY, salon_id INTEGER, user_id INTEGER, action TEXT NOT NULL, detail TEXT, ip TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_audit_salon ON audit_log(salon_id, id);
 -- ajuda e sugestões enviadas pelas usuárias
 CREATE TABLE IF NOT EXISTS feedback(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), user_id INTEGER NOT NULL REFERENCES users(id),
@@ -273,6 +277,13 @@ export const ready = withSlot(async (client) => {
     'ALTER TABLE salons ADD COLUMN sells_products INTEGER NOT NULL DEFAULT 1',
     // assinatura do Vyllorri: teste grátis e cobrança automática (Asaas)
     'ALTER TABLE salons ADD COLUMN trial_ends_at TEXT',
+    // segurança: verificação em 2 etapas e aparelhos conectados
+    'ALTER TABLE users ADD COLUMN totp_secret TEXT',
+    'ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE users ADD COLUMN totp_last INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE users ADD COLUMN recovery_codes TEXT',
+    'ALTER TABLE sessions ADD COLUMN created_at INTEGER',
+    'ALTER TABLE sessions ADD COLUMN ua TEXT',
     "ALTER TABLE salons ADD COLUMN sub_status TEXT NOT NULL DEFAULT 'none'",
     'ALTER TABLE salons ADD COLUMN paid_until TEXT',
     // pagamento antecipado (sinal)

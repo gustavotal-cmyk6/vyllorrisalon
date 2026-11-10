@@ -2,6 +2,7 @@ import { route, HttpError, ADMIN, STAFF, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run, tx } from '../db.js';
 import { nowStr, today, addDays, monthRange } from '../util.js';
+import { audit } from '../security.js';
 
 /** Gera (uma única vez) as despesas recorrentes de cada mês do período. */
 export async function ensureRecurring(sid, from, to) {
@@ -52,7 +53,8 @@ route('POST', '/api/expenses/:id/pay', ADMIN, async ({ params, body, sid }) => {
   if (!r.changes) throw new HttpError(404, 'Despesa não encontrada.');
   return { ok: true };
 });
-route('DELETE', '/api/expenses/:id', ADMIN, async ({ params, sid }) => {
+route('DELETE', '/api/expenses/:id', ADMIN, async ({ params, sid, user, req }) => {
+  await audit(req, user, 'expense_delete', `despesa #${params.id}`);
   const e = await get('SELECT * FROM expenses WHERE id=? AND salon_id=?', params.id, sid);
   if (!e) throw new HttpError(404, 'Despesa não encontrada.');
   // excluir uma ocorrência recorrente faria ela ser gerada de novo; por isso exigimos desativar a recorrência
