@@ -1,5 +1,6 @@
 // Ajuda e sugestões: enviar feedback, ver respostas e (equipe Vyllorri) responder.
 import { state, GET, POST, PUT, esc, ic, pageHead, toast, submitting, empty, fmtDate } from '../core.js';
+import { openTutorial } from '../tutorial.js';
 
 const ui = { tab: 'send', adminStatus: 'new' };
 const KIND = {
@@ -68,8 +69,10 @@ function send(body, root) {
       <div class="field"><span>Print da tela <small>(opcional, ajuda muito em problemas)</small></span><div data-img><button type="button" class="btn soft sm" data-pick>${ic('camera', 16)} Anexar imagem</button></div></div>
       <div class="actions"><button class="btn primary">${ic('check', 18)} Enviar</button></div>
     </form>
-    <div class="card"><h2>Dúvidas comuns</h2><div class="fb-faq">${FAQ.map(([q, a]) => `<details><summary>${q}${ic('chevDown', 16)}</summary><p>${a}</p></details>`).join('')}</div></div>
+    <div><button class="tut-card" data-tut><span class="tc-ic">${ic('play', 22)}</span><span class="grow"><b>Assistir: primeiros passos</b><small>Tutorial de 2 minutos com as telas do app</small></span>${ic('chevRight', 20)}</button>
+    <div class="card"><h2>Dúvidas comuns</h2><div class="fb-faq">${FAQ.map(([q, a]) => `<details><summary>${q}${ic('chevDown', 16)}</summary><p>${a}</p></details>`).join('')}</div></div></div>
   </div>`;
+  body.querySelector('[data-tut]').onclick = openTutorial;
   const f = body.querySelector('[data-form]');
   body.querySelectorAll('[data-kind]').forEach((b) => (b.onclick = () => {
     kind = b.dataset.kind;

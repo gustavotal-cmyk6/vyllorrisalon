@@ -355,6 +355,7 @@ function authScreen(mode) {
       btn.disabled = true;
       await POST(signup ? '/api/auth/signup' : '/api/auth/login', data);
       await boot();
+      if (signup) import('./tutorial.js').then((m) => m.openTutorial());
       if (signup) toast(data.team_mode === 'solo' ? 'Pronto! Agora cadastre seus serviços e confira seus horários.' : 'Salão criado! Comece cadastrando sua equipe e seus serviços.');
     } catch (err) {
       // conta com verificação em 2 etapas: mostra o campo do código

@@ -4,6 +4,9 @@ import { openCheckout } from './checkout.js';
 import { quickClient } from './clients.js';
 import { refresh, notifications } from '../app.js';
 import { pushBanner } from '../push.js';
+import { openTutorial } from '../tutorial.js';
+const TUT_KEY = 'vb-tut-hidden';
+const tutHidden = () => { try { return localStorage.getItem(TUT_KEY) === '1'; } catch { return false; } };
 
 export const ALERT_IC = { online: 'globe', late: 'clock', checkout: 'receipt', receivable: 'coin', confirm: 'message', stock: 'box', bills: 'wallet', birthday: 'heart' };
 // próxima ação de cada status, direto na lista (sem abrir o agendamento)
@@ -22,6 +25,7 @@ export default async function dashboard(root) {
   root.innerHTML = `
   ${pageHead(hello, fmtDayLong(d.date), `<button class="btn primary" data-act="visit">${ic('plus', 18)} Novo agendamento</button>`)}
   <div data-pushbanner></div>
+  ${can.admin() && !tutHidden() ? `<div class="tut-row"><button class="tut-card" data-tut><span class="tc-ic">${ic('play', 22)}</span><span class="grow"><b>Primeiros passos em 2 minutos</b><small>Veja como deixar seu negócio pronto para receber agendamentos</small></span>${ic('chevRight', 20)}</button><button class="tut-hide" data-tut-hide aria-label="Esconder">${ic('x', 16)}</button></div>` : ''}
   ${setup ? setupCard() : ''}
   ${d.role === 'pro' ? proKpis(d) : ownerKpis(d)}
   <div class="grid g-main">
@@ -53,6 +57,12 @@ export default async function dashboard(root) {
   </div>`;
 
   pushBanner(root.querySelector('[data-pushbanner]'));
+  root.querySelector('[data-tut]')?.addEventListener('click', openTutorial);
+  root.querySelector('[data-tut-hide]')?.addEventListener('click', (e) => {
+    try { localStorage.setItem(TUT_KEY, '1'); } catch {}
+    e.currentTarget.closest('.tut-row').remove();
+    toast('Você encontra o tutorial em Ajuda e sugestões');
+  });
   root.addEventListener('click', async (e) => {
     const t = e.target.closest('[data-act],[data-step],[data-visit]');
     if (!t) return;
