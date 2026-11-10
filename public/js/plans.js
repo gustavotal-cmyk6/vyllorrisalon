@@ -17,11 +17,11 @@ export const PLAN_ROWS = [
 
 const cell = (v) => (v === true ? `<span class="pc-yes" aria-label="Incluso">${ic('check', 16)}</span>` : v === false ? '<span class="pc-no" aria-label="Não incluso">—</span>' : v);
 
-/** Tabela "Sozinha × Com equipe". current: 'solo' | 'team' destaca a coluna do plano atual. */
+/** Tabela "Individual × Com equipe". current: 'solo' | 'team' destaca a coluna do plano atual. */
 export function planTable(plans, current = '') {
   return `<div class="pc-wrap"><table class="pc">
     <thead><tr><th></th>
-      <th class="${current === 'solo' ? 'cur' : ''}">Sozinha<small>${money(plans.solo.price_cents)}/mês</small></th>
+      <th class="${current === 'solo' ? 'cur' : ''}">Individual<small>${money(plans.solo.price_cents)}/mês</small></th>
       <th class="${current === 'team' ? 'cur' : ''}">Com equipe<small>${money(plans.team.price_cents)}/mês</small></th></tr></thead>
     <tbody>${PLAN_ROWS.map(([label, a, b]) => `<tr><td>${label}</td><td class="${current === 'solo' ? 'cur' : ''}">${cell(a)}</td><td class="${current === 'team' ? 'cur' : ''}">${cell(b)}</td></tr>`).join('')}</tbody>
   </table></div>`;

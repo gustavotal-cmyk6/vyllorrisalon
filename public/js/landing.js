@@ -20,7 +20,7 @@ const FAQ = [
 ];
 
 export async function landing() {
-  let plans = { solo: { name: 'Sozinha', price_cents: 3990 }, team: { name: 'Com equipe', price_cents: 4990 } }, days = 7;
+  let plans = { solo: { name: 'Individual', price_cents: 3990 }, team: { name: 'Com equipe', price_cents: 4990 } }, days = 7;
   try {
     const r = await GET('/api/plans');
     (plans = r.plans), (days = r.trial_days);
@@ -36,14 +36,14 @@ export async function landing() {
       <a class="ld-btn ${hl ? '' : 'ghost'}" href="#/criar">Começar ${days} dias grátis</a></div>`;
   document.getElementById('app').innerHTML = `<div class="ld">
     <header class="ld-nav"><a class="ld-logo" href="#/"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><span><b>Vyllorri</b><small>Beauty</small></span></a>
-      <nav><a href="#recursos" data-scroll>Recursos</a><a href="#planos" data-scroll>Planos</a><a href="#duvidas" data-scroll>Dúvidas</a></nav>
+      <nav><a href="#para-quem" data-scroll>Para quem é</a><a href="#recursos" data-scroll>Recursos</a><a href="#planos" data-scroll>Planos</a><a href="#duvidas" data-scroll>Dúvidas</a></nav>
       <a class="ld-login" href="#/entrar">Entrar</a></header>
 
     <section class="ld-hero">
       <div class="ld-hero-txt">
         <span class="ld-badge">${ic('star', 14)} ${days} dias grátis · sem cartão</span>
-        <h1>Seu salão organizado e a agenda <em>sempre cheia.</em></h1>
-        <p>Agenda online, sinal por Pix, clientes, comissões e financeiro em um só app — feito para salões, studios e profissionais da beleza.</p>
+        <h1>Seu negócio de beleza organizado e a agenda <em>sempre cheia.</em></h1>
+        <p>Para salões e também para quem atende por conta própria: manicure, maquiadora, lash designer, designer de sobrancelhas, cabeleireira, esteticista. Agenda online, sinal por Pix, clientes e financeiro em um só app.</p>
         <div class="ld-cta"><a class="ld-btn" href="#/criar">Começar ${days} dias grátis ${ic('arrowRight', 18)}</a><a class="ld-btn ghost" href="#/entrar">Já tenho conta</a></div>
         <ul class="ld-trust"><li>${ic('lock', 15)} Dados protegidos</li><li>${ic('checkCircle', 15)} Sem fidelidade</li><li>${ic('zap', 15)} Pronto em 1 minuto</li></ul>
       </div>
@@ -58,6 +58,18 @@ export async function landing() {
 
     <section class="ld-strip"><span>${ic('calendar', 18)} Agenda online</span><span>${ic('zap', 18)} Pix integrado</span><span>${ic('home', 18)} Domicílio</span><span>${ic('chart', 18)} Financeiro</span><span>${ic('bell', 18)} Notificações</span></section>
 
+    <section class="ld-sec" id="para-quem"><p class="ld-kicker">Para quem é</p><h2>Não é só para salão</h2>
+      <p class="ld-lead">O salão é só um dos jeitos de usar. Se você trabalha com beleza, sozinha ou com equipe, no seu espaço ou na casa da cliente, o Vyllorri se adapta ao seu trabalho.</p>
+      <div class="ld-who">${[
+        ['hand', 'Manicure e pedicure', 'Unhas, alongamento e esmaltação com hora marcada'],
+        ['brush', 'Maquiadora', 'Noivas, festas e atendimento a domicílio com taxa por bairro'],
+        ['eye', 'Lash e sobrancelhas', 'Extensão de cílios, design e henna, com sinal por Pix'],
+        ['scissors', 'Cabeleireira', 'Corte, coloração e tratamentos, sozinha ou em salão'],
+        ['leaf', 'Estética', 'Limpeza de pele, massagem e depilação'],
+        ['users', 'Salões e studios', 'Equipe com agenda por profissional e comissões'],
+      ].map(([i, t, d]) => `<div><span>${ic(i, 22)}</span><b>${t}</b><small>${d}</small></div>`).join('')}</div>
+      <p class="ld-lead" style="margin-top:16px">Trabalha com mais de uma coisa? Sem problema: cadastre unhas, maquiagem e sobrancelha juntos, cada serviço com seu preço e duração.</p></section>
+
     <section class="ld-sec" id="recursos"><p class="ld-kicker">Tudo em um só lugar</p><h2>Menos tempo no WhatsApp, mais tempo atendendo</h2>
       <div class="ld-feats">${FEATS.map(([i, t, d]) => `<div class="ld-feat"><span>${ic(i, 22)}</span><h3>${t}</h3><p>${d}</p></div>`).join('')}</div></section>
 
@@ -68,8 +80,8 @@ export async function landing() {
     <section class="ld-sec" id="planos"><p class="ld-kicker">Planos</p><h2>Preço justo, sem surpresa</h2>
       <p class="ld-lead">Teste tudo por ${days} dias grátis. Depois, pague por Pix todo mês — sem fidelidade.</p>
       <div class="ld-plans">
-        ${plan('solo', 'Para quem atende sozinha', ['Página do salão com sua logo e cores', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular'], false)}
-        ${plan('team', 'Para salões com profissionais', ['Tudo do plano Sozinha', 'Até 5 profissionais inclusas', 'Agenda de cada profissional', 'Comissões calculadas sozinhas', 'Acessos para recepção, gerente e equipe', 'Relatórios por profissional'], true)}
+        ${plan('solo', 'Para quem atende por conta própria', ['Página do salão com sua logo e cores', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular'], false)}
+        ${plan('team', 'Para salões com profissionais', ['Tudo do plano Individual', 'Até 5 profissionais inclusas', 'Agenda de cada profissional', 'Comissões calculadas sozinhas', 'Acessos para recepção, gerente e equipe', 'Relatórios por profissional'], true)}
       </div>
       <p class="ld-lead" style="margin-top:18px">Mais de 5 profissionais? Cada uma a mais custa R$ 9,90/mês.</p>
       <details class="ld-compare"><summary>Comparar os planos em detalhe ${ic('chevDown', 18)}</summary>${planTable(plans)}</details></section>

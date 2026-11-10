@@ -38,7 +38,7 @@ async function salonTab(body) {
   const solo = s.team_mode === 'solo';
   body.innerHTML = `<div class="card"><div class="card-head"><h2>Como você trabalha?</h2></div>
     <div class="mode-pick" style="max-width:520px">
-      <label><input type="radio" name="mode" value="solo" class="sr" ${solo ? 'checked' : ''}><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Plano Sozinha · R$ 39,90/mês</small></span></label>
+      <label><input type="radio" name="mode" value="solo" class="sr" ${solo ? 'checked' : ''}><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Plano Individual · R$ 39,90/mês</small></span></label>
       <label><input type="radio" name="mode" value="team" class="sr" ${solo ? '' : 'checked'}><span>${ic('users', 22)}<b>Tenho equipe</b><small>Com equipe · R$ 49,90/mês (até 5)</small></span></label>
     </div>
     <p class="small muted" style="margin-top:10px">${solo ? 'Você é a única profissional da agenda. Se contratar alguém, troque para “Tenho equipe”: nada é apagado.' : 'Para trabalhar sozinha, deixe só uma profissional ativa na Equipe.'}</p>

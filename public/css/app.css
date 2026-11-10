@@ -950,3 +950,11 @@ body.booking { min-height: 100vh; }
   .pc thead th { font-size: .84rem; }
   .pc thead th small { font-size: .7rem; }
 }
+
+/* landing: para quem é */
+.ld-who { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+.ld-who > div { padding: 18px 16px; border-radius: 20px; background: var(--ld-card); border: 1px solid var(--ld-line); }
+.ld-who span { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: rgba(224, 85, 155, .14); color: var(--ld-rose); }
+.ld-who b { display: block; margin-top: 12px; color: #fff; font-size: 1rem; }
+.ld-who small { display: block; margin-top: 4px; color: #c4adbd; font-size: .85rem; line-height: 1.45; }
+@media (min-width: 900px) { .ld-who { grid-template-columns: repeat(3, 1fr); } }
