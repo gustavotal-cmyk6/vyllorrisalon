@@ -39,10 +39,10 @@ async function salonTab(body) {
   const solo = s.team_mode === 'solo';
   body.innerHTML = `<div class="card"><div class="card-head"><h2>Como você trabalha?</h2></div>
     <div class="mode-pick" style="max-width:520px">
-      <label><input type="radio" name="mode" value="solo" class="sr" ${solo ? 'checked' : ''}><span>${ic('user', 22)}<b>Trabalho solo</b><small>Plano Individual · R$ 39,90/mês</small></span></label>
+      <label><input type="radio" name="mode" value="solo" class="sr" ${solo ? 'checked' : ''}><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Plano Individual · R$ 39,90/mês</small></span></label>
       <label><input type="radio" name="mode" value="team" class="sr" ${solo ? '' : 'checked'}><span>${ic('users', 22)}<b>Tenho equipe</b><small>Com equipe · R$ 49,90/mês (até 5)</small></span></label>
     </div>
-    <p class="small muted" style="margin-top:10px">${solo ? 'Você é o único profissional da agenda. Se contratar alguém, troque para “Tenho equipe”: nada é apagado.' : 'Para trabalhar solo, deixe só um profissional ativo na Equipe.'}</p>
+    <p class="small muted" style="margin-top:10px">${solo ? 'Você é a única profissional da agenda. Se contratar alguém, troque para “Tenho equipe”: nada é apagado.' : 'Para trabalhar sozinha, deixe só uma profissional ativa na Equipe.'}</p>
     ${solo ? `<button class="btn soft sm" data-hours style="margin-top:10px">${ic('clock', 16)} Editar meus dias e horários</button>` : ''}</div>
   <div class="card"><div class="card-head"><h2>Você vende produtos?</h2></div>
     <div class="mode-pick" style="max-width:520px">
@@ -86,7 +86,7 @@ async function salonTab(body) {
       const me = await GET('/api/me');
       state.user = me.user;
       await loadRefs(true);
-      toast(res.team_mode === 'solo' ? 'Pronto: modo “Trabalho solo” ativado' : 'Pronto: modo “Tenho equipe” ativado');
+      toast(res.team_mode === 'solo' ? 'Pronto: modo “Trabalho sozinha” ativado' : 'Pronto: modo “Tenho equipe” ativado');
       document.getElementById('app').innerHTML = '';
       refresh();
     } catch (e) {
@@ -148,7 +148,7 @@ async function bookingTab(body) {
   const online = services.filter((x) => x.online).length;
   const link = s.slug ? `${location.origin}/agendar/${s.slug}` : '';
   body.innerHTML = `<div class="card"><div class="card-head"><h2>Agendamento online</h2><span class="tag ${s.booking_enabled ? 'ok' : ''}">${s.booking_enabled ? 'Ativo' : 'Desligado'}</span></div>
-    <p class="small muted" style="margin-bottom:14px">Seus clientes escolhem serviço, profissional e horário livre pelo link, sem cadastro nem senha. O pedido cai na agenda como “A confirmar”, com a etiqueta <b>online</b>.</p>
+    <p class="small muted" style="margin-bottom:14px">Suas clientes escolhem serviço, profissional e horário livre pelo link, sem cadastro nem senha. O pedido cai na agenda como “A confirmar”, com a etiqueta <b>online</b>.</p>
     ${s.booking_enabled && link ? `<div class="booking-link" style="margin-bottom:14px">${ic('link', 18, 'brand-t')}<span style="flex:1;min-width:180px">${esc(link)}</span>
       <button class="btn xs soft" data-copy>${ic('copy', 14)} Copiar</button><a class="btn xs soft" href="${esc(link)}" target="_blank" rel="noopener">${ic('external', 14)} Abrir</a>
       <a class="btn xs soft" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Agende seu horário online: ' + link)}">${ic('whatsapp', 14)} Enviar</a></div>` : ''}

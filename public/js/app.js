@@ -310,7 +310,7 @@ function authScreen(mode) {
         <h1>A gestão do seu salão, <em>na palma da mão.</em></h1>
         <p>Agenda, clientes, vendas e financeiro em um só lugar — simples de usar no dia a dia.</p>
         <ul class="au-feats">
-          ${feat('calendar', 'Agenda online 24h', 'Seus clientes marcam pelo link pelo link do salão')}
+          ${feat('calendar', 'Agenda online 24h', 'Suas clientes marcam sozinhas pelo link do salão')}
           ${feat('wallet', 'Sinal por Pix', 'Menos faltas, com o comprovante direto no app')}
           ${feat('chart', 'Financeiro claro', 'Quanto vendeu, gastou e lucrou, sem planilha')}
         </ul>
@@ -318,13 +318,13 @@ function authScreen(mode) {
       <p class="au-copy">© ${new Date().getFullYear()} Vyllorri Beauty</p>
     </aside>
     <main class="au-main"><form class="au-form" novalidate>
-      <div class="au-head"><h2>${signup ? 'Crie a conta do seu salão' : 'Que bom te ver de novo'}</h2>
+      <div class="au-head"><h2>${signup ? 'Crie a conta do seu salão' : 'Bem-vinda de volta'}</h2>
         <p>${signup ? 'Leva 1 minuto. Você já começa usando.' : 'Entre para ver a agenda de hoje.'}</p></div>
       ${signup ? `<label class="field"><span>Nome do salão</span><div class="au-in">${ic('home', 18)}<input name="salon_name" required maxlength="80" autofocus placeholder="Ex.: Studio Bella"></div></label>
         <label class="field"><span>Seu nome</span><div class="au-in">${ic('user', 18)}<input name="name" required maxlength="80" autocomplete="name" placeholder="Como quer ser chamada"></div></label>
         <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend class="au-legend">Como você trabalha?</legend>
           <div class="mode-pick">
-            <label><input type="radio" name="team_mode" value="solo" class="sr"><span>${ic('user', 22)}<b>Trabalho solo</b><small>Só eu atendo</small></span></label>
+            <label><input type="radio" name="team_mode" value="solo" class="sr"><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Só eu atendo</small></span></label>
             <label><input type="radio" name="team_mode" value="team" class="sr" checked><span>${ic('users', 22)}<b>Tenho equipe</b><small>Mais profissionais</small></span></label>
           </div><small>Dá para mudar depois em Configurações.</small></fieldset>` : ''}
       <label class="field"><span>E-mail</span><div class="au-in">${ic('mail', 18)}<input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="voce@email.com" ${signup ? '' : 'autofocus'}></div></label>

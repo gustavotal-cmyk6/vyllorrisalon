@@ -4,12 +4,12 @@ import { ic } from './core.js';
 
 const T = (f) => `/tutorial/${f}.webp`;
 export const STEPS = [
-  { intro: true, title: 'Boas-vindas ao Vyllorri!', text: 'Em poucos minutos o seu negócio fica pronto para receber agendamentos sozinho. Veja o passo a passo.' },
-  { img: T('t01-modo'), title: 'Diga como você trabalha', text: 'Em Configurações → Salão, escolha "Trabalho solo" ou "Tenho equipe". Logo abaixo, diga se vende produtos.', href: '#/config' },
+  { intro: true, title: 'Bem-vinda ao Vyllorri!', text: 'Em poucos minutos o seu negócio fica pronto para receber agendamentos sozinho. Veja o passo a passo.' },
+  { img: T('t01-modo'), title: 'Diga como você trabalha', text: 'Em Configurações → Salão, escolha "Trabalho sozinha" ou "Tenho equipe". Logo abaixo, diga se vende produtos.', href: '#/config' },
   { img: T('t02-perfil'), title: 'Deixe a página com a sua cara', text: 'Coloque logo, foto de capa, a cor da sua página, uma frase de destaque, endereço, WhatsApp e Instagram.', href: '#/config' },
   { img: T('t03-horarios'), title: 'Seus dias e horários', text: 'Marque os dias que atende, o horário de início e fim e o intervalo. Só os horários livres aparecem para a cliente.', href: '#/equipe' },
   { img: T('t04-servicos'), title: 'Cadastre seus serviços', text: 'Cada serviço com preço e duração. Unhas, maquiagem, sobrancelha: cadastre tudo o que você faz.', href: '#/servicos' },
-  { img: T('t06-online'), title: 'Ative o agendamento online', text: 'Ative a sua página, copie o link e coloque na bio do Instagram e no WhatsApp. Os clientes marcam pelo link.', href: '#/config' },
+  { img: T('t06-online'), title: 'Ative o agendamento online', text: 'Ative a sua página, copie o link e coloque na bio do Instagram e no WhatsApp. As clientes marcam sozinhas.', href: '#/config' },
   { img: T('t07-pix'), title: 'Sinal por Pix (opcional)', text: 'Cadastre sua chave Pix e escolha quanto cobrar de sinal. Menos faltas, e o comprovante chega no app.', href: '#/config' },
   { img: T('t08-domicilio'), title: 'Atende em casa? (opcional)', text: 'Ative o domicílio, cadastre os bairros e a taxa de deslocamento de cada um.', href: '#/config' },
   { img: T('t09-avisos'), title: 'Receba avisos no celular', text: 'Toque em "Ativar notificações" no Início. No iPhone, adicione o app à Tela de Início pelo Safari.', href: '#/' },
