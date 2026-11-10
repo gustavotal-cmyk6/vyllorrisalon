@@ -90,7 +90,8 @@ export async function landing() {
       ].map(([i, t, d]) => `<div><span>${ic(i, 20)}</span><b>${t}</b><small>${d}</small></div>`).join('')}</div></section>
 
     <section class="ld-sec" id="paginas"><p class="ld-kicker">Páginas de agendamento</p><h2>Cada negócio com a sua página</h2>
-      <p class="ld-lead">Cor, logo, capa, frase, serviços e regras: cada negócio monta a página do seu jeito e recebe um link próprio.</p>
+      <p class="ld-lead">Os exemplos abaixo são ilustrativos. Na sua página, <b>você escolhe tudo</b>: suas fotos, sua logo, sua capa, sua cor, seus serviços e suas regras. E recebe um link só seu.</p>
+      <div class="lx-chips">${['Suas fotos', 'Sua logo', 'Foto de capa', 'Cor da página', 'Frase de destaque', 'Serviços e preços', 'Sinal por Pix', 'Domicílio'].map((t) => `<span>${ic('check', 14)} ${t}</span>`).join('')}</div>
       <div class="lx-tabs" role="tablist" data-tabs="biz">${BIZ.map((b, i) => `<button role="tab" data-i="${i}" style="--c:${b.color}">${b.tab}</button>`).join('')}</div>
       <div class="lx-show" data-show="biz"></div></section>
 
@@ -123,7 +124,8 @@ export async function landing() {
         <div class="lx-info"><span class="lx-dot"></span><h3>${b.name}</h3><p class="lx-who">${b.who}</p>
           <p class="lx-url">${ic('link', 15)} <span>${SITE}<b>${b.slug}</b></span></p>
           <ul>${b.feats.map((f) => `<li>${ic('check', 16)} ${f}</li>`).join('')}</ul>
-          <small class="lx-note">Exemplo ilustrativo com dados fictícios.</small></div></div>`,
+          <div class="lx-custom"><b>${ic('edit', 15)} Tudo isso é personalizável</b><span>Imagens, capa, logo, cor, frase, serviços, preços e regras: você troca o que quiser, quando quiser.</span></div>
+          <small class="lx-note">Imagens e dados ilustrativos.</small></div></div>`,
     panel: (p) => `<div class="lx-card">
         ${phone(p.img, `Tela do painel: ${p.tab}`)}
         <div class="lx-info"><h3>${p.title}</h3><ul>${p.items.map((f) => `<li>${ic('check', 16)} ${f}</li>`).join('')}</ul>

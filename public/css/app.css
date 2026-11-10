@@ -1118,3 +1118,11 @@ body.booking { min-height: 100vh; }
   .lx-hero-vis { height: 520px; }
   .lx-hero-vis .lx-phone { width: 250px; }
 }
+.lx-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px auto 0; max-width: 760px; }
+.lx-chips span { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--ld-card); border: 1px solid var(--ld-line); color: #e3d3de; font-size: .84rem; font-weight: 600; }
+.lx-chips .ic { color: #6fd3a5; }
+.ld-lead b { color: #fff; }
+.lx-custom { margin-top: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px dashed rgba(255, 255, 255, .25); }
+.lx-custom b { display: flex; align-items: center; gap: 7px; color: #fff; font-size: .95rem; }
+.lx-custom b .ic { color: var(--c, var(--ld-rose)); }
+.lx-custom span { display: block; margin-top: 4px; color: #c4adbd; font-size: .88rem; line-height: 1.5; }
