@@ -125,7 +125,7 @@ export async function landing() {
           <p class="lx-url">${ic('link', 15)} <span>${SITE}<b>${b.slug}</b></span></p>
           <ul>${b.feats.map((f) => `<li>${ic('check', 16)} ${f}</li>`).join('')}</ul>
           <div class="lx-custom"><b>${ic('edit', 15)} Tudo isso é personalizável</b><span>Imagens, capa, logo, cor, frase, serviços, preços e regras: você troca o que quiser, quando quiser.</span></div>
-          <small class="lx-note">Imagens e dados ilustrativos.</small></div></div>`,
+          <small class="lx-note">Imagens (Unsplash) e dados ilustrativos.</small></div></div>`,
     panel: (p) => `<div class="lx-card">
         ${phone(p.img, `Tela do painel: ${p.tab}`)}
         <div class="lx-info"><h3>${p.title}</h3><ul>${p.items.map((f) => `<li>${ic('check', 16)} ${f}</li>`).join('')}</ul>
