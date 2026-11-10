@@ -114,7 +114,7 @@ function home() {
   root.innerHTML = `<div class="lp">
     <header class="lp-hero">${s.cover_url ? `<img class="lp-cover" src="${esc(s.cover_url)}" alt="">` : ''}
       <div class="lp-top">
-        <div class="lp-brand">${s.logo_url ? `<img src="${esc(s.logo_url)}" alt="">` : ''}<div><b>${esc(s.name)}</b><small>Salão de beleza</small></div></div>
+        <div class="lp-brand">${s.logo_url ? `<img src="${esc(s.logo_url)}" alt="">` : ''}<div><b>${esc(s.name)}</b><small>Agendamento online</small></div></div>
         <button class="lp-menu" data-menu aria-label="Menu">${ic('menu', 24)}</button>
       </div>
       <div class="lp-hero-in">
