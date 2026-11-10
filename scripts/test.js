@@ -259,6 +259,9 @@ try {
   await step('fotos, perfil público do salão e fechamento de caixa', async () => {
     const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
     const img = ok(await owner('POST', '/api/images', { data: png }));
+    // arquivo que não é imagem (ex.: HTML/script) disfarçado com tipo de imagem é recusado
+    const fake = 'data:image/png;base64,' + Buffer.from('<html><script>alert(1)</script></html>').toString('base64');
+    assert.equal((await owner('POST', '/api/images', { data: fake })).status, 400);
     const pros = ok(await owner('GET', '/api/professionals'));
     const bp = pros.find((p) => p.id === bia);
     ok(await owner('PUT', `/api/professionals/${bia}`, { ...bp, photo: img.url }));

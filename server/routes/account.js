@@ -3,7 +3,7 @@ import { V } from '../validate.js';
 import { all, get, run } from '../db.js';
 import {
   createSalon, createSession, destroySession, sessionToken, cookieHeader, verifyPassword, hashPassword,
-  throttleLogin, clearThrottle, publicUser, loadUser, slugify, ensureSoloPro,
+  throttleAuth, clientIp, clearThrottle, publicUser, loadUser, slugify, ensureSoloPro,
 } from '../auth.js';
 import { nowStr } from '../util.js';
 import { imageRef, imageUrl } from './images.js';
@@ -15,12 +15,15 @@ const strongPw = (pw) => {
 
 route('POST', '/api/auth/signup', null, async ({ body, req }) => {
   if (process.env.ALLOW_SIGNUP === '0') throw new HttpError(403, 'Cadastro de novos salões desativado.');
+  // no máximo 5 contas novas por IP a cada hora (evita criação em massa)
+  await throttleAuth([[`signup:${clientIp(req)}`, 5]], 3600_000);
   const { salonId, userId } = await createSalon({
     salonName: V.str(body.salon_name, 'Nome do salão', { req: true, max: 80 }),
     name: V.str(body.name, 'Seu nome', { req: true, max: 80 }),
     email: V.email(body.email, 'E-mail'),
     password: strongPw(body.password),
-    demo: !!body.demo,
+    // salão de demonstração não paga mensalidade: só pode ser criado fora da produção (script local)
+    demo: !!body.demo && !process.env.VERCEL && process.env.ALLOW_DEMO !== '0',
     teamMode: V.oneOf(body.team_mode, ['solo', 'team'], 'Modo de trabalho') || 'team',
   });
   const token = await createSession(userId);
@@ -29,12 +32,13 @@ route('POST', '/api/auth/signup', null, async ({ body, req }) => {
 
 route('POST', '/api/auth/login', null, async ({ body, req }) => {
   const email = V.email(body.email, 'E-mail');
-  const key = `${req.socket.remoteAddress}|${email}`;
-  throttleLogin(key);
+  const key = `login:${clientIp(req)}|${email}`;
+  // 8 erros por IP+e-mail e 25 por e-mail (de qualquer IP) a cada 15 min: barra força bruta distribuída
+  await throttleAuth([[key, 8], [`login:${email}`, 25]]);
   const u = await get('SELECT * FROM users WHERE email=? AND active=1', email);
   if (!u || typeof body.password !== 'string' || !verifyPassword(body.password, u.pass_hash))
     throw new HttpError(401, 'E-mail ou senha incorretos.');
-  clearThrottle(key);
+  await clearThrottle(key);
   return { __cookie: cookieHeader(await createSession(u.id), req), data: { ok: true } };
 });
 

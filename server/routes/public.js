@@ -6,7 +6,7 @@ import { all, get, run, tx } from '../db.js';
 import { addMin, addDays, today, nowStr, diffMin, fmtBRL } from '../util.js';
 import { freeSlots, findConflicts } from './agenda.js';
 import { salonProfile } from './account.js';
-import { imageUrl } from './images.js';
+import { imageUrl, parseImage } from './images.js';
 import { salonPayCfg, travelFee, depositFor, createCharge, sweepCharges, retainCharge } from './deposits.js';
 import { qrSvg } from '../pix.js';
 import { notifyStaff } from '../push.js';
@@ -226,12 +226,10 @@ route('POST', '/api/public/:slug/booking/:token/receipt', null, async ({ params,
   if (!v) throw new HttpError(404, 'Reserva não encontrada.');
   const c = await get('SELECT * FROM charges WHERE visit_id=? ORDER BY id DESC LIMIT 1', v.id);
   if (!c || !['pending', 'rejected', 'submitted'].includes(c.status)) throw new HttpError(409, c?.status === 'expired' ? 'O prazo para pagar terminou. Fale com o salão pelo WhatsApp.' : 'Não há pagamento aguardando comprovante nesta reserva.');
-  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.data || ''));
-  if (!m) throw new HttpError(400, 'Envie o comprovante como foto ou print (JPG, PNG ou WEBP).');
-  if (Buffer.byteLength(m[2], 'base64') > 700_000) throw new HttpError(413, 'Imagem muito grande. Envie um print da tela do comprovante.');
+  const img = parseImage(body.data, 'Envie o comprovante como foto ou print (JPG, PNG ou WEBP).', 'Imagem muito grande. Envie um print da tela do comprovante.');
   const id = crypto.randomBytes(16).toString('hex');
   await tx(async () => {
-    await run('INSERT INTO images(id,salon_id,mime,data,created_at,private) VALUES(?,?,?,?,?,1)', id, salon.id, m[1], m[2], nowStr());
+    await run('INSERT INTO images(id,salon_id,mime,data,created_at,private) VALUES(?,?,?,?,?,1)', id, salon.id, img.mime, img.b64, nowStr());
     await run(`UPDATE charges SET status='submitted', receipt_image=?, receipt_at=?, reject_reason=NULL, updated_at=? WHERE id=?`, id, nowStr(), nowStr(), c.id);
   });
   const pro = await get('SELECT professional_id FROM visit_items WHERE visit_id=? LIMIT 1', v.id);

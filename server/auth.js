@@ -54,16 +54,28 @@ export function cookieHeader(token, req, maxAgeSec = SESSION_DAYS * 86400) {
   return `vb_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}${secure}`;
 }
 
-// Limitador simples de tentativas de login (em memória)
-const attempts = new Map();
-export function throttleLogin(key) {
-  const now = Date.now();
-  const rec = (attempts.get(key) || []).filter((t) => now - t < 15 * 60_000);
-  if (rec.length >= 8) throw new HttpError(429, 'Muitas tentativas. Aguarde alguns minutos e tente novamente.');
-  rec.push(now);
-  attempts.set(key, rec);
+/** IP real de quem acessa: na Vercel vem do proxy (x-real-ip / x-forwarded-for); localmente, do socket. */
+export function clientIp(req) {
+  if (process.env.VERCEL) return String(req.headers['x-real-ip'] || req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '').trim();
+  return req.socket.remoteAddress || '';
 }
-export const clearThrottle = (key) => attempts.delete(key);
+
+/**
+ * Limite de tentativas guardado no banco: vale para todas as instâncias serverless ao mesmo tempo.
+ * rules: [[chave, máximo]] dentro de windowMs. Qualquer regra estourada bloqueia com 429.
+ */
+export async function throttleAuth(rules, windowMs = 15 * 60_000) {
+  const now = Date.now();
+  const mult = Number(process.env.RATE_LIMIT_MULT) || 1;
+  for (const [key, max] of rules) {
+    const n = (await get('SELECT COUNT(*) n FROM auth_attempts WHERE key=? AND at>?', key, now - windowMs)).n;
+    if (n >= max * mult) throw new HttpError(429, 'Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+  }
+  for (const [key] of rules) await run('INSERT INTO auth_attempts(key, at) VALUES(?, ?)', key, now);
+  // limpeza ocasional do histórico antigo
+  if (Math.random() < 0.02) await run('DELETE FROM auth_attempts WHERE at<?', now - 24 * 3600_000);
+}
+export const clearThrottle = (key) => run('DELETE FROM auth_attempts WHERE key=?', key);
 
 export const DEFAULT_METHODS = ['Dinheiro', 'Pix', 'Cartão de débito', 'Cartão de crédito'];
 export const DEFAULT_CATEGORIES = ['Cabelo', 'Unhas', 'Sobrancelhas', 'Maquiagem', 'Estética'];
