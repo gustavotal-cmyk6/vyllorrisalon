@@ -27,6 +27,7 @@ const PANEL = [
 
 const FAQ = [
   ['Preciso entender de tecnologia?', 'Não. Ao criar a conta, um tutorial de 2 minutos mostra cada passo com as telas do app. Se travar em algo, é só falar com a gente dentro do próprio app.'],
+  ['Corro risco de perder o número do WhatsApp?', 'A conexão do plano Pro não é a oficial do WhatsApp (funciona como o WhatsApp Web), então existe um pequeno risco de bloqueio do número, e ninguém pode garantir que nunca aconteça. A atendente só responde quem manda mensagem primeiro, e confirmação e lembrete vão só para quem marcou horário, o que mantém o risco baixo. Recomendamos usar um número separado, no WhatsApp Business, e não o número pessoal. Estamos preparando a conexão pela API oficial da Meta.'],
   ['O WhatsApp responde sozinho?', 'No plano Pro, sim: você conecta o WhatsApp do salão (QR code ou código) e uma atendente com IA responde as clientes, mostra os horários livres, marca na agenda e envia confirmação e lembrete. Sem o Pro, o sistema prepara a mensagem e você envia.'],
   ['Preciso de cartão de crédito para testar?', 'Não. Você cria a conta e usa tudo por 7 dias grátis, sem cadastrar cartão.'],
   ['Tenho que instalar alguma coisa?', 'Não. Funciona no navegador do celular, do tablet e do computador. Se quiser, adiciona à tela inicial e fica igual a um aplicativo.'],

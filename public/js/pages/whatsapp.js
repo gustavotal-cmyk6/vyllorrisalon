@@ -92,10 +92,18 @@ export default async function whatsapp(root) {
   };
 }
 
+/** Aviso mostrado antes de conectar: a conexão não é a oficial do WhatsApp. */
+const RISK = `<div class="alert warn" role="note" style="margin-bottom:12px"><span class="a-ic">${ic('alert', 18)}</span><span><b>Antes de conectar, saiba:</b>
+  <ul style="margin:6px 0 0;padding-left:18px;line-height:1.5">
+    <li>Esta conexão <b>não é a oficial do WhatsApp</b> (funciona como o WhatsApp Web). Por isso existe um <b>pequeno risco de o número ser bloqueado</b>, e ninguém pode garantir que isso nunca aconteça.</li>
+    <li>Recomendamos conectar um <b>número separado, no WhatsApp Business</b>, e <b>não o seu número pessoal</b>.</li>
+    <li>Para reduzir o risco: não use o número para mandar propaganda em massa nem para falar com quem nunca falou com o salão.</li>
+  </ul></span></div>`;
+
 function drawConnect(box, root, mode = 'menu', data = null) {
   clearInterval(poll);
   if (mode === 'menu') {
-    box.innerHTML = `<div class="card-head"><h2>Conectar o WhatsApp do salão</h2></div>
+    box.innerHTML = `<div class="card-head"><h2>Conectar o WhatsApp do salão</h2></div>${RISK}
       <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" data-qr>${ic('grid', 16)} Conectar com QR code</button><button class="btn soft" data-code>${ic('phone', 16)} Conectar com código</button></div>
       <p class="small muted" style="margin-top:8px">QR code: escaneie com outro aparelho. Código: ideal se você só tem um celular (digita o código no próprio WhatsApp).</p>`;
     box.querySelector('[data-qr]').onclick = (e) => submitting(e.currentTarget, async () => drawConnect(box, root, 'qr', await POST('/api/wa/connect', {}))).catch(() => {});
@@ -103,7 +111,7 @@ function drawConnect(box, root, mode = 'menu', data = null) {
     return;
   }
   if (mode === 'number') {
-    box.innerHTML = `<div class="card-head"><h2>Conectar com código</h2></div>
+    box.innerHTML = `<div class="card-head"><h2>Conectar com código</h2></div>${RISK}
       <form data-num><label class="field"><span>Número do WhatsApp do salão (com DDD)</span><input name="n" type="tel" inputmode="tel" placeholder="(86) 99999-8888" required></label>
       <div class="row" style="gap:8px"><button class="btn primary">Gerar código</button><button type="button" class="btn ghost" data-back>Usar QR code</button></div></form>`;
     box.querySelector('[data-back]').onclick = () => drawConnect(box, root);
