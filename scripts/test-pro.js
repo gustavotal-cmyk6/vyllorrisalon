@@ -117,5 +117,5 @@ try {
   process.exitCode = 1;
 } finally {
   srv.kill(); mpSrv.close(); evoSrv.close();
-  fs.rmSync(dir, { recursive: true, force: true });
+  setTimeout(() => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} }, 500); // no Windows o banco pode ainda estar aberto
 }
