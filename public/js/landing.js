@@ -113,6 +113,7 @@ export async function landing() {
         <p class="ld-price"><small>+</small>${price(proCents)}<span>/mês</span></p>
         <ul>${['Atendente com IA responde suas clientes no WhatsApp, 24h', 'Ela vê os horários livres da sua agenda e marca na hora', 'Confirmação e lembrete enviados sozinhos', 'Quando você responde, ela sai da conversa'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
         <p class="ld-plan-sub" style="margin-top:8px">Individual Pro: ${money(plans.solo.price_cents + proCents)}/mês · Com equipe Pro: ${money(plans.team.price_cents + proCents)}/mês. O Pro não tem dias grátis: é liberado na hora, no primeiro pagamento.</p>
+        <p class="ld-plan-sub" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(240,178,50,.10);border:1px solid rgba(240,178,50,.3);color:#f3d9a4">⚠️ A conexão não é a oficial do WhatsApp: uso abusivo (propaganda em massa, escrever para quem nunca falou com o salão) pode levar ao bloqueio do número. Use só para atender e lembrar quem já é cliente, de preferência num número separado (WhatsApp Business).</p>
         <a class="ld-btn" href="#/criar">Criar conta e ativar o Pro</a></div>
       <p class="ld-lead" style="margin-top:18px">Mais de 5 profissionais? Cada profissional a mais custa R$ 9,90/mês.</p>
       <details class="ld-compare"><summary>Comparar os planos em detalhe ${ic('chevDown', 18)}</summary>${planTable(plans)}</details></section>

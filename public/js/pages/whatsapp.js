@@ -14,6 +14,7 @@ export default async function whatsapp(root) {
         <span class="tag">Pro · + ${money(b?.pro_cents ?? 2000)}/mês</span>
         <h2 style="margin-top:10px">Seu WhatsApp atendendo sozinho, 24h</h2>
         <ul class="plan-list" style="margin-top:10px">${['Atendente com IA responde suas clientes no WhatsApp do salão', 'Ela vê os horários livres da sua agenda e marca na hora', 'Confirmação e lembrete enviados sozinhos para a cliente', 'Quando você responde uma conversa, a atendente sai daquela conversa'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
+        <div class="alert warn" role="note" style="margin-top:10px"><span class="a-ic">${ic('alert', 18)}</span><span><b>Leia antes de ativar o Pro:</b> a conexão não é a oficial do WhatsApp (funciona como o WhatsApp Web). Uso abusivo (propaganda em massa, escrever para quem nunca falou com o salão) pode levar ao <b>bloqueio do número</b>. Use só para atender e lembrar quem já é cliente, de preferência num número separado (WhatsApp Business).</span></div>
         <p class="small muted" style="margin-top:10px">O Pro não tem dias grátis: ele é liberado na hora, no primeiro pagamento com o Pro.</p>
         <a class="btn primary block" href="#/assinatura" style="margin-top:14px">${ic('star', 16)} Ativar o Pro</a>
       </div>`;

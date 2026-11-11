@@ -44,6 +44,8 @@ export default async function billing(root) {
   });
 }
 
+const PRO_NOTICE = `<div class="alert warn" role="note" style="margin-top:10px"><span class="a-ic">${ic('alert', 18)}</span><span><b>Leia antes de ativar o Pro:</b> a conexão do WhatsApp automático <b>não é a oficial do WhatsApp</b> (funciona como o WhatsApp Web). Se o número for usado de forma abusiva, o WhatsApp pode <b>bloquear o número</b>, e ninguém pode garantir que isso nunca aconteça.<ul style="margin:6px 0 0;padding-left:18px;line-height:1.5"><li>Use só para <b>atender quem já falou com o salão</b> e para <b>confirmar e lembrar horários</b> de quem marcou.</li><li><b>Não use</b> o número para propaganda em massa, listas de transmissão nem para escrever para quem nunca falou com o salão.</li><li>Prefira um <b>número separado, no WhatsApp Business</b>, e não o seu número pessoal.</li></ul></span></div>`;
+
 /** Plano Pro (WhatsApp automático): + R$ 20 na mensalidade, sem dias grátis. */
 function proCard(b) {
   const status = b.pro_active ? `<span class="ok-t"><b>Pro ativo</b>${b.pro_until ? ` até ${fmtDate(b.pro_until)}` : ''}.</span> <a href="#/whatsapp">Abrir o WhatsApp automático</a>`
@@ -51,6 +53,7 @@ function proCard(b) {
   return `<div class="card">
     <div class="card-head"><h2>Plano Pro · WhatsApp automático</h2><span class="tag">+ ${money(b.pro_cents ?? 2000)}/mês</span></div>
     <ul class="plan-list">${['Atendente com IA responde suas clientes no WhatsApp, 24h', 'Ela vê os horários livres e marca na sua agenda', 'Confirmação e lembrete enviados sozinhos', '500 respostas da atendente por mês'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
+    ${PRO_NOTICE}
     <label class="check" style="margin-top:10px"><span class="switch"><input type="checkbox" data-pro ${b.want_pro ? 'checked' : ''}><i></i></span> Incluir o Pro na minha mensalidade</label>
     ${status ? `<p class="small" style="margin-top:8px">${status}</p>` : ''}
     <p class="tiny muted" style="margin-top:8px">O Pro não tem dias grátis: começa no primeiro pagamento com o Pro.</p>
