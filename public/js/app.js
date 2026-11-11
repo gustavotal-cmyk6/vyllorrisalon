@@ -16,6 +16,7 @@ const PAGES = {
   relatorios: () => import('./pages/reports.js'),
   config: () => import('./pages/settings.js'),
   assinatura: () => import('./pages/billing.js'),
+  whatsapp: () => import('./pages/whatsapp.js'),
   ajuda: () => import('./pages/help.js'),
 };
 const ADMIN = ['owner', 'manager'], STAFF = ['owner', 'manager', 'reception'];
@@ -34,6 +35,7 @@ function navItems() {
     { k: 'comissoes', ico: 'percent', label: r === 'pro' ? 'Minhas comissões' : 'Comissões', roles: [...ADMIN, 'pro'], group: 'Gestão' },
     { k: 'relatorios', ico: 'chart', label: 'Relatórios', roles: ADMIN, group: 'Gestão' },
     { k: 'config', ico: 'settings', label: 'Configurações', group: 'Conta' },
+    { k: 'whatsapp', ico: 'whatsapp', label: 'WhatsApp automático', roles: ['owner'], group: 'Conta' },
     { k: 'assinatura', ico: 'star', label: 'Assinatura', roles: ['owner'], group: 'Conta' },
     { k: 'ajuda', ico: 'message', label: 'Ajuda e sugestões', group: 'Conta' },
   ].filter((i) => (!i.roles || i.roles.includes(r)) && !(can.solo() && ['equipe', 'comissoes'].includes(i.k)) && !(!can.products() && i.k === 'estoque'));

@@ -20,6 +20,7 @@ import './routes/deposits.js';
 import './routes/billing.js';
 import './routes/feedback.js';
 import './routes/security.js';
+import './routes/whatsapp.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = {

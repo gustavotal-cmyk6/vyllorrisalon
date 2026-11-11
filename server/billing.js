@@ -12,15 +12,18 @@ export const PLANS = {
   solo: { name: 'Individual', price_cents: 3990, included_pros: 1, extra_pro_cents: 0 },
   team: { name: 'Com equipe', price_cents: 4990, included_pros: 5, extra_pro_cents: 990 },
 };
+/** Plano Pro: WhatsApp automático, somado ao plano (Individual ou Com equipe). Sem dias grátis. */
+export const PRO_ADDON_CENTS = 2000;
 const PROS_SQL = '(SELECT COUNT(*) FROM professionals p WHERE p.salon_id=s.id AND p.active=1)';
 export { PROS_SQL };
 
 /** Plano do salão com o valor do mês: no plano com equipe, cada profissional ativa acima de 5 soma R$ 9,90. */
-export function planFor(mode, pros = 0) {
+export function planFor(mode, pros = 0, pro = false) {
   const key = mode === 'solo' ? 'solo' : 'team';
   const p = PLANS[key];
   const extra = key === 'team' ? Math.max(0, (pros || 0) - p.included_pros) : 0;
-  return { key, name: p.name, base_cents: p.price_cents, included_pros: p.included_pros, extra_pro_cents: p.extra_pro_cents, pros: pros || 0, extra_pros: extra, price_cents: p.price_cents + extra * p.extra_pro_cents };
+  const addon = pro ? PRO_ADDON_CENTS : 0; // Pro: + R$ 20 no plano
+  return { key, name: p.name + (pro ? ' Pro' : ''), pro: !!pro, pro_cents: PRO_ADDON_CENTS, base_cents: p.price_cents, included_pros: p.included_pros, extra_pro_cents: p.extra_pro_cents, pros: pros || 0, extra_pros: extra, price_cents: p.price_cents + extra * p.extra_pro_cents + addon };
 }
 const GRACE_DAYS = 3; // tolerância depois do vencimento
 const REMIND_DAYS = 5; // a partir de quando aparece "sua mensalidade vence em X dias"
@@ -40,21 +43,23 @@ const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.pa
  * status: comp (cortesia/demonstração) · active (pago) · trial (teste) · blocked (teste acabou ou mensalidade atrasada)
  */
 export function billingInfo(s) {
-  const plan = planFor(s.team_mode, s.pros);
-  const base = { plan, paid_until: s.paid_until || null, trial_ends_at: s.trial_ends_at || null };
-  if (s.is_demo || s.sub_status === 'comp') return { ...base, status: 'comp', blocked: false };
+  const plan = planFor(s.team_mode, s.pros, !!s.want_pro);
+  const base = { plan, paid_until: s.paid_until || null, trial_ends_at: s.trial_ends_at || null, want_pro: !!s.want_pro, pro_until: s.pro_until || null };
+  if (s.is_demo || s.sub_status === 'comp') return { ...base, status: 'comp', blocked: false, pro_active: !!s.comp_pro };
   const d = today();
+  // Pro: só pago (sem dias grátis), até o fim do mês pago com o Pro
+  const pro_active = !!(s.pro_until && d <= addDays(s.pro_until, GRACE_DAYS));
   if (s.paid_until && d <= addDays(s.paid_until, GRACE_DAYS)) {
     const left = daysBetween(d, s.paid_until);
-    return { ...base, status: 'active', blocked: false, days_left: Math.max(0, left), due_soon: left <= REMIND_DAYS, overdue: left < 0 };
+    return { ...base, status: 'active', blocked: false, pro_active, days_left: Math.max(0, left), due_soon: left <= REMIND_DAYS, overdue: left < 0 };
   }
-  if (s.trial_ends_at && d <= s.trial_ends_at) return { ...base, status: 'trial', blocked: false, days_left: daysBetween(d, s.trial_ends_at) + 1 };
-  return { ...base, status: 'blocked', blocked: true, reason: s.paid_until ? 'overdue' : 'trial_ended' };
+  if (s.trial_ends_at && d <= s.trial_ends_at) return { ...base, status: 'trial', blocked: false, pro_active, days_left: daysBetween(d, s.trial_ends_at) + 1 };
+  return { ...base, status: 'blocked', blocked: true, pro_active: false, reason: s.paid_until ? 'overdue' : 'trial_ended' };
 }
 
 export const trialEnd = () => addDays(today(), TRIAL_DAYS - 1);
 
-const salonRow = (sid) => get(`SELECT s.id, s.name, s.is_demo, s.team_mode, s.sub_status, s.trial_ends_at, s.paid_until, ${PROS_SQL} AS pros FROM salons s WHERE s.id=?`, sid);
+export const salonRow = (sid) => get(`SELECT s.id, s.name, s.slug, s.is_demo, s.team_mode, s.sub_status, s.trial_ends_at, s.paid_until, s.want_pro, s.pro_until, s.comp_pro, ${PROS_SQL} AS pros FROM salons s WHERE s.id=?`, sid);
 
 // ---------- Mercado Pago ----------
 const mpBase = () => process.env.MP_BASE_URL || 'https://api.mercadopago.com';
@@ -80,8 +85,11 @@ async function applyPaid(row, paidAt) {
   const s = await salonRow(row.salon_id);
   const d = today();
   const startFrom = [d, s.paid_until, s.trial_ends_at && s.trial_ends_at >= d ? s.trial_ends_at : null].filter(Boolean).sort().pop();
+  const until = addMonth(startFrom);
   await run("UPDATE billing_payments SET status='approved', paid_at=? WHERE id=?", paidAt || nowStr(), row.id);
-  await run("UPDATE salons SET paid_until=?, sub_status='active' WHERE id=?", addMonth(startFrom), row.salon_id);
+  await run("UPDATE salons SET paid_until=?, sub_status='active' WHERE id=?", until, row.salon_id);
+  // mensalidade paga com o Pro: o Pro começa na hora e vale até o mesmo dia
+  if (row.pro) await run('UPDATE salons SET pro_until=? WHERE id=?', until, row.salon_id);
 }
 
 /** Consulta no Mercado Pago o Pix em aberto (funciona mesmo sem o aviso automático configurado). */
@@ -125,8 +133,8 @@ export async function createPix(sid, user, req) {
   });
   const tx = p.point_of_interaction?.transaction_data || {};
   const exp = new Date(expires.getTime() - expires.getTimezoneOffset() * 60e3).toISOString().slice(0, 19).replace('T', ' ');
-  const id = (await run(`INSERT INTO billing_payments(salon_id, mp_id, amount_cents, status, qr_code, qr_base64, expires_at, created_at) VALUES(?,?,?,?,?,?,?,?)`,
-    sid, String(p.id), info.plan.price_cents, 'pending', tx.qr_code || '', tx.qr_code_base64 || '', exp, nowStr())).id;
+  const id = (await run(`INSERT INTO billing_payments(salon_id, mp_id, amount_cents, status, qr_code, qr_base64, expires_at, created_at, pro) VALUES(?,?,?,?,?,?,?,?,?)`,
+    sid, String(p.id), info.plan.price_cents, 'pending', tx.qr_code || '', tx.qr_code_base64 || '', exp, nowStr(), info.plan.pro ? 1 : 0)).id;
   return pixView(await get('SELECT * FROM billing_payments WHERE id=?', id));
 }
 
@@ -140,4 +148,12 @@ export async function handleWebhook(query, body) {
   const p = await mp('GET', `/v1/payments/${id}`);
   if (p.status === 'approved') await applyPaid(row, p.date_approved?.replace('T', ' ').slice(0, 19));
   return { ok: true };
+}
+
+/** Proprietária liga/desliga o Pro (vale para o próximo Pix; o Pro começa quando ele for pago). */
+export async function setWantPro(sid, want) {
+  await run('UPDATE salons SET want_pro=? WHERE id=?', want ? 1 : 0, sid);
+  // Pix em aberto com o valor antigo deixa de valer
+  await run("UPDATE billing_payments SET status='replaced' WHERE salon_id=? AND status='pending'", sid);
+  return salonBilling(sid);
 }

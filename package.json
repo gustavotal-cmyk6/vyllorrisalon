@@ -10,9 +10,11 @@
   "scripts": {
     "start": "node server/index.js",
     "test": "node scripts/test.js",
+    "test:pro": "node scripts/test-pro.js",
     "demo": "node scripts/demo.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@libsql/client": "^0.15.15",
     "qrcode": "^1.5.4",
     "web-push": "^3.6.7"

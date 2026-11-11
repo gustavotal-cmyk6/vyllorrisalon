@@ -236,6 +236,18 @@ CREATE TABLE IF NOT EXISTS cash_closings(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), date TEXT NOT NULL,
   expected_cash_cents INTEGER NOT NULL, counted_cash_cents INTEGER NOT NULL, total_in_cents INTEGER NOT NULL,
   notes TEXT, created_by INTEGER, created_at TEXT NOT NULL, UNIQUE(salon_id, date));
+-- Plano Pro: WhatsApp automático (conexão, conversas do atendente e marcas das mensagens do sistema)
+CREATE TABLE IF NOT EXISTS wa_links(
+  salon_id INTEGER PRIMARY KEY REFERENCES salons(id), instance TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'close', phone TEXT, ai_enabled INTEGER NOT NULL DEFAULT 1,
+  confirmations INTEGER NOT NULL DEFAULT 1, reminders INTEGER NOT NULL DEFAULT 1,
+  usage_month TEXT, usage_count INTEGER NOT NULL DEFAULT 0, extra_credits INTEGER NOT NULL DEFAULT 0,
+  ignore_numbers TEXT NOT NULL DEFAULT '[]', connected_at TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS wa_conversations(
+  salon_id INTEGER NOT NULL, phone TEXT NOT NULL, messages TEXT NOT NULL DEFAULT '[]', updated_at TEXT,
+  human_until TEXT, limit_notice_at TEXT, PRIMARY KEY(salon_id, phone));
+CREATE TABLE IF NOT EXISTS wa_bot_texts(
+  salon_id INTEGER NOT NULL, phone TEXT NOT NULL, hash TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(salon_id, phone, hash));
 `;
 
 // Versão do esquema = hash deste arquivo. Se nada mudou desde a última inicialização, o cold start
@@ -318,6 +330,13 @@ export const ready = withSlot(async (client) => {
     'ALTER TABLE visits ADD COLUMN home_lng REAL',
     'ALTER TABLE visits ADD COLUMN travel_fee_cents INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE visits ADD COLUMN travel_buffer_min INTEGER NOT NULL DEFAULT 0',
+    // plano Pro (WhatsApp automático): escolhido, pago até e cortesia; Pix marcado como Pro; mensagens já enviadas
+    'ALTER TABLE salons ADD COLUMN want_pro INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE salons ADD COLUMN pro_until TEXT',
+    'ALTER TABLE salons ADD COLUMN comp_pro INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE billing_payments ADD COLUMN pro INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE visits ADD COLUMN wa_confirm_at TEXT',
+    'ALTER TABLE visits ADD COLUMN wa_remind_at TEXT',
   ])
     await client.execute(sql).catch(() => {});
   // salões criados antes da assinatura existir ficam com acesso de cortesia (os novos sempre têm data de fim do teste)

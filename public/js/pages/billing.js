@@ -29,11 +29,32 @@ export default async function billing(root) {
       </div>
       <div class="card" data-pay></div>
     </div>
+    ${owner ? proCard(b) : ''}
     <div class="card"><div class="card-head"><h2>Comparar os planos</h2></div>${planTable(b.plans, b.plan.key)}
       <p class="small muted" style="margin-top:10px">Para trocar de plano, mude o modo de trabalho em Configurações → Salão. O valor da próxima mensalidade acompanha a troca.</p></div>
     ${b.last_paid ? `<p class="legend">Último pagamento: ${money(b.last_paid.amount_cents)} em ${fmtDate(b.last_paid.paid_at)}.</p>` : ''}`}`;
   const box = root.querySelector('[data-pay]');
   if (box) drawPay(box, b, owner);
+  root.querySelector('[data-pro]')?.addEventListener('change', async (e) => {
+    try {
+      await POST('/api/billing/pro', { want: e.currentTarget.checked });
+      toast(e.currentTarget.checked ? 'Pro incluído na próxima mensalidade.' : 'Pro retirado da próxima mensalidade.');
+      billing(root);
+    } catch (err) { fail(err); e.currentTarget.checked = !e.currentTarget.checked; }
+  });
+}
+
+/** Plano Pro (WhatsApp automático): + R$ 20 na mensalidade, sem dias grátis. */
+function proCard(b) {
+  const status = b.pro_active ? `<span class="ok-t"><b>Pro ativo</b>${b.pro_until ? ` até ${fmtDate(b.pro_until)}` : ''}.</span> <a href="#/whatsapp">Abrir o WhatsApp automático</a>`
+    : b.want_pro ? '<span class="warn-t"><b>Pro escolhido:</b> é liberado na hora, assim que você pagar a mensalidade com o Pro (Pix ao lado).</span>' : '';
+  return `<div class="card">
+    <div class="card-head"><h2>Plano Pro · WhatsApp automático</h2><span class="tag">+ ${money(b.pro_cents ?? 2000)}/mês</span></div>
+    <ul class="plan-list">${['Atendente com IA responde suas clientes no WhatsApp, 24h', 'Ela vê os horários livres e marca na sua agenda', 'Confirmação e lembrete enviados sozinhos', '500 respostas da atendente por mês'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
+    <label class="check" style="margin-top:10px"><span class="switch"><input type="checkbox" data-pro ${b.want_pro ? 'checked' : ''}><i></i></span> Incluir o Pro na minha mensalidade</label>
+    ${status ? `<p class="small" style="margin-top:8px">${status}</p>` : ''}
+    <p class="tiny muted" style="margin-top:8px">O Pro não tem dias grátis: começa no primeiro pagamento com o Pro.</p>
+  </div>`;
 }
 
 function drawPay(box, b, owner) {
@@ -78,14 +99,14 @@ function drawPay(box, b, owner) {
     }, 5000);
     return;
   }
-  const label = b.status === 'trial' ? 'Assinar agora' : b.status === 'active' && !b.overdue && !b.due_soon ? 'Adiantar a próxima mensalidade' : 'Pagar mensalidade';
+  const label = b.want_pro && !b.pro_active ? 'Ativar o Pro agora' : b.status === 'trial' ? 'Assinar agora' : b.status === 'active' && !b.overdue && !b.due_soon ? 'Adiantar a próxima mensalidade' : 'Pagar mensalidade';
   box.innerHTML = `<h2>Pagamento</h2>
     <div class="pix-how">
       <div>${ic('zap', 18)}<span><b>Pix na hora</b><small>Gere o QR Code e pague pelo app do banco.</small></span></div>
       <div>${ic('checkCircle', 18)}<span><b>Liberação automática</b><small>Confirmamos o pagamento sozinhos, sem enviar comprovante.</small></span></div>
       <div>${ic('bell', 18)}<span><b>Lembrete antes de vencer</b><small>Avisamos aqui no app ${b.status === 'trial' ? 'antes do teste acabar' : '5 dias antes do vencimento'}.</small></span></div>
     </div>
-    ${b.status === 'trial' ? `<p class="small muted" style="margin:12px 0">Assinando agora você não perde os dias grátis: a mensalidade começa a contar depois de ${fmtDate(b.trial_ends_at)}.</p>` : ''}
+    ${b.status === 'trial' ? `<p class="small muted" style="margin:12px 0">Assinando agora você não perde os dias grátis: a mensalidade começa a contar depois de ${fmtDate(b.trial_ends_at)}.${b.want_pro ? ' O Pro é liberado na hora do pagamento.' : ''}</p>` : ''}
     ${b.online ? `<button class="btn primary block" data-pix style="height:52px;margin-top:12px">${ic('zap', 18)} ${label} · ${money(b.plan.price_cents)} no Pix</button>`
       : `<p class="small warn-t" style="margin-top:12px">O pagamento por Pix está sendo configurado. Volte em breve ou fale com o suporte do Vyllorri.</p>`}`;
   box.querySelector('[data-pix]')?.addEventListener('click', async (e) => {

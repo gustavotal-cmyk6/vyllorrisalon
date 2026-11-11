@@ -27,6 +27,7 @@ const PANEL = [
 
 const FAQ = [
   ['Preciso entender de tecnologia?', 'Não. Ao criar a conta, um tutorial de 2 minutos mostra cada passo com as telas do app. Se travar em algo, é só falar com a gente dentro do próprio app.'],
+  ['O WhatsApp responde sozinho?', 'No plano Pro, sim: você conecta o WhatsApp do salão (QR code ou código) e uma atendente com IA responde as clientes, mostra os horários livres, marca na agenda e envia confirmação e lembrete. Sem o Pro, o sistema prepara a mensagem e você envia.'],
   ['Preciso de cartão de crédito para testar?', 'Não. Você cria a conta e usa tudo por 7 dias grátis, sem cadastrar cartão.'],
   ['Tenho que instalar alguma coisa?', 'Não. Funciona no navegador do celular, do tablet e do computador. Se quiser, adiciona à tela inicial e fica igual a um aplicativo.'],
   ['Como pago a mensalidade?', 'Por Pix, com QR Code ou copia e cola. A confirmação é automática. Não existe fidelidade: se não quiser continuar, é só não pagar o próximo mês.'],
@@ -37,10 +38,10 @@ const FAQ = [
 const phone = (src, alt, cls = '') => `<div class="lx-phone ${cls}"><img src="${src}" alt="${esc(alt)}" loading="lazy"></div>`;
 
 export async function landing() {
-  let plans = { solo: { name: 'Individual', price_cents: 3990 }, team: { name: 'Com equipe', price_cents: 4990 } }, days = 7;
+  let plans = { solo: { name: 'Individual', price_cents: 3990 }, team: { name: 'Com equipe', price_cents: 4990 } }, days = 7, proCents = 2000;
   try {
     const r = await GET('/api/plans');
-    (plans = r.plans), (days = r.trial_days);
+    (plans = r.plans), (days = r.trial_days), (proCents = r.pro_cents ?? proCents);
   } catch {}
   const price = (c) => {
     const [r, cents] = money(c).replace('R$', '').trim().split(',');
@@ -106,6 +107,12 @@ export async function landing() {
         ${plan('solo', 'Para quem atende por conta própria', ['Página de agendamento com sua marca', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular'], false)}
         ${plan('team', 'Para salões e studios com equipe', ['Tudo do plano Individual', 'Até 5 profissionais incluídos', 'Agenda de cada profissional', 'Comissões calculadas automaticamente', 'Acessos para recepção e equipe'], true)}
       </div>
+      <div class="ld-plan hl" style="max-width:820px;margin:16px auto 0"><span class="ld-pop">Novo · Pro</span>
+        <h3>Pro: WhatsApp automático</h3><p class="ld-plan-sub">Some ao Individual ou ao Com equipe</p>
+        <p class="ld-price"><small>+</small>${price(proCents)}<span>/mês</span></p>
+        <ul>${['Atendente com IA responde suas clientes no WhatsApp, 24h', 'Ela vê os horários livres da sua agenda e marca na hora', 'Confirmação e lembrete enviados sozinhos', 'Quando você responde, ela sai da conversa'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
+        <p class="ld-plan-sub" style="margin-top:8px">Individual Pro: ${money(plans.solo.price_cents + proCents)}/mês · Com equipe Pro: ${money(plans.team.price_cents + proCents)}/mês. O Pro não tem dias grátis: é liberado na hora, no primeiro pagamento.</p>
+        <a class="ld-btn" href="#/criar">Criar conta e ativar o Pro</a></div>
       <p class="ld-lead" style="margin-top:18px">Mais de 5 profissionais? Cada profissional a mais custa R$ 9,90/mês.</p>
       <details class="ld-compare"><summary>Comparar os planos em detalhe ${ic('chevDown', 18)}</summary>${planTable(plans)}</details></section>
 
