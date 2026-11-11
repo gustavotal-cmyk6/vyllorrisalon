@@ -122,15 +122,25 @@ export async function createPix(sid, user, req) {
   const host = process.env.APP_URL || (req?.headers?.host ? `https://${req.headers.host}` : '');
   const expires = new Date(Date.now() + PIX_HOURS * 3600e3);
   const ref = `salon:${sid}:${Date.now()}`;
-  const p = await mp('POST', '/v1/payments', {
+  const body = (email) => ({
     transaction_amount: info.plan.price_cents / 100,
     description: `Vyllorri Beauty · mensalidade plano ${info.plan.name}`,
     payment_method_id: 'pix',
-    payer: { email: user.email, first_name: String(user.name || '').split(' ')[0] || 'Cliente' },
+    payer: { email, first_name: String(user.name || '').split(' ')[0] || 'Cliente' },
     external_reference: ref,
     date_of_expiration: expires.toISOString().replace('Z', '-00:00'),
     ...(host.startsWith('https://') && !host.includes('localhost') ? { notification_url: `${host}/api/billing/webhook` } : {}),
   });
+  // o Mercado Pago recusa alguns e-mails (de teste, domínios incomuns): tenta de novo com um e-mail do Vyllorri
+  const fallbackEmail = `pagamentos+salao${sid}@vyllorri.com.br`;
+  const valid = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(String(user.email || '')) && !/\.(test|local|invalid|example)$/i.test(user.email);
+  let p;
+  try {
+    p = await mp('POST', '/v1/payments', body(valid ? user.email : fallbackEmail));
+  } catch (e) {
+    if (!valid || !/email/i.test(e.message)) throw e;
+    p = await mp('POST', '/v1/payments', body(fallbackEmail));
+  }
   const tx = p.point_of_interaction?.transaction_data || {};
   const exp = new Date(expires.getTime() - expires.getTimezoneOffset() * 60e3).toISOString().slice(0, 19).replace('T', ' ');
   const id = (await run(`INSERT INTO billing_payments(salon_id, mp_id, amount_cents, status, qr_code, qr_base64, expires_at, created_at, pro) VALUES(?,?,?,?,?,?,?,?,?)`,
