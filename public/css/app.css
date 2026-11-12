@@ -1152,3 +1152,9 @@ body.booking { min-height: 100vh; }
 .lx-pro-notes li:last-child .ic { color: #f0b232; }
 .lx-pro .ld-btn { width: 100%; }
 @media (min-width: 720px) { .lx-pro { padding: 34px 40px; } .lx-pro-how { grid-template-columns: repeat(3, 1fr); } }
+.lx-step-t .ic { color: var(--ld-rose); }
+.lx-proplan { border-color: rgba(37, 211, 102, .45); background: radial-gradient(90% 60% at 100% 0%, rgba(37, 211, 102, .14), transparent 70%), var(--ld-card); }
+.lx-pop-pro { display: inline-flex; align-items: center; gap: 5px; background: #25d366; color: #06301a; }
+.lx-proplan li .ic { color: #25d366; }
+.lx-proplan li b { color: #fff; }
+.lx-pro { margin-top: 30px; }
