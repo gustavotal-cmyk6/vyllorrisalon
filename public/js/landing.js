@@ -48,7 +48,7 @@ export async function landing() {
     const [r, cents] = money(c).replace('R$', '').trim().split(',');
     return `<small>R$</small>${r}<small>,${cents}</small>`;
   };
-  const plan = (k, sub, feats, hl) => `<div class="ld-plan ${hl ? 'hl' : ''}">${hl ? '<span class="ld-pop">Para salões</span>' : ''}
+  const plan = (k, sub, feats, hl, tag) => `<div class="ld-plan ${hl ? 'hl' : ''}">${tag ? `<span class="ld-pop">${tag}</span>` : ''}
       <h3>${esc(plans[k].name)}</h3><p class="ld-plan-sub">${sub}</p>
       <p class="ld-price">${price(plans[k].price_cents)}<span>/mês</span></p>
       <ul>${feats.map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
@@ -103,19 +103,33 @@ export async function landing() {
       <div class="lx-show" data-show="panel"></div></section>
 
     <section class="ld-sec" id="planos"><p class="ld-kicker">Planos</p><h2>Preço claro, sem surpresa</h2>
-      <p class="ld-lead">Teste tudo por ${days} dias. Depois, pague por Pix todo mês, sem fidelidade.</p>
+      <p class="ld-lead">Escolha o plano do jeito que você trabalha. Teste tudo por ${days} dias e depois pague por Pix todo mês, sem fidelidade.</p>
+      <p class="lx-step-t"><span>1</span> Escolha seu plano</p>
       <div class="ld-plans">
-        ${plan('solo', 'Para quem atende por conta própria', ['Página de agendamento com sua marca', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular'], false)}
-        ${plan('team', 'Para salões e studios com equipe', ['Tudo do plano Individual', 'Até 5 profissionais incluídos', 'Agenda de cada profissional', 'Comissões calculadas automaticamente', 'Acessos para recepção e equipe'], true)}
+        ${plan('solo', 'Para quem atende por conta própria', ['Página de agendamento com sua marca', 'Agendamento online 24h', 'Sinal por Pix e domicílio', 'Clientes, vendas e financeiro', 'Avisos no celular'], true, 'Mais escolhido')}
+        ${plan('team', 'Para salões e studios com equipe', ['Tudo do plano Individual', 'Até 5 profissionais incluídos', 'Agenda de cada profissional', 'Comissões calculadas automaticamente', 'Acessos para recepção e equipe'], false)}
       </div>
-      <div class="ld-plan hl" style="max-width:820px;margin:16px auto 0"><span class="ld-pop">Novo · Pro</span>
-        <h3>Pro: WhatsApp automático</h3><p class="ld-plan-sub">Some ao Individual ou ao Com equipe</p>
-        <p class="ld-price"><small>+</small>${price(proCents)}<span>/mês</span></p>
-        <ul>${['Atendente com IA responde suas clientes no WhatsApp, 24h', 'Ela vê os horários livres da sua agenda e marca na hora', 'Confirmação e lembrete enviados sozinhos', 'Quando você responde, ela sai da conversa'].map((t) => `<li>${ic('check', 16)} ${t}</li>`).join('')}</ul>
-        <p class="ld-plan-sub" style="margin-top:8px">Individual Pro: ${money(plans.solo.price_cents + proCents)}/mês · Com equipe Pro: ${money(plans.team.price_cents + proCents)}/mês. O Pro não tem dias grátis: é liberado na hora, no primeiro pagamento.</p>
-        <p class="ld-plan-sub" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(240,178,50,.10);border:1px solid rgba(240,178,50,.3);color:#f3d9a4">⚠️ A conexão não é a oficial do WhatsApp: uso abusivo (propaganda em massa, escrever para quem nunca falou com o salão) pode levar ao bloqueio do número. Use só para atender e lembrar quem já é cliente, de preferência num número separado (WhatsApp Business).</p>
+      <p class="ld-lead" style="margin-top:14px">Mais de 5 profissionais? Cada profissional a mais custa R$ 9,90/mês.</p>
+
+      <p class="lx-step-t"><span>2</span> Quer que o WhatsApp atenda por você? <em>Opcional</em></p>
+      <div class="lx-pro">
+        <div class="lx-pro-head"><span class="lx-pro-tag">${ic('sparkle', 14)} Pro</span>
+          <h3>WhatsApp automático</h3>
+          <p>Uma atendente com IA responde quem chama no WhatsApp do seu negócio, mostra os horários livres e já marca na sua agenda. Funciona junto com o plano que você escolheu.</p>
+          <p class="ld-price"><small>+</small>${price(proCents)}<span>/mês</span></p></div>
+        <ol class="lx-pro-how">${[
+          ['Conecte seu WhatsApp', 'Pelo QR code, igual ao WhatsApp Web.'],
+          ['A atendente responde', 'Tira dúvidas de preço e horário, 24h por dia.'],
+          ['O horário é marcado', 'Entra direto na agenda, com confirmação e lembrete.'],
+        ].map(([t, d], n) => `<li><span>${n + 1}</span><b>${t}</b><small>${d}</small></li>`).join('')}</ol>
+        <div class="lx-pro-sum">
+          <div><small>Individual + Pro</small><b>${money(plans.solo.price_cents + proCents)}<i>/mês</i></b></div>
+          <div><small>Com equipe + Pro</small><b>${money(plans.team.price_cents + proCents)}<i>/mês</i></b></div>
+        </div>
+        <ul class="lx-pro-notes"><li>${ic('check', 15)} Quando você responde a conversa, a atendente sai e deixa com você.</li>
+          <li>${ic('info', 15)} O Pro não tem dias grátis: é liberado no primeiro pagamento.</li>
+          <li>${ic('alert', 15)} A conexão não é a oficial do WhatsApp. Use só para atender quem já é cliente, sem propaganda em massa, de preferência num número separado (WhatsApp Business).</li></ul>
         <a class="ld-btn" href="#/criar">Criar conta e ativar o Pro</a></div>
-      <p class="ld-lead" style="margin-top:18px">Mais de 5 profissionais? Cada profissional a mais custa R$ 9,90/mês.</p>
       <details class="ld-compare"><summary>Comparar os planos em detalhe ${ic('chevDown', 18)}</summary>${planTable(plans)}</details></section>
 
     <section class="ld-sec" id="duvidas"><p class="ld-kicker">Dúvidas</p><h2>Perguntas frequentes</h2>
