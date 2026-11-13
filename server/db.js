@@ -228,6 +228,8 @@ CREATE TABLE IF NOT EXISTS feedback(
 -- tentativas de login/cadastro (limite compartilhado entre todas as instâncias serverless)
 CREATE TABLE IF NOT EXISTS auth_attempts(key TEXT NOT NULL, at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_auth_attempts ON auth_attempts(key, at);
+-- recuperar senha por e-mail (só o hash do código é guardado; vale 1 hora)
+CREATE TABLE IF NOT EXISTS password_resets(token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS push_subscriptions(
   id INTEGER PRIMARY KEY, salon_id INTEGER NOT NULL REFERENCES salons(id), user_id INTEGER NOT NULL REFERENCES users(id),
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL);

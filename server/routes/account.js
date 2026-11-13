@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { route, HttpError, OWNER, ALL } from '../http.js';
 import { V } from '../validate.js';
 import { all, get, run } from '../db.js';
@@ -50,6 +51,44 @@ route('POST', '/api/auth/login', null, async ({ body, req }) => {
   await clearThrottle(key);
   await audit(req, u, 'login');
   return { __cookie: cookieHeader(await createSession(u.id, req), req), data: { ok: true } };
+});
+
+// ---- recuperar senha por e-mail (Brevo, chave BREVO_API_KEY na Vercel) ----
+route('POST', '/api/auth/forgot', null, async ({ body, req }) => {
+  const email = V.email(body.email, 'E-mail');
+  await throttleAuth([[`forgot:${clientIp(req)}`, 5], [`forgot:${email}`, 3]], 3600_000);
+  const u = await get('SELECT id, name FROM users WHERE email=? AND active=1', email);
+  if (u) {
+    const key = process.env.BREVO_API_KEY;
+    if (!key) throw new HttpError(503, 'Recuperação por e-mail ainda não está ligada. Escreva para thhcsoluctions@gmail.com.');
+    const token = crypto.randomBytes(32).toString('hex');
+    await run('DELETE FROM password_resets WHERE user_id=?', u.id);
+    await run('INSERT INTO password_resets(token_hash,user_id,expires_at) VALUES(?,?,?)', sha(token), u.id, Date.now() + 3600_000);
+    const host = process.env.APP_URL || `https://${req.headers.host}`;
+    const link = `${String(host).replace(/\/$/, '')}/#/redefinir?t=${token}`;
+    const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST', headers: { 'api-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sender: { name: 'Vyllorri Beauty', email: 'thhcsoluctions@gmail.com' }, to: [{ email }],
+        subject: 'Criar nova senha',
+        htmlContent: `<p>Oi, ${String(u.name).replace(/[<>&]/g, '')}!</p><p>Para criar uma nova senha, toque no botão:</p><p><a href="${link}" style="background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Criar nova senha</a></p><p>O link vale por 1 hora. Se não foi você, é só ignorar este e-mail.</p>`,
+      }),
+    });
+    if (!r.ok) throw new HttpError(502, 'Não foi possível enviar o e-mail agora. Tente de novo em alguns minutos.');
+  }
+  // mesma resposta com ou sem conta: não revela quem tem cadastro
+  return { data: { ok: true } };
+});
+
+route('POST', '/api/auth/reset', null, async ({ body, req }) => {
+  await throttleAuth([[`reset:${clientIp(req)}`, 10]], 3600_000);
+  const password = strongPw(body.password);
+  const row = typeof body.token === 'string' ? await get('SELECT user_id, expires_at FROM password_resets WHERE token_hash=?', sha(body.token)) : null;
+  if (!row || row.expires_at < Date.now()) throw new HttpError(400, 'Este link venceu ou já foi usado. Peça um novo.');
+  await run('UPDATE users SET pass_hash=? WHERE id=?', hashPassword(password), row.user_id);
+  await run('DELETE FROM password_resets WHERE user_id=?', row.user_id);
+  await run('DELETE FROM sessions WHERE user_id=?', row.user_id);
+  return { data: { ok: true } };
 });
 
 route('POST', '/api/auth/logout', null, async ({ req }) => {

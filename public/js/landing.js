@@ -80,7 +80,7 @@ export async function landing() {
     <section class="ld-sec lx-video" id="video"><p class="ld-kicker">Veja por dentro</p><h2>O app inteiro em 1 minuto</h2>
       <p class="ld-lead">Telas reais: agendamento pelo link, sua página, WhatsApp automático, agenda, avisos, Pix e financeiro.</p>
       <div class="lx-vid"><video controls playsinline preload="none" poster="/video/beauty-por-dentro.jpg" src="/video/beauty-por-dentro.mp4"></video></div>
-      <p class="lx-vid-share"><a href="/video/beauty-por-dentro.mp4" download>${ic('download', 15)} Baixar o vídeo</a></p></section>
+    </section>
 
     <section class="ld-sec" id="facil"><p class="ld-kicker">Fácil e prático</p><h2>Você não precisa ficar batendo cabeça</h2>
       <p class="ld-lead">Nada de configuração difícil, manual grande ou instalar programa. Em 3 passos o seu negócio está recebendo agendamentos.</p>
@@ -142,7 +142,7 @@ export async function landing() {
     <section class="ld-final"><h2>Comece hoje. Em 10 minutos está pronto.</h2><p>Teste grátis por ${days} dias, sem cartão de crédito.</p>
       <a class="ld-btn" href="#/criar">Criar minha conta ${ic('arrowRight', 18)}</a><small>Cancele quando quiser · Seus dados ficam guardados</small></section>
 
-    <footer class="ld-foot"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><span>© ${new Date().getFullYear()} Vyllorri Beauty · Gestão para negócios de beleza</span></footer>
+    <footer class="ld-foot"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><span>© ${new Date().getFullYear()} Vyllorri Beauty · Gestão para negócios de beleza</span> <a href="/termos.html">Termos</a> <a href="/privacidade.html">Privacidade</a> <a href="mailto:thhcsoluctions@gmail.com">Suporte</a></footer>
   </div>`;
 
   const shows = {

@@ -271,8 +271,8 @@ async function route(soft = false) {
   const hash = location.hash.slice(2) || '';
   const [path, qs] = hash.split('?');
   const [key, ...rest] = path.split('/');
-  if (!state.user) return key === '' ? import('./landing.js').then((m) => m.landing()) : authScreen(key === 'criar' ? 'signup' : 'login');
-  if (key === 'entrar' || key === 'criar') return (location.hash = '#/');
+  if (!state.user) return key === '' ? import('./landing.js').then((m) => m.landing()) : (key === 'recuperar' || key === 'redefinir') ? recoverScreen(key, qs) : authScreen(key === 'criar' ? 'signup' : 'login');
+  if (['entrar', 'criar', 'recuperar', 'redefinir'].includes(key)) return (location.hash = '#/');
   if (!document.getElementById('page')) shell();
   // acesso pausado: só a tela de assinatura fica disponível
   if (state.user.billing?.blocked && !['assinatura', 'ajuda'].includes(key)) return (location.hash = '#/assinatura');
@@ -300,6 +300,39 @@ async function route(soft = false) {
   }
 }
 window.addEventListener('hashchange', () => route());
+
+function recoverScreen(key, qs) {
+  const reset = key === 'redefinir';
+  const token = new URLSearchParams(qs || '').get('t') || '';
+  document.getElementById('app').innerHTML = `<div class="auth2"><main class="au-main"><form class="au-form" novalidate>
+    <div class="au-head"><h2>${reset ? 'Criar nova senha' : 'Esqueci minha senha'}</h2>
+      <p>${reset ? 'Escolha uma senha nova, com 8 letras ou mais.' : 'Digite seu e-mail. Enviamos um link para criar uma senha nova.'}</p></div>
+    ${reset ? `<label class="field"><span>Nova senha</span><div class="au-in">${ic('lock', 18)}<input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></div></label>`
+      : `<label class="field"><span>E-mail</span><div class="au-in">${ic('mail', 18)}<input name="email" type="email" required autocomplete="email" inputmode="email" autofocus placeholder="voce@email.com"></div></label>`}
+    <button class="btn primary block au-submit" type="submit">${reset ? 'Salvar senha' : 'Enviar link'}</button>
+    <p style="text-align:center;margin-top:14px"><a href="#/entrar">Voltar para entrar</a></p>
+  </form></main></div>`;
+  const form = document.querySelector('.au-form');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('.au-submit');
+    try {
+      btn.disabled = true;
+      if (reset) {
+        await POST('/api/auth/reset', { token, password: form.password.value });
+        toast('Senha nova salva. Agora é só entrar.');
+        location.hash = '#/entrar';
+      } else {
+        await POST('/api/auth/forgot', { email: form.email.value.trim() });
+        toast('Se esse e-mail tem conta, o link foi enviado. Veja também o spam.');
+      }
+    } catch (err) {
+      toast(err?.message || 'Algo deu errado', 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  };
+}
 
 function authScreen(mode) {
   const signup = mode === 'signup';
@@ -334,7 +367,9 @@ function authScreen(mode) {
         <button type="button" class="au-eye" data-eye aria-label="Mostrar senha">${ic('eye', 18)}</button></div></label>
       <label class="field" data-code hidden><span>Código de verificação</span><div class="au-in">${ic('lock', 18)}<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" placeholder="6 números do app autenticador"></div>
         <small>Abra o seu aplicativo autenticador (Google Authenticator, Microsoft Authenticator…). Sem o celular? Use um código de recuperação.</small></label>
+      ${signup ? '' : '<p style="text-align:right;margin:-4px 0 8px"><a href="#/recuperar" class="small">Esqueci minha senha</a></p>'}
       <button class="btn primary block au-submit" type="submit">${signup ? 'Criar meu salão' : 'Entrar'} ${ic('arrowRight', 18)}</button>
+      ${signup ? '<p class="small muted" style="text-align:center">Ao criar a conta, você aceita os <a href="/termos.html" target="_blank">Termos de Uso</a> e a <a href="/privacidade.html" target="_blank">Política de Privacidade</a>.</p>' : ''}
       <p class="au-safe">${ic('lock', 14)} Conexão segura · seus dados ficam protegidos</p>
       <div class="au-sep"><span>${signup ? 'Já tem conta?' : 'Ainda não usa o Vyllorri?'}</span></div>
       <a class="btn block au-alt" href="${signup ? '#/entrar' : '#/criar'}">${signup ? 'Entrar na minha conta' : 'Criar conta do salão'}</a>

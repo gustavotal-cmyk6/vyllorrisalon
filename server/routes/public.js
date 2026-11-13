@@ -11,6 +11,7 @@ import { salonPayCfg, travelFee, depositFor, createCharge, sweepCharges, retainC
 import { qrSvg } from '../pix.js';
 import { notifyStaff } from '../push.js';
 import { billingInfo } from '../billing.js';
+import { throttleAuth, clientIp } from '../auth.js';
 
 
 const MAX_DAYS = 60;
@@ -97,7 +98,7 @@ route('GET', '/api/public/:slug/slots', null, async ({ params, query, req }) => 
 const PHONE_NOTE = (n) => `Agendado online${n}`;
 
 route('POST', '/api/public/:slug/book', null, async ({ params, body, req }) => {
-  throttle(req, 15, 'book');
+  await throttleAuth([[`book:${clientIp(req)}`, 15]], 3600_000);
   const salon = await salonBySlug(params.slug);
   await sweepCharges(salon.id);
   const cfg = await salonPayCfg(salon.id);
@@ -218,7 +219,7 @@ route('GET', '/api/public/:slug/booking/:token', null, async ({ params, req }) =
 
 /** Comprovante do Pix: só a equipe do salão consegue ver depois. */
 route('POST', '/api/public/:slug/booking/:token/receipt', null, async ({ params, body, req }) => {
-  throttle(req, 20, 'receipt');
+  await throttleAuth([[`receipt:${clientIp(req)}`, 20]], 3600_000);
   tokenOk(params.token);
   const salon = await salonBySlug(params.slug);
   await sweepCharges(salon.id);
@@ -238,7 +239,7 @@ route('POST', '/api/public/:slug/booking/:token/receipt', null, async ({ params,
 });
 
 route('POST', '/api/public/:slug/booking/:token/cancel', null, async ({ params, req }) => {
-  throttle(req, 30, 'cancel');
+  await throttleAuth([[`cancel:${clientIp(req)}`, 30]], 3600_000);
   tokenOk(params.token);
   const salon = await salonBySlug(params.slug);
   const b = await bookingView(salon, params.token);
