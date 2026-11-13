@@ -64,7 +64,7 @@ export async function landing() {
         <span class="lx-badge">${days} dias grátis · sem cartão · sem fidelidade</span>
         <h1>Agenda, clientes e financeiro do seu negócio de beleza. <em>Sem complicação.</em></h1>
         <p>Seus clientes agendam pelo link por um link com a cara da sua marca. Você acompanha tudo em um painel simples, no celular ou no computador.</p>
-        <div class="ld-cta"><a class="ld-btn" href="#/criar">Começar grátis ${ic('arrowRight', 18)}</a><a class="ld-btn ghost" href="#paginas" data-scroll>Ver exemplos</a></div>
+        <div class="ld-cta"><a class="ld-btn" href="#/criar">Começar grátis ${ic('arrowRight', 18)}</a><a class="ld-btn ghost" href="#video" data-scroll>${ic('play', 18)} Ver o vídeo</a></div>
         <ul class="lx-proof"><li><b>10 min</b><span>para deixar pronto</span></li><li><b>24h</b><span>agenda aberta</span></li><li><b>R$ 39,90</b><span>por mês</span></li></ul>
       </div>
       <div class="lx-hero-vis" aria-hidden="true">
@@ -76,6 +76,11 @@ export async function landing() {
     </section>
 
     <section class="lx-logos"><span>Feito para</span>${['Salões', 'Manicures', 'Cabeleireiros', 'Maquiadores', 'Lash designers', 'Designers de sobrancelha', 'Estética'].map((t) => `<b>${t}</b>`).join('')}</section>
+
+    <section class="ld-sec lx-video" id="video"><p class="ld-kicker">Veja por dentro</p><h2>O app inteiro em 1 minuto</h2>
+      <p class="ld-lead">Telas reais: agendamento pelo link, sua página, WhatsApp automático, agenda, avisos, Pix e financeiro.</p>
+      <div class="lx-vid"><video controls playsinline preload="none" poster="/video/beauty-por-dentro.jpg" src="/video/beauty-por-dentro.mp4"></video></div>
+      <p class="lx-vid-share"><a href="/video/beauty-por-dentro.mp4" download>${ic('download', 15)} Baixar o vídeo</a></p></section>
 
     <section class="ld-sec" id="facil"><p class="ld-kicker">Fácil e prático</p><h2>Você não precisa ficar batendo cabeça</h2>
       <p class="ld-lead">Nada de configuração difícil, manual grande ou instalar programa. Em 3 passos o seu negócio está recebendo agendamentos.</p>

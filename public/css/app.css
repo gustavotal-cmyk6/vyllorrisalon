@@ -1158,3 +1158,7 @@ body.booking { min-height: 100vh; }
 .lx-proplan li .ic { color: #25d366; }
 .lx-proplan li b { color: #fff; }
 .lx-pro { margin-top: 30px; }
+.lx-vid { margin: 28px auto 0; width: min(340px, 86vw); border-radius: 30px; overflow: hidden; border: 1px solid var(--ld-line); box-shadow: 0 30px 70px rgba(0, 0, 0, .5); background: #000; }
+.lx-vid video { display: block; width: 100%; aspect-ratio: 9 / 16; background: #000; }
+.lx-vid-share { text-align: center; margin-top: 14px; }
+.lx-vid-share a { display: inline-flex; align-items: center; gap: 6px; color: #c4adbd; font-weight: 600; font-size: .9rem; }
