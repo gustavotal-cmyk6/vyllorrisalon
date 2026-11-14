@@ -122,6 +122,7 @@ export function newVisit(opts = {}) {
     if (can.owner()) location.hash = '#/servicos';
     return;
   }
+  if (!opts.visit && !opts.fitIn && !opts.classic) return import('./novo-agendamento.js').then((m) => m.novoAgendamento(opts));
   const editing = opts.visit;
   const myPro = can.pro() ? state.user.professional_id : null;
   let date = editing?.date || opts.date || todayStr();

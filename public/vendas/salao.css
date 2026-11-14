@@ -9,7 +9,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{font:16px/1.6 var(--font);color:var(--text);background:#fff;overflow-x:hidden;-webkit-font-smoothing:antialiased;position:relative}
-body::before,body::after{content:"";position:fixed;z-index:-1;pointer-events:none;border-radius:50%;filter:blur(90px)}
+body::before,body::after{content:"";position:fixed;z-index:-1;pointer-events:none;border-radius:50%}
 body::before{width:70vmax;height:70vmax;left:-20vmax;top:-25vmax;background:radial-gradient(circle,rgba(122,91,217,.28),rgba(185,164,255,.14) 45%,transparent 70%)}
 body::after{width:60vmax;height:60vmax;right:-20vmax;bottom:-25vmax;background:radial-gradient(circle,rgba(185,164,255,.4),rgba(185,164,255,.16) 45%,transparent 70%)}
 a{color:inherit;text-decoration:none}img{display:block;max-width:100%}

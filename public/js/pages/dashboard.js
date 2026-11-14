@@ -23,7 +23,9 @@ export default async function dashboard(root) {
   const alerts = d.attention || [];
 
   root.innerHTML = `
-  ${pageHead(hello, fmtDayLong(d.date), `<button class="btn primary" data-act="visit">${ic('plus', 18)} Novo agendamento</button>`)}
+  <section class="hero2"><div class="hero2-txt"><h1>${hello}</h1><p>${fmtDayLong(d.date)}</p>
+    <button class="btn" data-act="visit">${ic('plus', 18)} Novo agendamento</button></div>
+    <div class="hero2-vyllo" aria-hidden="true"><span class="hero2-bub">Vamos marcar um horário?</span><img src="/vendas/vyllo.webp" alt="" width="110" height="228"></div></section>
   <div data-pushbanner></div>
   ${can.admin() && !tutHidden() ? `<div class="tut-row"><button class="tut-card" data-tut><span class="tc-ic">${ic('play', 22)}</span><span class="grow"><b>Primeiros passos em 2 minutos</b><small>Veja como deixar seu negócio pronto para receber agendamentos</small></span>${ic('chevRight', 20)}</button><button class="tut-hide" data-tut-hide aria-label="Esconder">${ic('x', 16)}</button></div>` : ''}
   ${setup ? setupCard() : ''}
