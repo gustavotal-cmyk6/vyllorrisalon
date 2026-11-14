@@ -32,11 +32,13 @@ export async function openCheckout({ visit = null, client = null, onDone = () =>
         ${products.length ? `<label class="field"><span>${ic('plus', 16)}  Produto</span><select data-add-prd><option value="">Adicionar produto…</option>
           ${products.map((p) => `<option value="${p.id}" ${p.stock <= 0 ? 'disabled' : ''}>${esc(p.name)} · ${money(p.price_cents)} (${p.stock} ${esc(p.unit)})</option>`).join('')}</select></label>` : '<div></div>'}
       </div>
+      <details class="more opts" style="margin:0 0 10px"><summary>${ic('settings', 16)} Mais opções <small class="muted">(desconto${products.length && !myPro && !can.solo() ? ', quem vendeu' : ''}${can.staff() ? ', data' : ''})</small></summary>
       ${products.length && !myPro && !can.solo() ? `<label class="field"><span>Quem vendeu os produtos <small>(para comissão)</small></span><select name="seller"><option value="">Ninguém / recepção</option>
         ${state.pros.filter((p) => p.active).map((p) => `<option value="${p.id}" ${visit?.items[0]?.professional_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>` : ''}
       <label class="field" style="max-width:320px"><span>Desconto <small>(opcional)</small></span><div style="display:flex;gap:6px"><input inputmode="decimal" name="discount" placeholder="0,00">
         <div class="seg"><button type="button" data-dm="value" class="on">R$</button><button type="button" data-dm="pct">%</button></div></div></label>
-      ${can.staff() ? `<details class="more" style="margin:0 0 10px"><summary>${ic('calendar', 16)} A venda foi em outro dia?</summary><label class="field" style="max-width:320px;margin-top:8px"><span>Data da venda</span><input type="date" name="date" value="${todayStr()}" max="${todayStr()}"></label></details>` : ''}
+      ${can.staff() ? `<label class="field" style="max-width:320px"><span>Data da venda <small>(se foi em outro dia)</small></span><input type="date" name="date" value="${todayStr()}" max="${todayStr()}"></label>` : ''}
+      </details>
       <div class="total-box" data-total></div>
       <h3 style="margin:8px 0">Pagamento</h3>
       <div data-pays></div>

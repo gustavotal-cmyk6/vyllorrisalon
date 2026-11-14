@@ -196,18 +196,31 @@ export const fail = (e) => toast(e?.message || 'Algo deu errado', 'err');
 // ---- Modais (viram "bottom sheet" no celular) ----
 const stack = [];
 const closeHooks = new Map();
+let modalSeq = 0;
+const modalWraps = [];
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 export function modal({ title, body, wide = false, onMount }) {
   const wrap = document.createElement('div');
   wrap.className = 'modal-wrap';
-  wrap.innerHTML = `<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <header><h2>${esc(title)}</h2><button class="icon-btn" data-close aria-label="Fechar">${ic('x', 20)}</button></header>
+  const tid = `mt${++modalSeq}`;
+  const opener = document.activeElement; // para devolver o foco ao fechar
+  wrap.innerHTML = `<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="${tid}">
+    <header><h2 id="${tid}">${esc(title)}</h2><button class="icon-btn" data-close aria-label="Fechar">${ic('x', 20)}</button></header>
     <div class="modal-body">${body}</div></div>`;
   document.body.appendChild(wrap);
   document.body.classList.add('no-scroll');
+  // o que está atrás não recebe foco nem leitor de tela (a folha de baixo, se houver, também fica inerte)
+  const app = document.getElementById('app');
+  if (app) app.inert = true;
+  modalWraps[modalWraps.length - 1]?.setAttribute('inert', '');
+  modalWraps.push(wrap);
   const close = () => {
     wrap.remove();
     stack.splice(stack.indexOf(close), 1);
-    if (!stack.length) document.body.classList.remove('no-scroll');
+    modalWraps.splice(modalWraps.indexOf(wrap), 1);
+    modalWraps[modalWraps.length - 1]?.removeAttribute('inert');
+    if (!stack.length) { document.body.classList.remove('no-scroll'); if (app) app.inert = false; }
+    try { opener?.focus?.({ preventScroll: true }); } catch {}
     closeHooks.get(close)?.();
     closeHooks.delete(close);
   };
@@ -218,7 +231,16 @@ export function modal({ title, body, wide = false, onMount }) {
   const el = wrap.querySelector('.modal');
   sheetDrag(wrap, el, close); // arrastar o cabeçalho para baixo fecha a folha
   onMount?.(el, close);
-  setTimeout(() => el.querySelector('[autofocus]')?.focus(), 50);
+  // Tab não sai da folha
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const f = [...el.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  setTimeout(() => { const a = el.querySelector('[autofocus]'); if (a) a.focus(); else { el.tabIndex = -1; el.focus({ preventScroll: true }); } }, 50);
   return close;
 }
 document.addEventListener('keydown', (e) => {

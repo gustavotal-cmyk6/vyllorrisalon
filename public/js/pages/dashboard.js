@@ -1,4 +1,4 @@
-import { state, GET, POST, esc, money, can, fmtDayLong, empty, badge, ic, avatar, trend, pageHead, toast, fail, nextStep } from '../core.js';
+import { state, GET, POST, esc, money, can, fmtDayLong, empty, badge, ic, avatar, trend, pageHead, toast, fail, nextStep, modal } from '../core.js';
 import { newVisit, openVisit, visitSwipe } from './visits.js';
 import { swipeCards } from '../gestures.js';
 import { openCheckout } from './checkout.js';
@@ -58,7 +58,7 @@ export default async function dashboard(root) {
     <div class="stack">
       <section class="card">
         <div class="card-head"><h2>Precisa de atenção</h2>${alerts.length > 3 ? `<button class="btn xs ghost" data-act="alerts">Ver todas (${alerts.length})</button>` : ''}</div>
-        ${alerts.length ? alerts.slice(0, 3).map((x) => `<a class="alert ${x.level}" href="${x.link}"><span class="a-ic">${ic(ALERT_IC[x.type] || 'info', 18)}</span><span>${esc(x.text)}</span>${x.amount ? `<b>${money(x.amount)}</b>` : ''}</a>`).join('')
+        ${alerts.length ? alerts.slice(0, 3).map((x) => { const inner = `<span class="a-ic">${ic(ALERT_IC[x.type] || 'info', 18)}</span><span>${esc(x.text)}</span>${x.amount ? `<b>${money(x.amount)}</b>` : ''}`; return x.type === 'checkout' ? `<button type="button" class="alert ${x.level}" data-act="closeday">${inner}</button>` : `<a class="alert ${x.level}" href="${x.link}">${inner}</a>`; }).join('')
           : `<p class="small muted" style="display:flex;gap:8px;align-items:center">${ic('checkCircle', 18, 'ok-t')} Tudo em dia. Nada pendente agora.</p>`}
       </section>
     </div>
@@ -101,6 +101,7 @@ export default async function dashboard(root) {
       if (act === 'sale') openCheckout({ onDone: refresh });
       if (act === 'client') quickClient({ onSaved: (id) => (location.hash = `#/clientes/${id}`) });
       if (act === 'alerts') notifications();
+      if (act === 'closeday') receiveDay(d);
     } catch (err) {
       t.disabled = false;
       fail(err);
@@ -120,6 +121,26 @@ function linkCard(b) {
     <button class="btn sm primary" data-link-copy="${esc(url)}">${ic('copy', 14)} Copiar</button>
     <a class="btn sm" target="_blank" rel="noopener" aria-label="Enviar o link no WhatsApp" href="https://wa.me/?text=${encodeURIComponent('Agende seu horário online: ' + url)}">${ic('whatsapp', 16)}</a>
     <button class="lc-x" data-link-hide aria-label="Esconder este aviso">${ic('x', 16)}</button></section>`;
+}
+
+/** Receber do dia: lista dos atendimentos que já passaram do horário e ainda não foram recebidos; um toque abre o recebimento de cada um. */
+function receiveDay(d) {
+  const a = d.agenda;
+  const list = [...a.in_progress_list, ...a.late].filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i);
+  modal({
+    title: 'Receber do dia',
+    body: list.length
+      ? `<p class="small muted" style="margin-bottom:10px">Atendimentos de hoje que já passaram do horário. Toque em Receber quando puder.</p>
+        <ul class="list">${list.map((v) => `<li><div class="tl-time" style="padding:0;width:50px">${v.start_at.slice(11)}</div><div class="grow"><div class="title">${esc(v.client_name)}</div><div class="meta">${esc(v.services)}</div></div>
+          <button class="btn sm ok" data-pay="${v.id}">${ic('receipt', 16)} Receber</button></li>`).join('')}</ul>`
+      : `<div class="empty" style="padding:10px 0"><div class="e-ic">${ic('checkCircle', 26)}</div><p>Tudo recebido por hoje.</p></div>`,
+    onMount(el, close) {
+      el.querySelectorAll('[data-pay]').forEach((b) => (b.onclick = async () => {
+        close();
+        try { openCheckout({ visit: await GET(`/api/visits/${b.dataset.pay}`), onDone: refresh }); } catch (err) { fail(err); }
+      }));
+    },
+  });
 }
 
 function setupCard() {

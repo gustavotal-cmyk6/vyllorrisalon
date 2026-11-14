@@ -1583,3 +1583,9 @@ html { overscroll-behavior-y: contain; }
   .kpis.three .kpi b { font-size: clamp(.9rem, 4.1vw, 1.05rem); letter-spacing: -.02em; text-overflow: clip; }
   .kpis.three .kpi { padding: 10px 8px 8px; }
 }
+
+/* ===== Etapa 4 ===== */
+button.alert { width: 100%; text-align: left; border: 0; font: inherit; cursor: pointer; }
+.modal:focus { outline: none; }
+.opts summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; color: var(--brand); min-height: 44px; }
+.opts summary small { font-weight: 500; }

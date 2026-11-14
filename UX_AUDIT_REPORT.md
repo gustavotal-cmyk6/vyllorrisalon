@@ -6,7 +6,9 @@ Auditoria de UX/UI, usabilidade e navegação. Data: 14/11/2026. A análise não
 >
 > **Etapa 2 implementada e publicada (14/11/2026):** B1 (card "Seu link" no Início com Copiar e WhatsApp; some após 3 pedidos online ou ao esconder; "Copiar meu link" no menu "+"; atalho ), B2 (barra inferior: Início · Agenda · **+** central · Clientes · Mais, igual para todos os perfis; o "+" saiu do topo), C2 ("Mais" agrupado em Dia a dia, Gestão e Conta) e C6 (cartão "Atalhos" removido do Início). 
 >
-> **Gestos (14/11/2026):** arrastar para fechar as folhas, deslizar cartões (→ confirmar/etapa, ← receber), deslizar a faixa de dias da Agenda, puxar para atualizar e resposta ao toque com mola. **Etapa 3 implementada:** A3/C4 (cabeçalhos compactos no celular: título, subtítulo de uma linha e ações na mesma linha) e B3 (Início: próximo atendimento em destaque com a ação à mão, números do dia numa faixa de 3, link, lista "Também hoje", atenção com no máximo 3 itens, aviso de notificação no fim). O restante do plano segue pendente.
+> **Gestos (14/11/2026):** arrastar para fechar as folhas, deslizar cartões (→ confirmar/etapa, ← receber), deslizar a faixa de dias da Agenda, puxar para atualizar e resposta ao toque com mola. **Etapa 3 implementada:** A3/C4 (cabeçalhos compactos no celular: título, subtítulo de uma linha e ações na mesma linha) e B3 (Início: próximo atendimento em destaque com a ação à mão, números do dia numa faixa de 3, link, lista "Também hoje", atenção com no máximo 3 itens, aviso de notificação no fim). 
+>
+> **Etapa 4 implementada (14/11/2026):** B7 (modais com nome acessível, foco preso e devolvido, fundo inerte), B8 ("Receber do dia": o aviso do Início abre a lista de atendimentos a receber, um toque por item) e C3 (venda em duas camadas: desconto, quem vendeu e data ficam em "Mais opções"). Pendentes: Etapa 5 (Caixa unificado e Configurações em seções) e Etapa 6 (versão nos módulos, peso, esqueleto de tela). O restante do plano segue pendente.
 
 ## 0. Como esta auditoria foi feita (e o que ela não cobre)
 
