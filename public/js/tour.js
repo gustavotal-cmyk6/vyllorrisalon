@@ -3,7 +3,7 @@
 const SRC = '/video/beauty-dentro.mp4';
 const P = (i) => `/video/beauty-tour-${i}.jpg`;
 export const TOUR = [['Início', 0, 6], ['Agendamento', 6, 15.6], ['Sua página', 15.6, 21.8], ['IA no WhatsApp', 26.4, 37.8], ['Agenda', 37.8, 44.2], ['Financeiro', 66, 72.4]]
-  .map(([label, from, to], i) => ({ label, from, to, poster: P(i) }));
+  .map(([label, from, to], i) => ({ label, from: from + 0.3, to: to - 0.35, poster: P(i) }));
 const CUES = [[0, '', 'Seu dia', 'em uma tela.', 'Próximos atendimentos e quanto entrou.'], [6, '', 'Seus clientes', 'agendam pelo link.', 'Serviço, profissional, dia e horário. 24h.'],
   [15.6, '', 'A página', 'com a sua cara.', 'Logo, capa, cor e frase.'], [21.8, '', 'Um link', 'para divulgar.', 'Na bio do Instagram e no WhatsApp.'],
   [26.4, 'Plano Pro', 'A IA responde', 'e marca sozinha.', 'Vê os horários livres e agenda na hora.'], [37.8, '', 'Tudo na', 'sua agenda.', 'Por dia, semana e profissional.'],
@@ -20,7 +20,18 @@ export function mountTour(box) {
   if (!box) return;
   const $$ = (s) => [...box.querySelectorAll(s)];
   const vid = box.querySelector('video'), items = $$('.ti'), tabs = $$('[data-t]'), cap = box.querySelector('.vcap'), n = TOUR.length;
-  let cur = 0, ci = -1, auto = true, tm, first = true, started = false;
+  let cur = 0, ci = -1, auto = true, tm, first = true, started = false, token = 0, raf = 0;
+  // confere o tempo a cada quadro: para no fim exato do trecho (timeupdate é lento demais)
+  const watch = () => {
+    cancelAnimationFrame(raf);
+    const loop = () => {
+      if (!vid.classList.contains('on')) return;
+      const t = TOUR[cur];
+      if (vid.currentTime >= t.to) { if (auto) { vid.pause(); vid.classList.remove('on'); go(cur + 1); } else vid.currentTime = t.from; return; }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+  };
   const paint = ([, tag, l1, l2, sub]) => {
     cap.innerHTML = (tag ? `<span class="vtag">${tag}</span>` : '') + `<strong>${l1}<br><span>${l2}</span></strong>` + (sub ? `<small>${sub}</small>` : '');
     cap.classList.remove('in'); void cap.offsetWidth; cap.classList.add('in');
@@ -36,15 +47,15 @@ export function mountTour(box) {
     clearTimeout(tm); vid.pause(); vid.classList.remove('on'); vid.poster = t.poster;
     paint(CUES.reduce((a, c) => (t.from + 0.01 >= c[0] ? c : a), CUES[0]));
     if (!started) return;
-    const seek = () => { vid.currentTime = t.from; };
+    const my = ++token, wait = first ? 150 : 1000; first = false;
+    // só aparece depois que o vídeo já pulou para o trecho certo
+    const show = () => { if (my !== token) return; vid.classList.add('on'); vid.play().catch(() => {}); watch(); };
+    const seek = () => { vid.addEventListener('seeked', () => { tm = setTimeout(show, wait); }, { once: true }); vid.currentTime = t.from; };
     if (!vid.src.endsWith(SRC)) { vid.src = SRC; vid.addEventListener('loadedmetadata', seek, { once: true }); } else seek();
-    tm = setTimeout(() => { vid.classList.add('on'); vid.play().catch(() => {}); }, first ? 150 : 1000);
-    first = false;
   };
   vid.addEventListener('timeupdate', () => {
     if (!vid.classList.contains('on')) return;
     const t = TOUR[cur], s = vid.currentTime;
-    if (s >= t.to) { if (auto) go(cur + 1); else vid.currentTime = t.from; return; }
     if (s < t.from - 0.5) return;
     let k = 0; CUES.forEach((c, j) => { if (s >= c[0]) k = j; });
     if (k !== ci) { ci = k; paint(CUES[k]); }
