@@ -2,7 +2,9 @@
 
 Auditoria de UX/UI, usabilidade e navegação. Data: 14/11/2026. A análise não alterou código.
 
-> **Status (14/11/2026):** Etapa 1 implementada e publicada: A1 (abas, filtros e períodos sempre visíveis), B5 (contraste e texto mínimo de 12 px), B6 (alvos de toque), C8 (faixas finas), C9 (aviso de notificação em uma linha), C10 (foco visível) e parte de B9 (abas "Meu negócio" e "Formas de pagamento"). Medição depois: 0 textos abaixo de 12 px e 0 falhas de contraste nas 12 telas medidas (antes: 6–13 textos e até 7 falhas por tela). O restante do plano segue pendente.
+> **Status (14/11/2026):** Etapa 1 implementada e publicada: A1 (abas, filtros e períodos sempre visíveis), B5 (contraste e texto mínimo de 12 px), B6 (alvos de toque), C8 (faixas finas), C9 (aviso de notificação em uma linha), C10 (foco visível) e parte de B9 (abas "Meu negócio" e "Formas de pagamento"). Medição depois: 0 textos abaixo de 12 px e 0 falhas de contraste nas 12 telas medidas (antes: 6–13 textos e até 7 falhas por tela). 
+>
+> **Etapa 2 implementada e publicada (14/11/2026):** B1 (card "Seu link" no Início com Copiar e WhatsApp; some após 3 pedidos online ou ao esconder; "Copiar meu link" no menu "+"; atalho ), B2 (barra inferior: Início · Agenda · **+** central · Clientes · Mais, igual para todos os perfis; o "+" saiu do topo), C2 ("Mais" agrupado em Dia a dia, Gestão e Conta) e C6 (cartão "Atalhos" removido do Início). O restante do plano segue pendente.
 
 ## 0. Como esta auditoria foi feita (e o que ela não cobre)
 

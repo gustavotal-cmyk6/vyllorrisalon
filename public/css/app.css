@@ -1497,3 +1497,23 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid var(--violet); 
   .page-head .seg { width: auto; }
 }
 .tb-brand .name small { word-spacing: .2em; }
+
+/* ===== Etapa 2 da auditoria de UX ===== */
+/* "+" no centro da barra inferior */
+.bottom-nav .bn-plus { position: relative; width: 56px; height: 56px; margin: -18px auto 0; align-self: start; justify-self: center; flex-direction: row; gap: 0; border: 4px solid #fff; border-radius: 50%;
+  color: #fff; background: linear-gradient(140deg, var(--brand-2), var(--brand) 70%); box-shadow: 0 8px 20px rgba(91, 23, 166, .4); }
+.bottom-nav .bn-plus:active { transform: scale(.95); }
+.bottom-nav .bn-plus .ic { background: none; padding: 0; width: 26px; height: 26px; }
+/* Mais agrupado */
+.more-h { margin: 14px 2px 8px; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.more-h:first-child { margin-top: 0; }
+/* Card do link de agendamento no Início */
+.linkcard { display: flex; align-items: center; gap: 10px; padding: 10px 6px 10px 12px; margin-bottom: 12px; border-radius: 14px; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.lc-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--lav-100); color: var(--brand); }
+.linkcard .grow { flex: 1; min-width: 0; }
+.linkcard b { display: block; font-size: .92rem; line-height: 1.2; color: var(--plum-900); }
+.linkcard small { display: block; margin-top: 2px; font-size: .8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-x { flex: none; width: 36px; height: 44px; border: 0; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; border-radius: 10px; }
+.lc-x:hover { background: var(--lav-100); }
+.linkcard .btn.sm { flex: none; gap: 6px; }
+@media (max-width: 380px) { .linkcard .btn.sm:not(.primary) { display: none; } }

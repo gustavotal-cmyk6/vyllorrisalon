@@ -138,8 +138,11 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
   const pendingSales = await all(`SELECT s.id, s.created_at, c.name AS client_name, s.total_cents - (SELECT COALESCE(SUM(amount_cents),0) FROM payments WHERE sale_id=s.id) AS pending_cents
       FROM sales s LEFT JOIN clients c ON c.id=s.client_id WHERE s.salon_id=? AND s.status='active'
        AND s.total_cents > (SELECT COALESCE(SUM(amount_cents),0) FROM payments WHERE sale_id=s.id) ORDER BY s.created_at DESC LIMIT 5`, sid);
+  const bk = await get('SELECT slug, booking_enabled FROM salons WHERE id=?', sid);
+  const onlineTotal = (await get(`SELECT COUNT(*) n FROM visits WHERE salon_id=? AND source='online'`, sid)).n;
   return {
     role: user.role, date: d, agenda, free, attention, low_stock: low, recent, pending_sales: pendingSales,
+    booking: { enabled: !!bk?.booking_enabled, slug: bk?.slug || null, online_total: onlineTotal },
     chart: { current: curSeries, previous: prevSeries, days_in_month: diffDays(month.from, month.to) + 1 },
     today: { revenue: day.revenue, received: dayReceived, services_count: day.services_count, ticket_avg: day.ticket_avg },
     month: { ...cur, change_revenue: pctChange(cur.revenue, last.revenue), prev_revenue: last.revenue, cancelled: monthVisits.cancelled, no_show: monthVisits.no_show },

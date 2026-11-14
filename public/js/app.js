@@ -40,13 +40,10 @@ function navItems() {
     { k: 'ajuda', ico: 'message', label: 'Ajuda e sugestões', group: 'Conta' },
   ].filter((i) => (!i.roles || i.roles.includes(r)) && !(can.solo() && ['equipe', 'comissoes'].includes(i.k)) && !(!can.products() && i.k === 'estoque'));
 }
-/** Barra inferior do celular: as 4 áreas mais usadas de cada perfil + "Mais". */
+/** Barra inferior do celular: Início, Agenda, "+" no centro (ao alcance do polegar), Clientes e Mais. */
 function bottomItems() {
-  const r = state.user.role;
-  if (can.solo() && can.admin()) return ['', 'agenda', 'clientes', 'financeiro'].map((k) => navItems().find((i) => i.k === k)).filter(Boolean);
-  const pick = { owner: ['', 'agenda', 'equipe', 'financeiro'], manager: ['', 'agenda', 'equipe', 'financeiro'], reception: ['', 'agenda', 'clientes', 'vendas'], pro: ['', 'agenda', 'clientes', 'comissoes'] }[r];
   const items = navItems();
-  return pick.map((k) => items.find((i) => i.k === k)).filter(Boolean);
+  return ['', 'agenda', 'clientes'].map((k) => items.find((i) => i.k === k)).filter(Boolean);
 }
 
 const brandMark = () => `<span class="mark"><img src="${esc(state.user.logo_url || '/brand/vyllorri-v-192.png')}" alt=""></span>`;
@@ -76,14 +73,15 @@ function shell() {
         <a class="tb-beta" href="#/ajuda" title="Estamos em testes: mande sua opinião">${ic('message', 15)}<span>Beta · Opinar</span></a>
         <button class="tb-btn m-only" data-msearch aria-label="Buscar">${ic('search', 22)}</button>
         <button class="tb-btn" data-bell aria-label="Notificações">${ic('bell', 22)}<span class="dot hidden" data-bell-count></span></button>
-        <button class="tb-btn tb-plus m-only" data-quick aria-label="Novo: agendamento, venda, cliente…">${ic('plus', 22)}</button>
       </header>
       <div id="billbar"></div>
       <main class="main" id="page"></main>
     </div>
   </div>
   <nav class="bottom-nav" aria-label="Navegação">
-    ${bottomItems().map((i) => `<a href="#/${i.k}" data-nav="${i.k}">${ic(i.ico, 22)}${i.k === 'comissoes' ? 'Comissões' : i.label}</a>`).join('')}
+    ${bottomItems().slice(0, 2).map((i) => `<a href="#/${i.k}" data-nav="${i.k}">${ic(i.ico, 22)}${i.label}</a>`).join('')}
+    <button class="bn-plus" data-quick aria-label="Novo: agendamento, venda, cliente…">${ic('plus', 26)}</button>
+    ${bottomItems().slice(2).map((i) => `<a href="#/${i.k}" data-nav="${i.k}">${ic(i.ico, 22)}${i.label}</a>`).join('')}
     <button data-more>${ic('grid', 22)}Mais</button>
   </nav>`;
   document.querySelectorAll('[data-quick]').forEach((b) => (b.onclick = quickActions));
@@ -108,9 +106,10 @@ function moreMenu() {
   const items = navItems().filter((i) => !inBar.includes(i.k));
   modal({
     title: 'Mais opções',
-    body: `<div class="tiles">${items.map((i) => `<a href="#/${i.k}" data-close><span class="t-ic">${ic(i.ico, 22)}</span>${i.label}</a>`).join('')}
-      <button data-close data-out><span class="t-ic">${ic('logout', 22)}</span>Sair</button></div>
-      <p class="tiny muted" style="text-align:center;margin-top:14px">${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]} · ${esc(state.user.salon_name)}</p>`,
+    body: [...new Set(items.map((i) => i.group))].map((g) => `<h3 class="more-h">${g}</h3><div class="tiles">${items.filter((i) => i.group === g).map((i) => `<a href="#/${i.k}" data-close><span class="t-ic">${ic(i.ico, 22)}</span>${i.label}</a>`).join('')}
+      ${g === 'Conta' ? `<button data-close data-out><span class="t-ic">${ic('logout', 22)}</span>Sair</button>` : ''}</div>`).join('') + `
+      
+<p class="tiny muted" style="text-align:center;margin-top:14px">${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]} · ${esc(state.user.salon_name)}</p>`,
     onMount(el) {
       el.querySelector('[data-out]').onclick = logout;
     },
@@ -124,7 +123,7 @@ export function quickActions() {
   const close = modal({
     title: 'O que você quer fazer?',
     body: `<div class="tiles">${A('visit', 'calendar', 'Novo agendamento')}${A('fit', 'zap', 'Encaixe agora')}${A('sale', 'cart', 'Registrar venda')}${A('client', 'userPlus', 'Cadastrar cliente')}
-      ${admin ? A('service', 'scissors', 'Adicionar serviço') + (can.solo() ? '' : A('pro', 'sparkle', 'Cadastrar profissional')) : ''}
+      ${can.owner() ? A('link', 'link', 'Copiar meu link') : ''}${admin ? A('service', 'scissors', 'Adicionar serviço') + (can.solo() ? '' : A('pro', 'sparkle', 'Cadastrar profissional')) : ''}
       ${staff ? A('block', 'ban', 'Bloquear horário') : ''}${admin ? A('expense', 'wallet', 'Lançar despesa') : ''}</div>`,
     onMount(el) {
       el.querySelectorAll('[data-q]').forEach((b) =>
@@ -140,6 +139,14 @@ export function quickActions() {
           if (q === 'expense') location.hash = '#/financeiro?nova=1';
           if (q === 'service') location.hash = '#/servicos?novo=1';
           if (q === 'pro') location.hash = '#/equipe?nova=1';
+          if (q === 'link') {
+            try {
+              const s = await GET('/api/salon');
+              if (!s.booking_enabled || !s.slug) { toast('Ligue o agendamento online para ter o seu link.'); location.hash = '#/config?aba=booking'; return; }
+              const url = `${location.origin}/agendar/${s.slug}`;
+              try { await navigator.clipboard.writeText(url); toast('Link copiado!'); } catch { toast(url); }
+            } catch (err) { toast(err?.message || 'Não foi possível pegar o link', 'err'); }
+          }
         }));
     },
   });

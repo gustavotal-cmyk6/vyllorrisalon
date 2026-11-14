@@ -14,8 +14,9 @@ const ROLE_HELP = {
 };
 const ui = { tab: 'salon' };
 
-export default async function settings(root) {
+export default async function settings(root, opts = {}) {
   const owner = can.owner();
+  if (opts.query?.aba) ui.tab = opts.query.aba;
   const TABS = owner ? [['salon', 'Meu negócio'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Formas de pagamento'], ...(can.solo() ? [] : [['users', 'Acessos da equipe']]), ['me', 'Minha conta'], ['security', 'Segurança']] : [['me', 'Minha conta'], ['security', 'Segurança']];
   if (!TABS.some(([k]) => k === ui.tab)) ui.tab = TABS[0][0];
   root.innerHTML = `${pageHead('Configurações', `${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]}`)}

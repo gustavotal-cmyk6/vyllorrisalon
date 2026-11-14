@@ -6,6 +6,8 @@ import { refresh, notifications } from '../app.js';
 import { pushBanner } from '../push.js';
 import { openTutorial } from '../tutorial.js';
 const TUT_KEY = 'vb-tut-hidden';
+const LINK_KEY = 'vb-link-hidden';
+const linkHidden = () => { try { return localStorage.getItem(LINK_KEY) === '1'; } catch { return false; } };
 const tutHidden = () => { try { return localStorage.getItem(TUT_KEY) === '1'; } catch { return false; } };
 
 export const ALERT_IC = { online: 'globe', late: 'clock', checkout: 'receipt', receivable: 'coin', confirm: 'message', stock: 'box', bills: 'wallet', birthday: 'heart' };
@@ -27,6 +29,7 @@ export default async function dashboard(root) {
     <span class="hero2-bub" aria-hidden="true">Vamos agendar?</span>
     <div class="hero2-vyllo" aria-hidden="true"><img src="/vendas/vyllo.webp" alt="" width="110" height="228"></div></section>
   <div data-pushbanner></div>
+  ${linkCard(d.booking)}
   ${can.admin() && !tutHidden() ? `<div class="tut-row"><button class="tut-card" data-tut><span class="tc-ic">${ic('play', 22)}</span><span class="grow"><b>Primeiros passos em 2 minutos</b><small>Veja como deixar seu negócio pronto para receber agendamentos</small></span>${ic('chevRight', 20)}</button><button class="tut-hide" data-tut-hide aria-label="Esconder">${ic('x', 16)}</button></div>` : ''}
   ${setup ? setupCard() : ''}
   ${d.role === 'pro' ? proKpis(d) : ownerKpis(d)}
@@ -47,18 +50,19 @@ export default async function dashboard(root) {
         ${alerts.length ? alerts.slice(0, 4).map((x) => `<a class="alert ${x.level}" href="${x.link}"><span class="a-ic">${ic(ALERT_IC[x.type] || 'info', 18)}</span><span>${esc(x.text)}</span>${x.amount ? `<b>${money(x.amount)}</b>` : ''}</a>`).join('')
           : `<p class="small muted" style="display:flex;gap:8px;align-items:center">${ic('checkCircle', 18, 'ok-t')} Tudo em dia. Nada pendente agora.</p>`}
       </section>
-      <section class="card">
-        <h2>Atalhos</h2>
-        <div class="quick" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-          <button data-act="fit"><span class="q-ic">${ic('zap', 20)}</span>Encaixe</button>
-          ${can.pro() ? '' : `<button data-act="sale"><span class="q-ic">${ic('cart', 20)}</span>Venda</button>`}
-          <button data-act="client"><span class="q-ic">${ic('userPlus', 20)}</span>Cliente</button>
-        </div>
-      </section>
     </div>
   </div>`;
 
   pushBanner(root.querySelector('[data-pushbanner]'));
+  root.querySelector('[data-link-copy]')?.addEventListener('click', async (e) => {
+    const url = e.currentTarget.dataset.linkCopy;
+    try { await navigator.clipboard.writeText(url); toast('Link copiado! Cole na bio do Instagram ou mande no WhatsApp.'); } catch { toast(url); }
+  });
+  root.querySelector('[data-link-hide]')?.addEventListener('click', (e) => {
+    try { localStorage.setItem(LINK_KEY, '1'); } catch {}
+    e.currentTarget.closest('.linkcard').remove();
+    toast('Você encontra o link em Mais → Configurações → Agendamento online');
+  });
   root.querySelector('[data-tut]')?.addEventListener('click', openTutorial);
   root.querySelector('[data-tut-hide]')?.addEventListener('click', (e) => {
     try { localStorage.setItem(TUT_KEY, '1'); } catch {}
@@ -88,6 +92,20 @@ export default async function dashboard(root) {
       fail(err);
     }
   });
+}
+
+/** Link de agendamento: aparece para quem administra até receber 3 pedidos online ou até a pessoa esconder. */
+function linkCard(b) {
+  if (!b || !can.admin() || linkHidden() || b.online_total >= 3) return '';
+  if (!b.enabled || !b.slug) {
+    return `<section class="linkcard"><span class="lc-ic">${ic('link', 18)}</span><div class="grow"><b>Ligue o agendamento online</b><small>As clientes marcam sozinhas pelo seu link.</small></div>
+      <a class="btn sm primary" href="#/config?aba=booking">Ligar</a><button class="lc-x" data-link-hide aria-label="Esconder este aviso">${ic('x', 16)}</button></section>`;
+  }
+  const url = `${location.origin}/agendar/${b.slug}`;
+  return `<section class="linkcard"><span class="lc-ic">${ic('link', 18)}</span><div class="grow"><b>Seu link</b><small>${esc(url.replace(/^https?:\/\//, ''))}</small></div>
+    <button class="btn sm primary" data-link-copy="${esc(url)}">${ic('copy', 14)} Copiar</button>
+    <a class="btn sm" target="_blank" rel="noopener" aria-label="Enviar o link no WhatsApp" href="https://wa.me/?text=${encodeURIComponent('Agende seu horário online: ' + url)}">${ic('whatsapp', 16)}</a>
+    <button class="lc-x" data-link-hide aria-label="Esconder este aviso">${ic('x', 16)}</button></section>`;
 }
 
 function setupCard() {
