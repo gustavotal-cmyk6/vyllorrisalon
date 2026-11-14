@@ -1,5 +1,6 @@
 import { state, GET, POST, esc, money, modal, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail, nextStep } from '../core.js';
-import { newVisit, openVisit, newBlock, removeBlock } from './visits.js';
+import { newVisit, openVisit, newBlock, removeBlock, visitSwipe } from './visits.js';
+import { swipeCards, swipeNav } from '../gestures.js';
 import { openCheckout } from './checkout.js';
 import { refresh } from '../app.js';
 
@@ -60,6 +61,8 @@ export default async function agenda(root, { query }) {
   else body.innerHTML = dayView(data, pros);
 
   const go = (patch) => (Object.assign(view, patch), refresh());
+  swipeCards(root, { selector: '[data-sw]', actions: (el) => visitSwipe(el, refresh) });
+  swipeNav(root.querySelector('.daystrip'), { onPrev: () => go({ date: addDays(view.date, -1) }), onNext: () => go({ date: addDays(view.date, 1) }) });
   root.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => go({ mode: b.dataset.mode })));
   root.querySelectorAll('[data-st]').forEach((b) => (b.onclick = () => go({ status: b.dataset.st })));
   root.querySelector('[data-pick]').onchange = (e) => e.target.value && go({ date: e.target.value });
@@ -121,7 +124,7 @@ function card(v, item, { compact = false, showPro = false } = {}) {
   const dim = ['cancelled', 'no_show'].includes(v.status) ? 'dim' : '';
   const own = item ? [item] : v.items;
   const n = !compact && nextStep(v);
-  return `<div class="appt ${dim}" style="--c:${esc(own[0].pro_color)}" data-visit="${v.id}" role="button" tabindex="0">
+  return `<div class="appt ${dim}" style="--c:${esc(own[0].pro_color)}" data-visit="${v.id}" role="button" tabindex="0"${!compact && !dim ? ` data-sw data-swid="${v.id}" data-status="${v.status}"` : ''}>
     <div class="top"><span class="time">${own[0].start_at.slice(11)}${compact ? '' : '–' + own[own.length - 1].end_at.slice(11)}</span>${badge(v.status)}</div>
     <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}${v.source === 'online' ? ' <span class="tag pink">online</span>' : ''}${v.location === 'home' ? ` <span class="tag brand">${ic('home', 11)} domicílio</span>` : ''}${depTag(v)}</div>
     <div class="what">${own.map((i) => esc(i.service_name)).join(' + ')}${showPro && !can.solo() ? ' · ' + [...new Set(v.items.map((i) => esc(i.pro_name)))].join(', ') : ''}</div>

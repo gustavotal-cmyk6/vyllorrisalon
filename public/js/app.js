@@ -273,7 +273,7 @@ function billBar(key) {
 // ---- Roteamento ----
 let current = null;
 export function refresh() {
-  route(true);
+  return route(true);
 }
 async function route(soft = false) {
   const hash = location.hash.slice(2) || '';
@@ -304,6 +304,7 @@ async function route(soft = false) {
     await mod.default(root, { id: rest[0], query: Object.fromEntries(new URLSearchParams(qs || '')) });
     if (token !== current) return;
     page.replaceChildren(root);
+    if (!soft) root.classList.add('pg-in');
     if (!soft) window.scrollTo(0, 0);
     refreshBell();
   } catch (e) {
@@ -332,3 +333,8 @@ async function boot() {
   route();
 }
 boot();
+// puxar para atualizar: só no toque e só nas telas de lista (nunca em formulários, para não perder o que foi digitado)
+import('./gestures.js').then(({ pullToRefresh }) => pullToRefresh({
+  enabled: () => !!state.user && ['', 'agenda', 'clientes', 'vendas'].includes(location.hash.slice(2).split('?')[0].split('/')[0]),
+  onRefresh: () => refresh(),
+}));

@@ -1,5 +1,6 @@
 import { state, GET, POST, esc, money, can, fmtDayLong, empty, badge, ic, avatar, trend, pageHead, toast, fail, nextStep } from '../core.js';
-import { newVisit, openVisit } from './visits.js';
+import { newVisit, openVisit, visitSwipe } from './visits.js';
+import { swipeCards } from '../gestures.js';
 import { openCheckout } from './checkout.js';
 import { quickClient } from './clients.js';
 import { refresh, notifications } from '../app.js';
@@ -38,7 +39,7 @@ export default async function dashboard(root) {
       <div class="card-head"><h2>Próximos atendimentos</h2><a class="btn sm ghost" href="#/agenda">Ver agenda ${ic('arrowRight', 16)}</a></div>
       ${upcoming.length ? `<ul class="list">${upcoming.map((v) => {
         const n = nextStep(v);
-        return `<li><div class="tl-time" style="padding:0;width:50px">${v.start_at.slice(11)}</div>
+        return `<li data-sw data-swid="${v.id}" data-status="${v.status}"><div class="tl-time" style="padding:0;width:50px">${v.start_at.slice(11)}</div>
           <div class="grow click" data-visit="${v.id}"><div class="title">${esc(v.client_name)}</div><div class="meta">${esc(v.services)}${can.solo() ? '' : ` · ${esc(v.pros)}`}</div></div>
           ${n ? `<button class="btn xs ${n[0] === 'checkout' ? 'ok' : 'soft'}" data-step="${n[0]}" data-id="${v.id}">${ic(n[2], 14)} ${n[1]}</button>` : badge(v.status)}</li>`;
       }).join('')}</ul>`
@@ -53,6 +54,7 @@ export default async function dashboard(root) {
     </div>
   </div>`;
 
+  swipeCards(root, { selector: 'li[data-sw]', actions: (el) => visitSwipe(el, refresh) });
   pushBanner(root.querySelector('[data-pushbanner]'));
   root.querySelector('[data-link-copy]')?.addEventListener('click', async (e) => {
     const url = e.currentTarget.dataset.linkCopy;

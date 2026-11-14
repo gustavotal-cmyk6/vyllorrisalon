@@ -1,5 +1,6 @@
 // Utilitários compartilhados da interface: API, formatação, modais, avisos e roteamento.
 import { ic } from './icons.js';
+import { sheetDrag } from './gestures.js';
 export { ic };
 export const state = { user: null, methods: [], pros: [], services: [], categories: [] };
 
@@ -215,6 +216,7 @@ export function modal({ title, body, wide = false, onMount }) {
     if (e.target === wrap || e.target.closest('[data-close]')) close();
   });
   const el = wrap.querySelector('.modal');
+  sheetDrag(wrap, el, close); // arrastar o cabeçalho para baixo fecha a folha
   onMount?.(el, close);
   setTimeout(() => el.querySelector('[autofocus]')?.focus(), 50);
   return close;

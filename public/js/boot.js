@@ -6,7 +6,7 @@ try { if (localStorage.getItem('vy_in') === '0' && (!location.hash || location.h
 (function () {
   var BAD = /Importing binding name|does not provide an export|error loading dynamically imported module|Failed to fetch dynamically imported module|Unexpected token '<'/i;
   // lista dos arquivos do app (atualizar ao criar um arquivo novo em /js)
-  var FILES = ['app', 'auth', 'chat', 'core', 'icons', 'landing', 'plans', 'push', 'setup', 'tour', 'tutorial', 'agendar',
+  var FILES = ['app', 'auth', 'chat', 'core', 'icons', 'gestures', 'landing', 'plans', 'push', 'setup', 'tour', 'tutorial', 'agendar',
     'pages/agenda', 'pages/billing', 'pages/checkout', 'pages/clients', 'pages/commissions', 'pages/dashboard', 'pages/finance', 'pages/help', 'pages/novo-agendamento',
     'pages/reports', 'pages/sales', 'pages/security', 'pages/services', 'pages/settings', 'pages/stock', 'pages/team', 'pages/visits', 'pages/whatsapp'];
   function heal(msg) {

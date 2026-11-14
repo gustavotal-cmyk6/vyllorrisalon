@@ -1,9 +1,27 @@
 // Agendamentos: criação (vários serviços/profissionais), ações rápidas, reagendamento e bloqueios.
 import {
   state, GET, POST, PUT, DEL, esc, money, moneyIn, toCents, modal, toast, fail, confirmBox, submitting, todayStr, nowHM,
-  addMinutes, fmtDayLong, fmtPhone, waLink, badge, can, proById, ApiError, fmtDate, STATUS, ic,
+  addMinutes, fmtDayLong, fmtPhone, waLink, badge, can, proById, ApiError, fmtDate, STATUS, ic, nextStep,
 } from '../core.js';
 import { openCheckout, openSale } from './checkout.js';
+
+/** Executa uma etapa do agendamento (Confirmar, Chegou…, Receber) a partir de um botão ou de um deslize. */
+export async function runStep(id, step, onDone) {
+  if (step === 'checkout') return openCheckout({ visit: await GET(`/api/visits/${id}`), onDone });
+  await POST(`/api/visits/${id}/status`, { status: step });
+  toast(STATUS[step].label);
+  onDone?.();
+}
+/** Ações do cartão ao deslizar: direita = próxima etapa (Confirmar…), esquerda = Receber. */
+export function visitSwipe(el, onDone) {
+  const id = el.dataset.swid, status = el.dataset.status;
+  const step = nextStep({ status });
+  const go = (key) => runStep(id, key, onDone).catch(fail);
+  const right = step ? { label: step[1], icon: ic(step[2], 22), tone: step[0] === 'checkout' ? 'purple' : 'green', run: () => go(step[0]) } : null;
+  const canPay = ['scheduled', 'confirmed', 'waiting', 'in_progress'].includes(status) && step?.[0] !== 'checkout';
+  const left = canPay ? { label: 'Receber', icon: ic('receipt', 22), tone: 'purple', run: () => go('checkout') } : null;
+  return { right, left };
+}
 
 /** Envia; se houver conflito de horário, mostra os motivos e oferece encaixar. */
 export async function withConflict(send) {
