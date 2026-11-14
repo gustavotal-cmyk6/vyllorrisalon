@@ -1200,3 +1200,4 @@ body.booking { min-height: 100vh; }
   .ld .vcap small { font-size: .74rem; }
   .ld .tour-tabs button { font-size: .8rem; padding: 8px 12px; }
 }
+@media (max-width: 600px) { .ld .tour-tabs { flex-wrap: wrap; justify-content: center; overflow: visible; border-radius: 22px; max-width: 340px; gap: 4px; } .ld .tour-tabs button { padding: 7px 11px; font-size: .78rem; } }
