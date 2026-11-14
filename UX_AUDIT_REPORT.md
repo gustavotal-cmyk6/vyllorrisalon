@@ -568,3 +568,5 @@ Nada mais deve sair.
 - Teste com 3 pessoas reais (manicure, maquiadora e dona de salão) fazendo 5 tarefas: marcar, receber, divulgar o link, fechar o caixa, ligar o sinal.
 - Teste no iPhone e em Android baratos.
 - Rodar a mesma medição com os perfis recepção e profissional.
+
+> **Status Etapa 5 (2026-11-14):** feito. Menu lateral de 14 para 9 itens. Nova área **Caixa** (`#/caixa`) com seletor no topo: Vendas, Financeiro, Comissões (equipe) e Relatórios; rotas antigas continuam. Período escolhido vale para todas as telas do Caixa (sessão). Configurações em 4 seções (Meu negócio, Agendamento online, Pagamentos, Conta), com WhatsApp automático e Plano dentro de Conta. Profissional mantém "Minhas comissões".
