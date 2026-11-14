@@ -1,4 +1,4 @@
-import { state, GET, POST, esc, money, can, fmtDayLong, empty, badge, ic, avatar, trend, pageHead, toast, fail } from '../core.js';
+import { state, GET, POST, esc, money, can, fmtDayLong, empty, badge, ic, avatar, trend, pageHead, toast, fail, nextStep } from '../core.js';
 import { newVisit, openVisit } from './visits.js';
 import { openCheckout } from './checkout.js';
 import { quickClient } from './clients.js';
@@ -10,7 +10,6 @@ const tutHidden = () => { try { return localStorage.getItem(TUT_KEY) === '1'; } 
 
 export const ALERT_IC = { online: 'globe', late: 'clock', checkout: 'receipt', receivable: 'coin', confirm: 'message', stock: 'box', bills: 'wallet', birthday: 'heart' };
 // próxima ação de cada status, direto na lista (sem abrir o agendamento)
-const NEXT = { scheduled: ['confirmed', 'Confirmar', 'check'], confirmed: ['waiting', 'Chegou', 'user'], waiting: ['in_progress', 'Iniciar', 'play'], in_progress: ['checkout', 'Fechar conta', 'receipt'] };
 
 /** Início: como está o dia, quem vem a seguir e o que precisa de atenção. O resto fica nas outras áreas. */
 export default async function dashboard(root) {
@@ -35,7 +34,7 @@ export default async function dashboard(root) {
     <section class="card">
       <div class="card-head"><h2>Próximos atendimentos</h2><a class="btn sm ghost" href="#/agenda">Ver agenda ${ic('arrowRight', 16)}</a></div>
       ${upcoming.length ? `<ul class="list">${upcoming.map((v) => {
-        const n = NEXT[v.status];
+        const n = nextStep(v);
         return `<li><div class="tl-time" style="padding:0;width:50px">${v.start_at.slice(11)}</div>
           <div class="grow click" data-visit="${v.id}"><div class="title">${esc(v.client_name)}</div><div class="meta">${esc(v.services)}${can.solo() ? '' : ` · ${esc(v.pros)}`}</div></div>
           ${n ? `<button class="btn xs ${n[0] === 'checkout' ? 'ok' : 'soft'}" data-step="${n[0]}" data-id="${v.id}">${ic(n[2], 14)} ${n[1]}</button>` : badge(v.status)}</li>`;

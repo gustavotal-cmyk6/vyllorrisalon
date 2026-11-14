@@ -88,12 +88,19 @@ route('GET', '/api/dashboard', ALL, async ({ sid, user }) => {
 
   // Pontos de atenção
   const attention = [];
-  if (agenda.late.length) attention.push({ type: 'late', level: 'warn', text: `${agenda.late.length} atendimento(s) já passaram do horário sem registrar a chegada da cliente`, link: '#/agenda' });
-  if (agenda.in_progress) attention.push({ type: 'checkout', level: 'info', text: `${agenda.in_progress} atendimento(s) em andamento para fechar a conta`, link: '#/agenda' });
+  const solo = (await get('SELECT team_mode FROM salons WHERE id=?', sid))?.team_mode === 'solo';
+  if (solo) {
+    // sozinha: sem "chegada" nem "em andamento"; só o que já passou e falta receber
+    const toReceive = agenda.late.length + (agenda.in_progress || 0);
+    if (toReceive) attention.push({ type: 'checkout', level: 'info', text: `${toReceive === 1 ? "1 atendimento de hoje" : toReceive + " atendimentos de hoje"} para receber. Toque para registrar quando puder.`, link: '#/agenda' });
+  } else {
+    if (agenda.late.length) attention.push({ type: 'late', level: 'warn', text: `${agenda.late.length} atendimento(s) já passaram do horário sem registrar a chegada da cliente`, link: '#/agenda' });
+    if (agenda.in_progress) attention.push({ type: 'checkout', level: 'info', text: `${agenda.in_progress} atendimento(s) em andamento para fechar a conta`, link: '#/agenda' });
+  }
   if (receivable.n) attention.push({ type: 'receivable', level: 'warn', text: `${receivable.n} venda(s) com valor pendente a receber`, amount: receivable.v, link: '#/vendas?pendentes=1' });
   const tomorrow = addDays(d, 1);
   const unconfirmed = (await get(`SELECT COUNT(*) n FROM visits WHERE salon_id=? AND date=? AND status='scheduled'`, sid, tomorrow)).n;
-  if (unconfirmed) attention.push({ type: 'confirm', level: 'info', text: `${unconfirmed} agendamento(s) de amanhã ainda não confirmados`, link: `#/agenda?data=${tomorrow}` });
+  if (unconfirmed && !solo) attention.push({ type: 'confirm', level: 'info', text: `${unconfirmed} agendamento(s) de amanhã ainda não confirmados`, link: `#/agenda?data=${tomorrow}` });
   const receipts = (await get(`SELECT COUNT(*) n FROM charges WHERE salon_id=? AND status='submitted'`, sid)).n;
   if (receipts) attention.unshift({ type: 'deposit', level: 'warn', text: `${receipts} comprovante(s) de sinal para conferir`, link: '#/agenda?sinais=1' });
   const refunds = (await get(`SELECT COUNT(*) n, COALESCE(SUM(amount_cents),0) v FROM charges WHERE salon_id=? AND status='refund_due'`, sid));

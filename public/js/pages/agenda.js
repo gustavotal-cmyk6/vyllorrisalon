@@ -1,4 +1,4 @@
-import { state, GET, POST, esc, money, modal, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail } from '../core.js';
+import { state, GET, POST, esc, money, modal, todayStr, addDays, fmtDayLong, weekday, fmtShort, badge, can, empty, STATUS, ic, avatar, pageHead, toast, fail, nextStep } from '../core.js';
 import { newVisit, openVisit, newBlock, removeBlock } from './visits.js';
 import { openCheckout } from './checkout.js';
 import { refresh } from '../app.js';
@@ -8,7 +8,6 @@ const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const STATUS_FILTERS = [['active', 'Ativos'], ['scheduled', 'A confirmar'], ['completed', 'Concluídos'], ['cancelled', 'Cancelados'], ['all', 'Todos']];
-const NEXT = { scheduled: ['confirmed', 'Confirmar', 'check'], confirmed: ['waiting', 'Chegou', 'user'], waiting: ['in_progress', 'Iniciar', 'play'], in_progress: ['checkout', 'Concluir e receber', 'receipt'] };
 
 const weekStart = (d) => addDays(d, -((new Date(d + 'T12:00:00').getDay() + 6) % 7));
 function rangeOf(mode, date) {
@@ -121,7 +120,7 @@ function dayStrip(date) {
 function card(v, item, { compact = false, showPro = false } = {}) {
   const dim = ['cancelled', 'no_show'].includes(v.status) ? 'dim' : '';
   const own = item ? [item] : v.items;
-  const n = !compact && NEXT[v.status];
+  const n = !compact && nextStep(v);
   return `<div class="appt ${dim}" style="--c:${esc(own[0].pro_color)}" data-visit="${v.id}" role="button" tabindex="0">
     <div class="top"><span class="time">${own[0].start_at.slice(11)}${compact ? '' : '–' + own[own.length - 1].end_at.slice(11)}</span>${badge(v.status)}</div>
     <div class="who">${esc(v.client_name)}${v.late_min ? ` <span class="tag warn">+${v.late_min}min</span>` : ''}${own.some((i) => i.overbook) ? ' <span class="tag">encaixe</span>' : ''}${v.source === 'online' ? ' <span class="tag pink">online</span>' : ''}${v.location === 'home' ? ` <span class="tag brand">${ic('home', 11)} domicílio</span>` : ''}${depTag(v)}</div>

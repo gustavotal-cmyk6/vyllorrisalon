@@ -267,7 +267,7 @@ export async function openVisit(id, onChange = () => {}) {
   }
   const st = v.status;
   const A = (act, label, cls = '') => `<button class="btn ${cls}" data-a="${act}">${label}</button>`;
-  const acts = {
+  let acts = {
     scheduled: [A('confirmed', ic('check', 18) + ' Confirmar', 'primary'), A('waiting', ic('user', 18) + ' Chegou'), A('in_progress', ic('play', 18) + ' Iniciar'), A('checkout', ic('receipt', 18) + ' Concluir e receber'), A('reschedule', ic('refresh', 18) + ' Reagendar'), A('edit', ic('edit', 18) + ' Editar'), A('no_show', ic('ban', 18) + ' Faltou'), A('cancelled', ic('x', 18) + ' Cancelar')],
     confirmed: [A('waiting', ic('user', 18) + ' Chegou', 'primary'), A('in_progress', ic('play', 18) + ' Iniciar'), A('checkout', ic('receipt', 18) + ' Concluir e receber'), A('reschedule', ic('refresh', 18) + ' Reagendar'), A('edit', ic('edit', 18) + ' Editar'), A('no_show', ic('ban', 18) + ' Faltou'), A('cancelled', ic('x', 18) + ' Cancelar')],
     waiting: [A('in_progress', ic('play', 18) + ' Iniciar atendimento', 'primary'), A('checkout', ic('receipt', 18) + ' Concluir e receber'), A('late', ic('clock', 18) + ' Registrar atraso'), A('edit', ic('edit', 18) + ' Editar'), A('reschedule', ic('refresh', 18) + ' Reagendar'), A('cancelled', ic('x', 18) + ' Cancelar')],
@@ -276,6 +276,15 @@ export async function openVisit(id, onChange = () => {}) {
     cancelled: [A('reopen', ic('refresh', 18) + ' Reativar'), A('reschedule', ic('refresh', 18) + ' Reagendar')],
     no_show: [A('reopen', ic('refresh', 18) + ' Reativar'), A('reschedule', ic('refresh', 18) + ' Reagendar')],
   }[st];
+  if (can.solo()) {
+    // sem Chegou / Iniciar / atraso; Confirmar só para pedido online (aí é a dona quem aceita)
+    const drop = ['waiting', 'in_progress', 'late', ...(v.source === 'online' && st === 'scheduled' ? [] : ['confirmed'])];
+    acts = acts.filter((a) => !drop.some((d) => a.includes(`data-a="${d}"`)))
+      .map((a) => (a.includes('data-a="checkout"') ? a.replace('Concluir e receber', 'Receber') : a));
+    const i = acts.findIndex((a) => a.includes('data-a="checkout"'));
+    if (i > 0 && !acts.some((a) => a.includes('btn primary'))) acts.unshift(acts.splice(i, 1)[0].replace(/class="btn[^"]*"/, 'class="btn primary"'));
+    else if (i === 0) acts[0] = acts[0].replace(/class="btn[^"]*"/, 'class="btn primary"');
+  }
   const first = v.client_name.split(' ')[0];
   const wa = waLink(v.client_phone, `Olá, ${first}! Confirmando seu horário ${fmtDayLong(v.date).toLowerCase()} às ${v.start_at.slice(11)} (${v.items.map((i) => i.service_name).join(', ')}). Podemos confirmar?`);
   const close = modal({
