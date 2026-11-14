@@ -300,8 +300,9 @@ async function route(soft = false) {
     refreshBell();
   } catch (e) {
     if (token !== current) return;
+    if (window.__vyHeal?.(e?.message)) return; // arquivo velho no cache: baixa de novo e recarrega sozinho
     page.innerHTML = `<div class="empty" style="padding-top:60px"><div class="e-ic">${ic('alert', 26)}</div><p>${esc(e.message || 'Não foi possível carregar esta tela.')}</p><button class="btn primary" id="retry">Tentar novamente</button></div>`;
-    page.querySelector('#retry').onclick = () => route();
+    page.querySelector('#retry').onclick = () => (/binding name|export|dynamically imported/i.test(e?.message || '') ? location.reload() : route());
   }
 }
 window.addEventListener('hashchange', () => route());

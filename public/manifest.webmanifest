@@ -4,7 +4,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6f1fc",
-  "theme_color": "#2a0a4d",
+  "theme_color": "#f6f1fc",
   "icons": [
     {
       "src": "/brand/vyllorri-v-192.png",

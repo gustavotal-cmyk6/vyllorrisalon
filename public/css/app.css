@@ -508,10 +508,17 @@ body.booking { background: var(--bg); }
 @media (min-width: 700px) { .bk-hero { border-radius: 0 0 36px 36px; min-height: 300px; } }
 
 /* Tela de abertura enquanto o servidor responde */
-.splash { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--hero); color: #fff; }
-.splash-mark { width: 96px; height: 96px; border-radius: 28px; object-fit: cover; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); animation: pop .5s cubic-bezier(.2, 1.4, .4, 1); }
-.splash-name { font-family: var(--serif); font-size: 1.3rem; letter-spacing: .02em; }
-.splash .spin { color: var(--lav-300); }
+.splash { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center;
+  background: radial-gradient(70% 45% at 50% 28%, rgba(157, 92, 232, .26), transparent 72%), linear-gradient(180deg, #f6f0fc, #fff 70%); color: var(--plum-900); }
+.sp-vyllo { width: 104px; height: auto; margin-bottom: 4px; filter: drop-shadow(0 16px 22px rgba(91, 23, 166, .35)); animation: spFloat 2.4s ease-in-out infinite; }
+.sp-brand b { display: block; font-family: var(--serif); font-size: 1.7rem; font-weight: 600; line-height: 1; letter-spacing: .01em; }
+.sp-brand small { display: block; margin-top: 6px; font-size: .62rem; letter-spacing: .42em; text-transform: uppercase; color: var(--brand-2); }
+.sp-bar { width: 120px; height: 4px; margin-top: 14px; border-radius: 9px; background: var(--lav-200); overflow: hidden; }
+.sp-bar i { display: block; width: 40%; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--violet), var(--brand)); animation: spBar 1.2s ease-in-out infinite; }
+.sp-hint { font-size: .8rem; color: var(--muted); }
+@keyframes spFloat { 50% { transform: translateY(-8px); } }
+@keyframes spBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .sp-vyllo, .sp-bar i { animation: none; } }
 
 /* Escolha "trabalho sozinha / tenho equipe" */
 .mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1437,3 +1444,8 @@ body.booking { min-height: 100vh; }
 .nv-full button { border: 0; background: none; padding: 4px; font: inherit; font-size: .82rem; color: var(--muted); text-decoration: underline; cursor: pointer; }
 .nv-full button:hover { color: var(--brand); }
 .nv-other span { white-space: nowrap; }
+/* abertura da página de agendamento das clientes (fundo escuro, como antes) */
+#book .splash { gap: 14px; background: var(--hero); color: #fff; }
+#book .splash-mark { width: 96px; height: 96px; border-radius: 28px; object-fit: cover; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); animation: pop .5s cubic-bezier(.2, 1.4, .4, 1); }
+#book .splash-name { font-family: var(--serif); font-size: 1.3rem; letter-spacing: .02em; }
+#book .splash .spin { color: var(--lav-300); }
