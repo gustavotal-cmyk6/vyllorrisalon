@@ -27,19 +27,35 @@ function navItems() {
     { k: '', ico: 'home', label: 'Início', group: 'Dia a dia' },
     { k: 'agenda', ico: 'calendar', label: 'Agenda', group: 'Dia a dia' },
     { k: 'clientes', ico: 'users', label: 'Clientes', group: 'Dia a dia' },
-    { k: 'vendas', ico: 'cart', label: 'Vendas', roles: STAFF, group: 'Dia a dia' },
+    { k: 'caixa', ico: 'wallet', label: 'Caixa', roles: STAFF, group: 'Dia a dia' },
+    { k: 'comissoes', ico: 'percent', label: 'Minhas comissões', roles: ['pro'], group: 'Dia a dia' },
     { k: 'equipe', ico: 'sparkle', label: 'Equipe', roles: ADMIN, group: 'Gestão' },
     { k: 'servicos', ico: 'scissors', label: 'Serviços', roles: ADMIN, group: 'Gestão' },
     { k: 'estoque', ico: 'box', label: 'Estoque', roles: STAFF, group: 'Gestão' },
-    { k: 'financeiro', ico: 'wallet', label: 'Financeiro', roles: ADMIN, group: 'Gestão' },
-    { k: 'comissoes', ico: 'percent', label: r === 'pro' ? 'Minhas comissões' : 'Comissões', roles: [...ADMIN, 'pro'], group: 'Gestão' },
-    { k: 'relatorios', ico: 'chart', label: 'Relatórios', roles: ADMIN, group: 'Gestão' },
     { k: 'config', ico: 'settings', label: 'Configurações', group: 'Conta' },
-    { k: 'whatsapp', ico: 'whatsapp', label: 'WhatsApp automático', roles: ['owner'], group: 'Conta' },
-    { k: 'assinatura', ico: 'star', label: 'Assinatura', roles: ['owner'], group: 'Conta' },
     { k: 'ajuda', ico: 'message', label: 'Ajuda e sugestões', group: 'Conta' },
   ].filter((i) => (!i.roles || i.roles.includes(r)) && !(can.solo() && ['equipe', 'comissoes'].includes(i.k)) && !(!can.products() && i.k === 'estoque'));
 }
+/** Área Caixa: telas de dinheiro reunidas, com as rotas antigas mantidas (#/vendas, #/financeiro…). */
+const CAIXA = [
+  { k: 'vendas', label: 'Vendas', roles: STAFF },
+  { k: 'financeiro', label: 'Financeiro', roles: ADMIN },
+  { k: 'comissoes', label: 'Comissões', roles: ADMIN, team: true },
+  { k: 'relatorios', label: 'Relatórios', roles: ADMIN },
+];
+const caixaItems = () => CAIXA.filter((c) => c.roles.includes(state.user.role) && !(c.team && can.solo()));
+/** Telas fora do menu mas abertas por links internos (dentro de Configurações). */
+const EXTRA = { whatsapp: ['owner'], assinatura: ['owner'] };
+function hubNav(key) {
+  const items = caixaItems();
+  if (items.length < 2) return null;
+  const nav = document.createElement('nav');
+  nav.className = 'hubnav';
+  nav.setAttribute('aria-label', 'Caixa');
+  nav.innerHTML = items.map((c) => `<a href="#/${c.k}" class="${c.k === key ? 'on' : ''}" ${c.k === key ? 'aria-current="page"' : ''}>${c.label}</a>`).join('');
+  return nav;
+}
+
 /** Barra inferior do celular: Início, Agenda, "+" no centro (ao alcance do polegar), Clientes e Mais. */
 function bottomItems() {
   const items = navItems();
@@ -290,9 +306,12 @@ async function route(soft = false) {
   // acesso pausado: só a tela de assinatura fica disponível
   if (state.user.billing?.blocked && !['assinatura', 'ajuda'].includes(key)) return (location.hash = '#/assinatura');
   billBar(key);
-  const allowed = navItems().some((i) => i.k === key) || key === 'assinatura' || key === 'ajuda';
+  if (key === 'caixa') { const first = caixaItems()[0]; return (location.hash = first ? '#/' + first.k : '#/'); }
+  const inCaixa = caixaItems().some((c) => c.k === key);
+  const allowed = navItems().some((i) => i.k === key) || inCaixa || (EXTRA[key] || []).includes(state.user.role) || key === 'ajuda' || key === 'assinatura';
   const loader = PAGES[allowed ? key : ''];
-  document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === (allowed ? key : '')));
+  const navKey = allowed ? (inCaixa && !navItems().some((i) => i.k === key) ? 'caixa' : key) : '';
+  document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === navKey));
   const page = document.getElementById('page');
   const token = (current = Symbol());
   if (!soft) page.innerHTML = '<div class="loading"><span class="spin"></span> Carregando…</div>';
@@ -303,6 +322,7 @@ async function route(soft = false) {
     const root = document.createElement('div');
     await mod.default(root, { id: rest[0], query: Object.fromEntries(new URLSearchParams(qs || '')) });
     if (token !== current) return;
+    if (inCaixa) { const hub = hubNav(key); if (hub) root.prepend(hub); }
     page.replaceChildren(root);
     if (!soft) root.classList.add('pg-in');
     if (!soft) window.scrollTo(0, 0);

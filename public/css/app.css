@@ -1589,3 +1589,10 @@ button.alert { width: 100%; text-align: left; border: 0; font: inherit; cursor: 
 .modal:focus { outline: none; }
 .opts summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; color: var(--brand); min-height: 44px; }
 .opts summary small { font-weight: 500; }
+
+/* ===== Etapa 5: seletor de área (Caixa, Configurações) ===== */
+.hubnav { display: flex; gap: 4px; margin: 0 0 12px; padding: 4px; overflow-x: auto; scrollbar-width: none; background: var(--lav-100, #f3eefb); border-radius: 14px; }
+.hubnav::-webkit-scrollbar { display: none; }
+.hubnav a, .hubnav button { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 14px; border: 0; border-radius: 11px; background: none; font: inherit; font-weight: 700; font-size: .88rem; color: var(--muted); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.hubnav .on { background: #fff; color: var(--brand); box-shadow: var(--shadow-sm); }
+.tabs.subtabs a { display: flex; align-items: center; gap: 4px; padding: 10px 14px; font-weight: 700; font-size: .88rem; color: var(--brand); text-decoration: none; white-space: nowrap; border-radius: 12px; }

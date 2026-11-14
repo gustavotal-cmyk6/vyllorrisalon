@@ -17,10 +17,20 @@ const ui = { tab: 'salon' };
 export default async function settings(root, opts = {}) {
   const owner = can.owner();
   if (opts.query?.aba) ui.tab = opts.query.aba;
-  const TABS = owner ? [['salon', 'Meu negócio'], ['booking', 'Agendamento online'], ['deposit', 'Sinal online (Pix)'], ['home', 'Domicílio'], ['payments', 'Formas de pagamento'], ...(can.solo() ? [] : [['users', 'Acessos da equipe']]), ['me', 'Minha conta'], ['security', 'Segurança']] : [['me', 'Minha conta'], ['security', 'Segurança']];
+  // 4 seções; cada uma com poucas abas. Links (WhatsApp, Assinatura) abrem as telas próprias.
+  const SECTIONS = owner ? [
+    ['Meu negócio', [['salon', 'Perfil'], ['home', 'Domicílio']]],
+    ['Agendamento online', [['booking', 'Link e regras'], ['deposit', 'Sinal (Pix)']]],
+    ['Pagamentos', [['payments', 'Formas de pagamento']]],
+    ['Conta', [['me', 'Minha conta'], ['security', 'Segurança'], ...(can.solo() ? [] : [['users', 'Acessos da equipe']]), ['#/whatsapp', 'WhatsApp automático'], ['#/assinatura', 'Plano e assinatura']]],
+  ] : [['Conta', [['me', 'Minha conta'], ['security', 'Segurança']]]];
+  const TABS = SECTIONS.flatMap(([, t]) => t).filter(([k]) => k[0] !== '#');
   if (!TABS.some(([k]) => k === ui.tab)) ui.tab = TABS[0][0];
+  const sec = SECTIONS.find(([, t]) => t.some(([k]) => k === ui.tab));
+  const tabBtn = ([k, l]) => (k[0] === '#' ? `<a href="${k}">${l} ${ic('arrowRight', 14)}</a>` : `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`);
   root.innerHTML = `${pageHead('Configurações', `${esc(state.user.name)} · ${ROLE_LABEL[state.user.role]}`)}
-    ${TABS.length > 1 ? `<div class="tabs wrap">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+    ${SECTIONS.length > 1 ? `<nav class="hubnav" aria-label="Seções">${SECTIONS.map(([n, t]) => `<button data-tab="${t[0][0]}" class="${sec === SECTIONS.find(([m]) => m === n) ? 'on' : ''}">${n}</button>`).join('')}</nav>` : ''}
+    ${sec[1].length > 1 ? `<div class="tabs subtabs">${sec[1].map(tabBtn).join('')}</div>` : ''}
     <div data-body><div class="loading">Carregando…</div></div>`;
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), refresh())));
   const body = root.querySelector('[data-body]');

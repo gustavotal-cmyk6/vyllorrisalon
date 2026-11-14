@@ -325,7 +325,11 @@ export const empty = (text, action = '', icon = 'sparkle') => `<div class="empty
 /** Selo de variação percentual (verde subiu, vermelho caiu). */
 export const trend = (v, suffix = '') => (v == null ? '<small class="muted">sem dados anteriores para comparar</small>' : `<span class="trend ${v > 0 ? 'up' : v < 0 ? 'down' : 'flat'}">${ic(v >= 0 ? 'trendUp' : 'trendDown', 13)} ${pct(v)}${suffix}</span>`);
 
+// o período escolhido vale para Vendas, Financeiro, Comissões e Relatórios (troca de tela sem perder o filtro)
+const PER_KEY = 'vy-period';
+const sharedPeriod = () => { try { const p = sessionStorage.getItem(PER_KEY); return ['today', 'week', 'month', 'lastmonth'].includes(p) ? p : null; } catch { return null; } };
 export function periodPicker(id, current = 'month') {
+  current = sharedPeriod() || current;
   return `<div class="period" id="${id}">
     <div class="seg">${[['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês'], ['lastmonth', 'Mês passado'], ['custom', 'Período']]
       .map(([k, l]) => `<button data-p="${k}" class="${k === current ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -350,6 +354,7 @@ export function rangeFor(p) {
 export function mountPeriod(root, id, onChange, initial = 'month') {
   const el = root.querySelector('#' + id);
   const custom = el.querySelector('.custom-range');
+  initial = sharedPeriod() || initial;
   let cur = rangeFor(initial);
   el.querySelector('[name=from]').value = cur.from;
   el.querySelector('[name=to]').value = cur.to;
@@ -358,6 +363,7 @@ export function mountPeriod(root, id, onChange, initial = 'month') {
       el.querySelectorAll('[data-p]').forEach((x) => x.classList.toggle('on', x === b));
       if (b.dataset.p === 'custom') return custom.classList.remove('hidden');
       custom.classList.add('hidden');
+      try { sessionStorage.setItem(PER_KEY, b.dataset.p); } catch {}
       cur = rangeFor(b.dataset.p);
       onChange(cur);
     }));
