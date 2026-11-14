@@ -1545,3 +1545,41 @@ html { overscroll-behavior-y: contain; }
   .appt:active { transform: scale(.985); transition-duration: .08s; }
 }
 @media (prefers-reduced-motion: reduce) { .pg-in { animation: none; } * { transition-duration: .01ms !important; } }
+
+/* ===== Etapa 3: cabeçalhos compactos e Início mais direto (celular) ===== */
+@media (max-width: 1023px) {
+  .page-head { padding: 2px 16px 12px; margin-bottom: 12px; gap: 8px 10px; align-items: center; border-radius: 0 0 22px 22px; }
+  .page-head h1 { font-size: 1.3rem; line-height: 1.15; }
+  .page-head .sub { margin-top: 2px; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .page-head > div:first-child { flex: 1 1 150px; min-width: 0; }
+  .page-head .actions { display: flex; flex: 0 0 auto; gap: 6px; margin-left: auto; }
+  .page-head .btn { height: 40px; padding: 0 12px; font-size: .86rem; border-radius: 12px; box-shadow: none; }
+  .page-head .seg { margin-bottom: 8px !important; }
+  /* números do dia numa faixa só */
+  .kpis.three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .kpis.three .kpi { padding: 10px 10px 8px; min-width: 0; }
+  .kpis.three .kpi span { font-size: .75rem; line-height: 1.2; }
+  .kpis.three .kpi b { font-size: 1.05rem; line-height: 1.25; display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kpis.three .kpi small, .kpis.three .kpi .trend { display: none; }
+}
+/* próximo atendimento em destaque */
+.nextcard { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 18px; margin-bottom: 12px; border-radius: 18px; background: #fff; box-shadow: var(--shadow); touch-action: pan-y; }
+.nextcard::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: linear-gradient(var(--violet), var(--brand)); }
+.nc-time { flex: none; text-align: center; min-width: 58px; }
+.nc-time small { display: block; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--brand-2); }
+.nc-time b { display: block; font-size: 1.55rem; line-height: 1.1; letter-spacing: -.02em; color: var(--plum-900); }
+.nextcard .grow { flex: 1; min-width: 0; cursor: pointer; }
+.nc-name { font-weight: 800; font-size: 1.02rem; color: var(--plum-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc-svc { margin-top: 2px; font-size: .85rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nextcard .btn { flex: none; height: 44px; padding: 0 14px; border-radius: 12px; }
+@media (max-width: 1023px) {
+  .kpis.three .kpi.hl { grid-column: auto; }
+  .nextcard { flex-wrap: wrap; row-gap: 10px; }
+  .nextcard .btn { flex: 1 1 100%; }
+  .page-head .seg { display: inline-flex; }
+}
+@media (max-width: 1023px) {
+  .page-head .btn .lbl { display: none; }
+  .kpis.three .kpi b { font-size: clamp(.9rem, 4.1vw, 1.05rem); letter-spacing: -.02em; text-overflow: clip; }
+  .kpis.three .kpi { padding: 10px 8px 8px; }
+}

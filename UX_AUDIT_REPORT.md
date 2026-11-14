@@ -4,7 +4,9 @@ Auditoria de UX/UI, usabilidade e navegação. Data: 14/11/2026. A análise não
 
 > **Status (14/11/2026):** Etapa 1 implementada e publicada: A1 (abas, filtros e períodos sempre visíveis), B5 (contraste e texto mínimo de 12 px), B6 (alvos de toque), C8 (faixas finas), C9 (aviso de notificação em uma linha), C10 (foco visível) e parte de B9 (abas "Meu negócio" e "Formas de pagamento"). Medição depois: 0 textos abaixo de 12 px e 0 falhas de contraste nas 12 telas medidas (antes: 6–13 textos e até 7 falhas por tela). 
 >
-> **Etapa 2 implementada e publicada (14/11/2026):** B1 (card "Seu link" no Início com Copiar e WhatsApp; some após 3 pedidos online ou ao esconder; "Copiar meu link" no menu "+"; atalho ), B2 (barra inferior: Início · Agenda · **+** central · Clientes · Mais, igual para todos os perfis; o "+" saiu do topo), C2 ("Mais" agrupado em Dia a dia, Gestão e Conta) e C6 (cartão "Atalhos" removido do Início). O restante do plano segue pendente.
+> **Etapa 2 implementada e publicada (14/11/2026):** B1 (card "Seu link" no Início com Copiar e WhatsApp; some após 3 pedidos online ou ao esconder; "Copiar meu link" no menu "+"; atalho ), B2 (barra inferior: Início · Agenda · **+** central · Clientes · Mais, igual para todos os perfis; o "+" saiu do topo), C2 ("Mais" agrupado em Dia a dia, Gestão e Conta) e C6 (cartão "Atalhos" removido do Início). 
+>
+> **Gestos (14/11/2026):** arrastar para fechar as folhas, deslizar cartões (→ confirmar/etapa, ← receber), deslizar a faixa de dias da Agenda, puxar para atualizar e resposta ao toque com mola. **Etapa 3 implementada:** A3/C4 (cabeçalhos compactos no celular: título, subtítulo de uma linha e ações na mesma linha) e B3 (Início: próximo atendimento em destaque com a ação à mão, números do dia numa faixa de 3, link, lista "Também hoje", atenção com no máximo 3 itens, aviso de notificação no fim). O restante do plano segue pendente.
 
 ## 0. Como esta auditoria foi feita (e o que ela não cobre)
 

@@ -24,37 +24,49 @@ export default async function dashboard(root) {
   const upcoming = [...a.in_progress_list, ...a.waiting_list, ...a.late, ...a.next].filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i);
   const alerts = d.attention || [];
 
+  const nx = upcoming[0];
+  const rest = upcoming.slice(1);
+  // o próximo atendimento (ou o que está em andamento) ganha destaque, com a ação à mão
+  const nextCard = nx ? (() => {
+    const n = nextStep(nx);
+    return `<section class="nextcard" data-sw data-swid="${nx.id}" data-status="${nx.status}">
+      <div class="nc-time"><small>${nx.status === 'in_progress' ? 'Agora' : 'Próximo'}</small><b>${nx.start_at.slice(11)}</b></div>
+      <div class="grow click" data-visit="${nx.id}"><div class="nc-name">${esc(nx.client_name)}</div><div class="nc-svc">${esc(nx.services)}${can.solo() ? '' : ` · ${esc(nx.pros)}`}</div></div>
+      ${n ? `<button class="btn ${n[0] === 'checkout' ? 'ok' : 'primary'}" data-step="${n[0]}" data-id="${nx.id}">${ic(n[2], 16)} ${n[1]}</button>` : badge(nx.status)}</section>`;
+  })() : '';
+
   root.innerHTML = `
   <section class="hero2"><div class="hero2-txt"><h1>${hello}</h1><p>${fmtDayLong(d.date)}</p>
     <button class="btn" data-act="visit">${ic('plus', 18)} Novo agendamento</button></div>
     <span class="hero2-bub" aria-hidden="true">Vamos agendar?</span>
     <div class="hero2-vyllo" aria-hidden="true"><img src="/vendas/vyllo.webp" alt="" width="110" height="228"></div></section>
-  <div data-pushbanner></div>
-  ${linkCard(d.booking)}
-  ${can.admin() && !tutHidden() ? `<div class="tut-row"><button class="tut-card" data-tut><span class="tc-ic">${ic('play', 22)}</span><span class="grow"><b>Primeiros passos em 2 minutos</b><small>Veja como deixar seu negócio pronto para receber agendamentos</small></span>${ic('chevRight', 20)}</button><button class="tut-hide" data-tut-hide aria-label="Esconder">${ic('x', 16)}</button></div>` : ''}
   ${setup ? setupCard() : ''}
+  ${nextCard}
   ${d.role === 'pro' ? proKpis(d) : ownerKpis(d)}
+  ${linkCard(d.booking)}
   <div class="grid g-main">
-    <section class="card">
-      <div class="card-head"><h2>Próximos atendimentos</h2><a class="btn sm ghost" href="#/agenda">Ver agenda ${ic('arrowRight', 16)}</a></div>
-      ${upcoming.length ? `<ul class="list">${upcoming.map((v) => {
+    ${!nx || rest.length ? `<section class="card">
+      <div class="card-head"><h2>${nx ? 'Também hoje' : 'Próximos atendimentos'}</h2><a class="btn sm ghost" href="#/agenda">Ver agenda ${ic('arrowRight', 16)}</a></div>
+      ${rest.length ? `<ul class="list">${rest.map((v) => {
         const n = nextStep(v);
         return `<li data-sw data-swid="${v.id}" data-status="${v.status}"><div class="tl-time" style="padding:0;width:50px">${v.start_at.slice(11)}</div>
           <div class="grow click" data-visit="${v.id}"><div class="title">${esc(v.client_name)}</div><div class="meta">${esc(v.services)}${can.solo() ? '' : ` · ${esc(v.pros)}`}</div></div>
           ${n ? `<button class="btn xs ${n[0] === 'checkout' ? 'ok' : 'soft'}" data-step="${n[0]}" data-id="${v.id}">${ic(n[2], 14)} ${n[1]}</button>` : badge(v.status)}</li>`;
       }).join('')}</ul>`
         : empty(a.total ? 'Todos os atendimentos de hoje já foram concluídos.' : 'Nenhum atendimento marcado para hoje.', `<button class="btn sm primary" data-act="visit">${ic('plus', 16)} Agendar</button>`, 'calendar')}
-    </section>
+    </section>` : ''}
     <div class="stack">
       <section class="card">
-        <div class="card-head"><h2>Precisa de atenção</h2>${alerts.length > 4 ? `<button class="btn xs ghost" data-act="alerts">Ver todas (${alerts.length})</button>` : ''}</div>
-        ${alerts.length ? alerts.slice(0, 4).map((x) => `<a class="alert ${x.level}" href="${x.link}"><span class="a-ic">${ic(ALERT_IC[x.type] || 'info', 18)}</span><span>${esc(x.text)}</span>${x.amount ? `<b>${money(x.amount)}</b>` : ''}</a>`).join('')
+        <div class="card-head"><h2>Precisa de atenção</h2>${alerts.length > 3 ? `<button class="btn xs ghost" data-act="alerts">Ver todas (${alerts.length})</button>` : ''}</div>
+        ${alerts.length ? alerts.slice(0, 3).map((x) => `<a class="alert ${x.level}" href="${x.link}"><span class="a-ic">${ic(ALERT_IC[x.type] || 'info', 18)}</span><span>${esc(x.text)}</span>${x.amount ? `<b>${money(x.amount)}</b>` : ''}</a>`).join('')
           : `<p class="small muted" style="display:flex;gap:8px;align-items:center">${ic('checkCircle', 18, 'ok-t')} Tudo em dia. Nada pendente agora.</p>`}
       </section>
     </div>
-  </div>`;
+  </div>
+  <div data-pushbanner></div>
+  ${can.admin() && !tutHidden() ? `<div class="tut-row"><button class="tut-card" data-tut><span class="tc-ic">${ic('play', 22)}</span><span class="grow"><b>Primeiros passos em 2 minutos</b><small>Veja como deixar seu negócio pronto para receber agendamentos</small></span>${ic('chevRight', 20)}</button><button class="tut-hide" data-tut-hide aria-label="Esconder">${ic('x', 16)}</button></div>` : ''}`;
 
-  swipeCards(root, { selector: 'li[data-sw]', actions: (el) => visitSwipe(el, refresh) });
+  swipeCards(root, { selector: '[data-sw]', actions: (el) => visitSwipe(el, refresh) });
   pushBanner(root.querySelector('[data-pushbanner]'));
   root.querySelector('[data-link-copy]')?.addEventListener('click', async (e) => {
     const url = e.currentTarget.dataset.linkCopy;

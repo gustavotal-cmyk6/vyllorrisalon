@@ -37,7 +37,7 @@ export default async function agenda(root, { query }) {
 
   root.innerHTML = `
   ${pageHead('Agenda', `${title} · ${counts.total} agendamento(s)${counts.pend ? ` · ${counts.pend} a confirmar` : ''}`,
-    `${can.staff() ? `<button class="btn" data-act="block">${ic('ban', 18)} Bloquear</button>` : ''}<button class="btn primary" data-act="new">${ic('plus', 18)} Agendar</button>`,
+    `${can.staff() ? `<button class="btn" data-act="block" aria-label="Bloquear horário">${ic('ban', 18)}<span class="lbl"> Bloquear</span></button>` : ''}<button class="btn primary" data-act="new">${ic('plus', 18)} Agendar</button>`,
     `<div class="seg" style="margin-bottom:12px">${[['day', 'Dia'], ['week', 'Semana'], ['month', 'Mês']].map(([k, l]) => `<button data-mode="${k}" class="${view.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>`)}
   <div class="agenda-bar">
     <div class="date-nav"><button class="icon-btn" data-act="prev" aria-label="Anterior">${ic('chevLeft', 20)}</button><b>${view.mode === 'month' ? `${MONTHS[Number(view.date.slice(5, 7)) - 1]}` : view.mode === 'week' ? `${fmtShort(r.from)} – ${fmtShort(r.to)}` : `${weekday(view.date)}, ${fmtShort(view.date)}`}</b><button class="icon-btn" data-act="next" aria-label="Próximo">${ic('chevRight', 20)}</button></div>
