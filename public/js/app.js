@@ -70,13 +70,13 @@ function shell() {
     </nav>
     <div style="min-width:0">
       <header class="topbar">
-        <div class="logo">${brandMark()}<div class="name">Vyllorri<small>${esc(state.user.salon_name)}</small></div></div>
+        <a class="logo tb-brand" href="#/" aria-label="Início">${brandMark()}<div class="name"><b>${esc(state.user.salon_name)}</b><small>Vyllorri Beauty</small></div></a>
         <div class="search">${ic('search', 18)}<input id="gsearch" type="search" placeholder="Buscar cliente, telefone, serviço…" autocomplete="off" aria-label="Busca"><div class="search-results hidden" id="gresults"></div></div>
         <span class="spacer"></span>
         <a class="tb-beta" href="#/ajuda" title="Estamos em testes: mande sua opinião">${ic('message', 15)}<span>Beta · Opinar</span></a>
+        <button class="tb-btn m-only" data-msearch aria-label="Buscar">${ic('search', 22)}</button>
+        <button class="tb-btn" data-bell aria-label="Notificações">${ic('bell', 22)}<span class="dot hidden" data-bell-count></span></button>
         <button class="tb-btn tb-plus m-only" data-quick aria-label="Novo: agendamento, venda, cliente…">${ic('plus', 22)}</button>
-        <button class="tb-btn m-only" data-msearch aria-label="Buscar">${ic('search', 20)}</button>
-        <button class="tb-btn" data-bell aria-label="Notificações">${ic('bell', 20)}<span class="dot hidden" data-bell-count></span></button>
       </header>
       <div id="billbar"></div>
       <main class="main" id="page"></main>
