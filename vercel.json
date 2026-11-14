@@ -52,7 +52,16 @@
       ]
     },
     {
-      "source": "/(js|css|brand|tutorial)/(.*)",
+      "source": "/(js|css)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(brand|tutorial)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
