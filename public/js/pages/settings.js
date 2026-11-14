@@ -159,6 +159,9 @@ async function bookingTab(body) {
         <small>Depois desse prazo, a cliente é orientada a falar com o salão pelo WhatsApp.</small></label>
       ${online ? `<p class="small ok-t" style="margin-bottom:10px">${ic('checkCircle', 16)} ${online} serviço(s) disponível(is) online.</p>` : `<p class="small warn-t" style="margin-bottom:10px">${ic('alert', 16)} Nenhum serviço marcado como “Disponível para agendamento online”. Marque em <a href="#/servicos">Serviços</a>.</p>`}
       <button class="btn primary">${ic('check', 18)} Salvar</button></form></div>
+    <div class="card"><h2>Confirmação dos agendamentos</h2>
+      <label class="check" style="margin-top:10px"><span class="switch"><input type="checkbox" data-autoconf ${s.auto_confirm ? 'checked' : ''}><i></i></span> Confirmar agendamentos sozinho</label>
+      <p class="small muted" style="margin-top:8px;line-height:1.5">Ligado: todo agendamento (pelo link ou criado por você) já fica <b>Confirmado</b>, sem precisar tocar em “Confirmar”. Se você cobra sinal por Pix, o pedido online só confirma depois do sinal.</p></div>
     <div class="card soft"><h3>Dica</h3><p class="small" style="margin-top:6px;line-height:1.6">Coloque o link na bio do Instagram e na mensagem automática do WhatsApp Business. Complete o <b>Perfil do salão</b> com logo, capa e fotos dos trabalhos para a página ficar com a cara do seu salão.</p></div>`;
   body.querySelector('[data-booking]').onsubmit = async (e) => {
     e.preventDefault();
@@ -170,6 +173,16 @@ async function bookingTab(body) {
       toast(f.enabled.checked ? 'Agendamento online ativado' : 'Agendamento online desligado');
       refresh();
     }).catch(() => {});
+  };
+  body.querySelector('[data-autoconf]').onchange = async (e) => {
+    try {
+      const r = await PUT('/api/salon/auto-confirm', { on: e.target.checked });
+      state.user.auto_confirm = r.auto_confirm;
+      toast(r.auto_confirm ? 'Agora os agendamentos já ficam confirmados' : 'Você volta a confirmar um por um');
+    } catch (err) {
+      e.target.checked = !e.target.checked;
+      fail(err);
+    }
   };
   body.querySelector('[data-copy]')?.addEventListener('click', async () => {
     try {

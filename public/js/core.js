@@ -362,13 +362,11 @@ export async function loadRefs(force = false) {
 /**
  * Próximo botão de etapa de um agendamento: [status novo, texto, ícone] ou null.
  * Com equipe: Confirmar → Chegou → Iniciar → Concluir e receber.
- * Sozinha: só "Receber", e só depois que o horário começou (ninguém quer apertar botão no meio da maquiagem).
+ * Sozinha: só "Confirmar" (ninguém quer apertar botão no meio da maquiagem). Receber fica dentro da ficha do agendamento.
  */
 const STEPS = { scheduled: ['confirmed', 'Confirmar', 'check'], confirmed: ['waiting', 'Chegou', 'user'], waiting: ['in_progress', 'Iniciar', 'play'], in_progress: ['checkout', 'Concluir e receber', 'receipt'] };
 export function nextStep(v) {
   if (!can.solo()) return STEPS[v.status] || null;
-  if (!STEPS[v.status]) return null;
-  const start = v.start_at || v.items?.[0]?.start_at || '';
-  return start && start <= `${todayStr()} ${nowHM()}` ? ['checkout', 'Receber', 'receipt'] : null;
+  return v.status === 'scheduled' ? STEPS.scheduled : null;
 }
 export const proById = (id) => state.pros.find((p) => p.id === id);

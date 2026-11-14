@@ -176,7 +176,9 @@ route('POST', '/api/visits', ALL, async ({ body, sid, user }) => {
     let clientId = V.int(body.client_id, 'Cliente');
     if (!clientId && body.new_client) clientId = await createClient(sid, body.new_client);
     if (!clientId || !await get('SELECT 1 x FROM clients WHERE id=? AND salon_id=?', clientId, sid)) throw new HttpError(400, 'Selecione a cliente.');
-    const status = V.oneOf(body.status, ['scheduled', 'confirmed', 'waiting'], 'Status') || 'scheduled';
+    let status = V.oneOf(body.status, ['scheduled', 'confirmed', 'waiting'], 'Status') || 'scheduled';
+    // salão com "confirmar sozinho" ligado: o agendamento já nasce confirmado
+    if (status === 'scheduled' && (await get('SELECT auto_confirm FROM salons WHERE id=?', sid))?.auto_confirm) status = 'confirmed';
     const id = (await run('INSERT INTO visits(salon_id,client_id,date,status,notes,created_by,created_at) VALUES(?,?,?,?,?,?,?)',
       sid, clientId, date, status, V.str(body.notes, 'Observações', { max: 500 }), user.id, nowStr())).id;
     await insertItems(sid, id, items);

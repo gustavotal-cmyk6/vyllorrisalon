@@ -98,7 +98,7 @@ export const AUDIT_LABEL = {
   login: 'Entrou no app', login_failed: 'Tentativa de login com senha ou código errado', logout_all: 'Saiu de todos os outros aparelhos',
   password: 'Trocou a senha', '2fa_on': 'Ativou a verificação em 2 etapas', '2fa_off': 'Desativou a verificação em 2 etapas',
   user_create: 'Criou um acesso', user_update: 'Alterou um acesso', sale_void: 'Estornou uma venda', client_archive: 'Arquivou uma cliente',
-  expense_delete: 'Excluiu uma despesa', salon_profile: 'Alterou o perfil do salão', booking: 'Alterou o agendamento online',
+  expense_delete: 'Excluiu uma despesa', salon_profile: 'Alterou o perfil do salão', booking: 'Alterou o agendamento online', auto_confirm: 'Mudou a confirmação automática',
   deposit: 'Alterou a configuração do sinal (Pix)', commission_pay: 'Registrou pagamento de comissão', backup: 'Baixou o backup completo',
 };
 

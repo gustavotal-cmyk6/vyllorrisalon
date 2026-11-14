@@ -266,6 +266,7 @@ export const ready = withSlot(async (client) => {
   for (const sql of [
     'ALTER TABLE salons ADD COLUMN slug TEXT',
     'ALTER TABLE salons ADD COLUMN booking_enabled INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE salons ADD COLUMN auto_confirm INTEGER NOT NULL DEFAULT 0',
     "ALTER TABLE visits ADD COLUMN source TEXT NOT NULL DEFAULT 'internal'",
     'ALTER TABLE visits ADD COLUMN public_token TEXT',
     'ALTER TABLE professionals ADD COLUMN photo TEXT',

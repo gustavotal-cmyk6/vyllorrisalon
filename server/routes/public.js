@@ -26,7 +26,7 @@ function throttle(req, limit, bucket = '') {
 }
 
 async function salonBySlug(slug) {
-  const s = await get('SELECT id, name, booking_enabled, cancel_hours, address, phone, is_demo, team_mode, sub_status, trial_ends_at, paid_until FROM salons WHERE slug=?', String(slug).toLowerCase());
+  const s = await get('SELECT id, name, booking_enabled, auto_confirm, cancel_hours, address, phone, is_demo, team_mode, sub_status, trial_ends_at, paid_until FROM salons WHERE slug=?', String(slug).toLowerCase());
   if (!s || !s.booking_enabled) throw new HttpError(404, 'Agendamento online indisponível para este salão.');
   if (billingInfo(s).blocked) throw new HttpError(404, 'O agendamento online deste salão está pausado no momento. Fale direto com o salão.');
   return s;
@@ -148,13 +148,15 @@ route('POST', '/api/public/:slug/book', null, async ({ params, body, req }) => {
     const dup = await get(`SELECT 1 x FROM visits WHERE salon_id=? AND client_id=? AND date=? AND status IN ('scheduled','confirmed') AND source='online'`, salon.id, clientId, date);
     if (dup) throw new HttpError(409, 'Você já tem um agendamento online neste dia. Para mudar, use o link da sua reserva ou fale com o salão.');
     const token = crypto.randomBytes(16).toString('hex');
+    const deposit = depositFor(cfg, service, pro.price_cents, fee);
+    // "confirmar sozinho": já nasce confirmado, exceto quando há sinal a pagar (aí confirma ao conferir o sinal)
+    const initial = salon.auto_confirm && !(deposit > 0) ? 'confirmed' : 'scheduled';
     const visitId = (await run(`INSERT INTO visits(salon_id,client_id,date,status,notes,source,public_token,created_at,location,home_address,home_area,home_lat,home_lng,travel_fee_cents,travel_buffer_min)
                                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      salon.id, clientId, date, 'scheduled', `${PHONE_NOTE(client ? '' : ` por ${name}`)}${notes ? ' — ' + notes : ''}`, 'online', token, nowStr(),
+      salon.id, clientId, date, initial, `${PHONE_NOTE(client ? '' : ` por ${name}`)}${notes ? ' — ' + notes : ''}`, 'online', token, nowStr(),
       home ? 'home' : 'salon', address ? JSON.stringify(address) : null, area, lat, lng, fee, buffer)).id;
     await run(`INSERT INTO visit_items(salon_id,visit_id,service_id,professional_id,start_at,end_at,duration_min,price_cents) VALUES(?,?,?,?,?,?,?,?)`,
       salon.id, visitId, service.id, pro.id, start, end, service.duration_min, pro.price_cents);
-    const deposit = depositFor(cfg, service, pro.price_cents, fee);
     if (deposit > 0) await createCharge(salon.id, visitId, deposit, cfg);
     return { token, pro, deposit };
   });

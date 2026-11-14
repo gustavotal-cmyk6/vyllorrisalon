@@ -277,8 +277,8 @@ export async function openVisit(id, onChange = () => {}) {
     no_show: [A('reopen', ic('refresh', 18) + ' Reativar'), A('reschedule', ic('refresh', 18) + ' Reagendar')],
   }[st];
   if (can.solo()) {
-    // sem Chegou / Iniciar / atraso; Confirmar só para pedido online (aí é a dona quem aceita)
-    const drop = ['waiting', 'in_progress', 'late', ...(v.source === 'online' && st === 'scheduled' ? [] : ['confirmed'])];
+    // sem Chegou / Iniciar / atraso; ficam Confirmar (se ainda não confirmou) e Receber
+    const drop = ['waiting', 'in_progress', 'late'];
     acts = acts.filter((a) => !drop.some((d) => a.includes(`data-a="${d}"`)))
       .map((a) => (a.includes('data-a="checkout"') ? a.replace('Concluir e receber', 'Receber') : a));
     const i = acts.findIndex((a) => a.includes('data-a="checkout"'));

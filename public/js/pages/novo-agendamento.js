@@ -155,7 +155,7 @@ export function novoAgendamento(opts = {}) {
         <div class="nv-sum-row">${ic('calendar', 18)}<div><b>${esc(fmtDayLong(S.date))}</b><small>${S.time} às ${endTime()} · com ${esc(pro?.name || '')}</small></div></div>
         <ul class="nv-sum-svcs">${S.picked.map((id) => { const s = state.services.find((x) => x.id === id); return `<li><span>${esc(s.name)} <small>${s.duration_min} min</small></span><b>${money(priceFor(id, S.proId))}</b></li>`; }).join('')}
           <li class="tot"><span>Previsto</span><b>${money(total())}</b></li></ul></div>
-      ${can.solo() ? '' : `<label class="vx-sw nv-sw"><input type="checkbox" data-conf ${S.confirmed ? 'checked' : ''}><i></i><span>Cliente já confirmou</span></label>`}
+      ${state.user.auto_confirm ? '' : `<label class="vx-sw nv-sw"><input type="checkbox" data-conf ${S.confirmed ? 'checked' : ''}><i></i><span>Cliente já confirmou</span></label>`}
       ${S.noteOpen ? `<label class="nv-note"><span>Observação</span><textarea maxlength="500" data-notes placeholder="Ex.: trazer foto da referência">${esc(S.notes)}</textarea></label>`
         : `<button type="button" class="nv-addnote" data-note>＋ Adicionar observação</button>`}
       ${foot({ next: true, nextLabel: 'Agendar' })}`;

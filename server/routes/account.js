@@ -115,7 +115,7 @@ route('POST', '/api/me/password', ALL, async ({ body, user, req }) => {
 /** Cor da página pública: só #rrggbb; qualquer outra coisa volta ao rosa padrão. */
 const pageColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '').trim()) ? String(c).trim().toLowerCase() : null);
 export async function salonProfile(sid) {
-  const s = await get(`SELECT id,name,slug,booking_enabled,team_mode,sells_products,headline,page_color,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
+  const s = await get(`SELECT id,name,slug,booking_enabled,auto_confirm,team_mode,sells_products,headline,page_color,description,address,phone,instagram,opening_hours,logo,cover_photo,gallery,cancel_hours
                          FROM salons WHERE id=?`, sid);
   let gallery = [];
   try {
@@ -140,6 +140,13 @@ route('PUT', '/api/salon/profile', OWNER, async ({ body, sid, user, req }) => {
     await imageRef(body.logo, sid), await imageRef(body.cover_photo, sid), JSON.stringify(gallery.filter(Boolean)),
     V.int(body.cancel_hours ?? 12, 'Antecedência para cancelar', { min: 0, max: 168 }), sid);
   return salonProfile(sid);
+});
+/** Confirmar agendamentos sozinho: o agendamento já nasce "Confirmado", sem precisar tocar em Confirmar. */
+route('PUT', '/api/salon/auto-confirm', OWNER, async ({ body, sid, user, req }) => {
+  const on = body.on === true || body.on === 1 || body.on === '1';
+  await audit(req, user, 'auto_confirm', on ? 'ligada' : 'desligada');
+  await run('UPDATE salons SET auto_confirm=? WHERE id=?', on ? 1 : 0, sid);
+  return { auto_confirm: on };
 });
 /** Vende produtos? Se não, o painel esconde estoque e venda de produtos (nada é apagado). */
 route('PUT', '/api/salon/products', OWNER, async ({ body, sid }) => {
