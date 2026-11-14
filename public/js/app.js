@@ -271,8 +271,13 @@ async function route(soft = false) {
   const hash = location.hash.slice(2) || '';
   const [path, qs] = hash.split('?');
   const [key, ...rest] = path.split('/');
-  if (!state.user) return key === '' ? import('./landing.js').then((m) => m.landing()) : (key === 'recuperar' || key === 'redefinir') ? recoverScreen(key, qs) : authScreen(key === 'criar' ? 'signup' : 'login');
+  if (!state.user) return key === '' ? ((() => { try { localStorage.setItem('vy_in', '0'); } catch (e) {} })(), location.replace('/vendas/'), new Promise(() => {})) : (key === 'recuperar' || key === 'redefinir') ? recoverScreen(key, qs) : authScreen(key === 'criar' ? 'signup' : 'login');
+  try { localStorage.setItem('vy_in', '1'); } catch (e) {}
   if (['entrar', 'criar', 'recuperar', 'redefinir'].includes(key)) return (location.hash = '#/');
+  // conta nova: primeiro acesso em conversa (serviços, equipe, horários e link de agendamento)
+  const newAcc = (() => { try { return sessionStorage.getItem('vy_new') === '1'; } catch { return false; } })();
+  if (key === '' && newAcc && state.user.role === 'owner' && !state.user.billing?.blocked) return (location.hash = '#/comecar');
+  if (key === 'comecar') return state.user.role === 'owner' && !state.user.billing?.blocked ? import('./setup.js').then((m) => m.setup({ boot })) : (location.hash = '#/');
   if (!document.getElementById('page')) shell();
   // acesso pausado: só a tela de assinatura fica disponível
   if (state.user.billing?.blocked && !['assinatura', 'ajuda'].includes(key)) return (location.hash = '#/assinatura');
@@ -301,113 +306,9 @@ async function route(soft = false) {
 }
 window.addEventListener('hashchange', () => route());
 
-function recoverScreen(key, qs) {
-  const reset = key === 'redefinir';
-  const token = new URLSearchParams(qs || '').get('t') || '';
-  document.getElementById('app').innerHTML = `<div class="auth2"><main class="au-main"><form class="au-form" novalidate>
-    <div class="au-head"><h2>${reset ? 'Criar nova senha' : 'Esqueci minha senha'}</h2>
-      <p>${reset ? 'Escolha uma senha nova, com 8 letras ou mais.' : 'Digite seu e-mail. Enviamos um link para criar uma senha nova.'}</p></div>
-    ${reset ? `<label class="field"><span>Nova senha</span><div class="au-in">${ic('lock', 18)}<input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></div></label>`
-      : `<label class="field"><span>E-mail</span><div class="au-in">${ic('mail', 18)}<input name="email" type="email" required autocomplete="email" inputmode="email" autofocus placeholder="voce@email.com"></div></label>`}
-    <button class="btn primary block au-submit" type="submit">${reset ? 'Salvar senha' : 'Enviar link'}</button>
-    <p style="text-align:center;margin-top:14px"><a href="#/entrar">Voltar para entrar</a></p>
-  </form></main></div>`;
-  const form = document.querySelector('.au-form');
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('.au-submit');
-    try {
-      btn.disabled = true;
-      if (reset) {
-        await POST('/api/auth/reset', { token, password: form.password.value });
-        toast('Senha nova salva. Agora é só entrar.');
-        location.hash = '#/entrar';
-      } else {
-        await POST('/api/auth/forgot', { email: form.email.value.trim() });
-        toast('Se esse e-mail tem conta, o link foi enviado. Veja também o spam.');
-      }
-    } catch (err) {
-      toast(err?.message || 'Algo deu errado', 'err');
-    } finally {
-      btn.disabled = false;
-    }
-  };
-}
-
-function authScreen(mode) {
-  const signup = mode === 'signup';
-  window.scrollTo(0, 0);
-  const feat = (icon, t, s) => `<li><span>${ic(icon, 18)}</span><div><b>${t}</b><small>${s}</small></div></li>`;
-  document.getElementById('app').innerHTML = `<div class="auth2">
-    <aside class="au-brand">
-      <a class="au-logo" href="#/" aria-label="Página inicial do Vyllorri"><img src="/brand/vyllorri-v-transparente-256.png" alt=""><div><b>Vyllorri</b><small>Beauty</small></div></a>
-      <div class="au-pitch">
-        <h1>A gestão do seu salão, <em>na palma da mão.</em></h1>
-        <p>Agenda, clientes, vendas e financeiro em um só lugar — simples de usar no dia a dia.</p>
-        <ul class="au-feats">
-          ${feat('calendar', 'Agenda online 24h', 'Suas clientes marcam sozinhas pelo link do salão')}
-          ${feat('wallet', 'Sinal por Pix', 'Menos faltas, com o comprovante direto no app')}
-          ${feat('chart', 'Financeiro claro', 'Quanto vendeu, gastou e lucrou, sem planilha')}
-        </ul>
-      </div>
-      <p class="au-copy">© ${new Date().getFullYear()} Vyllorri Beauty</p>
-    </aside>
-    <main class="au-main"><form class="au-form" novalidate>
-      <div class="au-head"><h2>${signup ? 'Crie a conta do seu salão' : 'Bem-vinda de volta'}</h2>
-        <p>${signup ? 'Leva 1 minuto. Você já começa usando.' : 'Entre para ver a agenda de hoje.'}</p></div>
-      ${signup ? `<label class="field"><span>Nome do salão</span><div class="au-in">${ic('home', 18)}<input name="salon_name" required maxlength="80" autofocus placeholder="Ex.: Studio Bella"></div></label>
-        <label class="field"><span>Seu nome</span><div class="au-in">${ic('user', 18)}<input name="name" required maxlength="80" autocomplete="name" placeholder="Como quer ser chamada"></div></label>
-        <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend class="au-legend">Como você trabalha?</legend>
-          <div class="mode-pick">
-            <label><input type="radio" name="team_mode" value="solo" class="sr"><span>${ic('user', 22)}<b>Trabalho sozinha</b><small>Só eu atendo</small></span></label>
-            <label><input type="radio" name="team_mode" value="team" class="sr" checked><span>${ic('users', 22)}<b>Tenho equipe</b><small>Mais profissionais</small></span></label>
-          </div><small>Dá para mudar depois em Configurações.</small></fieldset>` : ''}
-      <label class="field"><span>E-mail</span><div class="au-in">${ic('mail', 18)}<input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="voce@email.com" ${signup ? '' : 'autofocus'}></div></label>
-      <label class="field"><span>Senha</span><div class="au-in">${ic('lock', 18)}<input name="password" type="password" required minlength="8" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'Mínimo de 8 caracteres' : 'Sua senha'}">
-        <button type="button" class="au-eye" data-eye aria-label="Mostrar senha">${ic('eye', 18)}</button></div></label>
-      <label class="field" data-code hidden><span>Código de verificação</span><div class="au-in">${ic('lock', 18)}<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" placeholder="6 números do app autenticador"></div>
-        <small>Abra o seu aplicativo autenticador (Google Authenticator, Microsoft Authenticator…). Sem o celular? Use um código de recuperação.</small></label>
-      ${signup ? '' : '<p style="text-align:right;margin:-4px 0 8px"><a href="#/recuperar" class="small">Esqueci minha senha</a></p>'}
-      <button class="btn primary block au-submit" type="submit">${signup ? 'Criar meu salão' : 'Entrar'} ${ic('arrowRight', 18)}</button>
-      ${signup ? '<p class="small muted" style="text-align:center">Ao criar a conta, você aceita os <a href="/termos.html" target="_blank">Termos de Uso</a> e a <a href="/privacidade.html" target="_blank">Política de Privacidade</a>.</p>' : ''}
-      <p class="au-safe">${ic('lock', 14)} Conexão segura · seus dados ficam protegidos</p>
-      <div class="au-sep"><span>${signup ? 'Já tem conta?' : 'Ainda não usa o Vyllorri?'}</span></div>
-      <a class="btn block au-alt" href="${signup ? '#/entrar' : '#/criar'}">${signup ? 'Entrar na minha conta' : 'Criar conta do salão'}</a>
-    </form></main>
-  </div>`;
-  const form = document.querySelector('.au-form');
-  const eye = form.querySelector('[data-eye]');
-  eye.onclick = () => {
-    const p = form.password;
-    p.type = p.type === 'password' ? 'text' : 'password';
-    eye.setAttribute('aria-label', p.type === 'password' ? 'Mostrar senha' : 'Esconder senha');
-    eye.classList.toggle('on', p.type === 'text');
-  };
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('.au-submit');
-    try {
-      const data = formData(form);
-      if (!data.code) delete data.code;
-      btn.disabled = true;
-      await POST(signup ? '/api/auth/signup' : '/api/auth/login', data);
-      await boot();
-      if (signup) import('./tutorial.js').then((m) => m.openTutorial());
-      if (signup) toast(data.team_mode === 'solo' ? 'Pronto! Agora cadastre seus serviços e confira seus horários.' : 'Salão criado! Comece cadastrando sua equipe e seus serviços.');
-    } catch (err) {
-      // conta com verificação em 2 etapas: mostra o campo do código
-      if (err?.data?.code === '2fa') {
-        const box = form.querySelector('[data-code]');
-        const first = box.hidden;
-        box.hidden = false;
-        form.code.focus();
-        if (!first || form.code.value) toast(err.message, 'err');
-      } else toast(err?.message || 'Algo deu errado', 'err');
-    } finally {
-      btn.disabled = false;
-    }
-  };
-}
+// Entrar, criar conta e recuperar senha: telas em auth.js (Vyllo guiando; cadastro em conversa)
+const recoverScreen = (key, qs) => import('./auth.js').then((m) => m.recoverScreen(key, qs));
+const authScreen = (mode) => import('./auth.js').then((m) => m.authScreen(mode, { boot }));
 
 async function boot() {
   try {
