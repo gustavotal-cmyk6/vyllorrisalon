@@ -1162,3 +1162,41 @@ body.booking { min-height: 100vh; }
 .lx-vid video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 12.5% / 5.8%; background: #000; }
 .lx-vid-share { text-align: center; margin-top: 14px; }
 .lx-vid-share a { display: inline-flex; align-items: center; gap: 6px; color: #c4adbd; font-weight: 600; font-size: .9rem; }
+
+/* Carrossel "Veja por dentro" (igual ao site Vyllorri, em tons escuros) */
+.ld .tour { display: grid; justify-items: center; gap: 20px; overflow-x: clip; padding: 4px 0 8px; margin-top: 18px; }
+.ld .vcap { min-height: 118px; display: grid; align-content: end; justify-items: center; gap: 6px; text-align: center; }
+.ld .vcap strong { font-size: clamp(1.05rem, 1.8vw, 1.35rem); line-height: 1.15; color: #fff; letter-spacing: -.02em; font-weight: 800; }
+.ld .vcap strong span { background: linear-gradient(100deg, #f472b6, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ld .vcap small { font-size: .86rem; color: #c4adbd; line-height: 1.35; }
+.ld .vtag { font-size: .72rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: #25d366; color: #06301a; }
+.ld .vcap.in > * { animation: capIn .45s cubic-bezier(.2, .8, .2, 1) both; }
+.ld .vcap.in > *:nth-child(2) { animation-delay: .05s; }
+.ld .vcap.in > *:nth-child(3) { animation-delay: .1s; }
+@keyframes capIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ld .tour-ph { position: relative; width: min(290px, 58vw); aspect-ratio: 9 / 19.5; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.ld .vframe { position: absolute; inset: 0; padding: 3.2%; border-radius: 15% / 7%; background: #111317; box-shadow: 0 40px 70px -30px rgba(236, 72, 153, .55), 0 0 0 1.5px #2b2f38 inset, 0 0 0 1px rgba(255, 255, 255, .08); }
+.ld .vframe img, .ld .vframe video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 12.5% / 5.8%; background: #000; -webkit-user-drag: none; }
+.ld .tour .ti { --o: 0; --a: 0; transform: perspective(1000px) translateX(calc(var(--o) * 64%)) rotateY(calc(var(--o) * -24deg)) scale(calc(1 - var(--a) * .2)); filter: brightness(calc(1 - var(--a) * .5)); z-index: calc(5 - var(--a)); cursor: pointer; transition: transform 1.2s cubic-bezier(.45, .05, .2, 1), filter 1.2s, opacity 1.2s; }
+.ld .tour .ti.far { opacity: 0; pointer-events: none; }
+.ld .tour .tpv { z-index: 6; opacity: 0; pointer-events: none; transition: opacity .5s ease; }
+.ld .tour .tpv:has(video.on) { opacity: 1; }
+.ld .tour-tabs { display: flex; gap: 4px; padding: 5px; max-width: 100%; overflow-x: auto; scrollbar-width: none; border-radius: 999px; background: var(--ld-card); border: 1px solid var(--ld-line); }
+.ld .tour-tabs::-webkit-scrollbar { display: none; }
+.ld .tour-tabs button { flex: none; font: inherit; font-weight: 700; font-size: .9rem; padding: 9px 16px; border: 0; border-radius: 999px; background: none; color: #c4adbd; cursor: pointer; transition: background .25s, color .25s; }
+.ld .tour-tabs button.on { background: linear-gradient(100deg, #ec4899, #a855f7); color: #fff; }
+.ld .tour-hint { margin: -6px 0 0; font-size: .85rem; color: #a8919f; display: flex; align-items: center; gap: 10px; transition: opacity .4s; }
+.ld .tour-hint i { font-style: normal; font-size: 1.3rem; line-height: 1; color: #f472b6; animation: hintL 1.4s ease-in-out infinite; }
+.ld .tour-hint i:last-child { animation-name: hintR; }
+@keyframes hintL { 50% { transform: translateX(-5px); } }
+@keyframes hintR { 50% { transform: translateX(5px); } }
+.ld .tour.dragged .tour-hint { opacity: 0; }
+@media (min-width: 900px) { .ld .tour-hint { display: none; } }
+@media (max-width: 600px) {
+  .ld .tour-ph { width: min(240px, 56vw); }
+  .ld .tour .ti { transform: perspective(800px) translateX(calc(var(--o) * 46%)) rotateY(calc(var(--o) * -28deg)) scale(calc(1 - var(--a) * .3)); filter: brightness(calc(1 - var(--a) * .6)); }
+  .ld .vcap { min-height: 104px; }
+  .ld .vcap strong { font-size: .95rem; }
+  .ld .vcap small { font-size: .74rem; }
+  .ld .tour-tabs button { font-size: .8rem; padding: 8px 12px; }
+}

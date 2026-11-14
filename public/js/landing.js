@@ -1,6 +1,7 @@
 // Página de vendas do Vyllorri Beauty (antes do login): direta, profissional, mostrando o app de verdade.
 import { GET, esc, money, ic } from './core.js';
 import { planTable } from './plans.js';
+import { tourHtml, mountTour } from './tour.js';
 
 const SITE = 'meusalao.vyllorri.com.br/agendar/';
 
@@ -79,7 +80,7 @@ export async function landing() {
 
     <section class="ld-sec lx-video" id="video"><p class="ld-kicker">Veja por dentro</p><h2>O app inteiro em 1 minuto</h2>
       <p class="ld-lead">Telas reais: agendamento pelo link, sua página, WhatsApp automático, agenda, avisos, Pix e financeiro.</p>
-      <div class="lx-vid"><video controls playsinline preload="none" poster="/video/beauty-por-dentro.jpg" src="/video/beauty-por-dentro.mp4"></video></div>
+      ${tourHtml()}
     </section>
 
     <section class="ld-sec" id="facil"><p class="ld-kicker">Fácil e prático</p><h2>Você não precisa ficar batendo cabeça</h2>
@@ -169,6 +170,7 @@ export async function landing() {
     bar.querySelectorAll('button').forEach((b) => (b.onclick = () => pick(Number(b.dataset.i))));
     pick(0);
   });
+  mountTour(document.querySelector('.tour'));
   document.querySelectorAll('[data-scroll]').forEach((a) => (a.onclick = (e) => {
     e.preventDefault();
     document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
