@@ -314,7 +314,7 @@ async function route(soft = false) {
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === navKey));
   const page = document.getElementById('page');
   const token = (current = Symbol());
-  if (!soft) page.innerHTML = '<div class="loading"><span class="spin"></span> Carregando…</div>';
+  if (!soft) page.innerHTML = '<div class="skel" role="status" aria-label="Carregando"><i class="sk-head"></i><i class="sk-row"></i><i class="sk-card"></i><i class="sk-card"></i></div>';
   try {
     if (!state.user.billing?.blocked) await loadRefs();
     const mod = await loader();

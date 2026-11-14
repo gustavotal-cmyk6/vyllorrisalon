@@ -1323,3 +1323,12 @@ button.alert { width: 100%; text-align: left; border: 0; font: inherit; cursor: 
 .hubnav a, .hubnav button { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 14px; border: 0; border-radius: 11px; background: none; font: inherit; font-weight: 700; font-size: .88rem; color: var(--muted); text-decoration: none; white-space: nowrap; cursor: pointer; }
 .hubnav .on { background: #fff; color: var(--brand); box-shadow: var(--shadow-sm); }
 .tabs.subtabs a { display: flex; align-items: center; gap: 4px; padding: 10px 14px; font-weight: 700; font-size: .88rem; color: var(--brand); text-decoration: none; white-space: nowrap; border-radius: 12px; }
+
+/* ===== esqueleto de tela ===== */
+.skel { display: grid; gap: 12px; padding: 0 0 20px; }
+.skel i { display: block; border-radius: 18px; background: linear-gradient(90deg, #ece6f5 25%, #f6f2fb 50%, #ece6f5 75%); background-size: 200% 100%; animation: sk 1.3s linear infinite; }
+.sk-head { height: 84px; border-radius: 0 0 22px 22px !important; }
+.sk-row { height: 44px; margin: 0 16px; }
+.sk-card { height: 110px; margin: 0 16px; }
+@keyframes sk { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel i { animation: none; } }
