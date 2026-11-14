@@ -59,7 +59,7 @@ function shell() {
     return `${head}<a class="nav" href="#/${i.k}" data-nav="${i.k}">${ic(i.ico, 20)}<span>${i.label}</span></a>`;
   }).join('');
   document.getElementById('app').innerHTML = `
-  ${state.user.is_demo ? '<div class="demo-bar">Salão de DEMONSTRAÇÃO — os dados aqui são fictícios</div>' : ''}
+  ${state.user.is_demo ? '<div class="demo-bar">Demonstração · os dados são fictícios</div>' : ''}
   <div class="shell">
     <nav class="side" aria-label="Menu principal">
       <div class="logo">${brandMark()}<div class="name">Vyllorri<small>${esc(state.user.salon_name)}</small></div></div>
@@ -253,7 +253,8 @@ function billBar(key) {
   const b = state.user.billing;
   if (!el) return;
   let msg = '';
-  if (can.owner() && b && key !== 'assinatura') {
+  const urgent = b && (b.overdue || (b.status === 'trial' && b.days_left <= 2));
+  if (can.owner() && b && key !== 'assinatura' && (key === '' || urgent)) {
     if (b.status === 'trial') msg = `${ic('star', 16)}<span><b>Teste grátis:</b> ${b.days_left === 1 ? 'hoje é o último dia' : `faltam ${b.days_left} dias`}</span><a href="#/assinatura">Assinar</a>`;
     else if (b.status === 'active' && b.overdue) msg = `${ic('alert', 16)}<span><b>Mensalidade vencida.</b> Pague para não pausar o acesso.</span><a href="#/assinatura">Pagar com Pix</a>`;
     else if (b.status === 'active' && b.due_soon) msg = `${ic('clock', 16)}<span>Sua mensalidade vence ${b.days_left === 0 ? 'hoje' : `em ${b.days_left} dia(s)`}.</span><a href="#/assinatura">Pagar com Pix</a>`;

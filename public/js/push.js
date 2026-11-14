@@ -106,7 +106,7 @@ export async function pushBanner(box) {
     if (s.on || Number(localStorage.getItem(DISMISS) || 0) > Date.now()) return;
   } catch { return; }
   box.innerHTML = `<div class="push-banner"><span class="pb-ic">${ic('bell', 22)}</span>
-    <div class="grow"><b>Ative as notificações</b><small>Saiba na hora quando uma cliente agendar, mandar comprovante ou cancelar.</small></div>
+    <div class="grow"><b>Receba avisos de novos agendamentos</b><small>Saiba na hora quando uma cliente agendar, mandar comprovante ou cancelar.</small></div>
     <div class="pb-act"><button class="btn sm primary" data-on>${s.supported && !s.denied ? 'Ativar' : 'Como ativar'}</button>
       <button class="btn sm ghost" data-how>${s.supported && !s.denied ? 'Como funciona?' : 'Agora não'}</button></div></div>`;
   box.querySelector('[data-on]').onclick = async (e) => {
